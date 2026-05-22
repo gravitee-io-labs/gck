@@ -27,8 +27,22 @@ type HTTPResolver struct {
 // values files to a local cache directory, and returns a ResolvedContext
 // whose Dir points to that cache.
 //
+// Resolution uses a two-pass approach (same as FSResolver):
+//  1. Read raw sew.yaml, extract own var defaults and path-scoped overrides
+//  2. Recurse into from entries, collecting var defaults from each parent
+//  3. Compute effective vars (own defaults + child overrides + --set)
+//  4. Render sew.yaml with effective vars, unmarshal, and merge
+//
 // If sew.yaml returns 404, Resolve tries the .default variant lookup.
 func (r *HTTPResolver) Resolve(ctx context.Context, contextPath string) (*config.ResolvedContext, error) {
+	set := SplitSetOverrides(r.SetOverrides)
+	return r.resolveWithVars(ctx, contextPath, nil, set)
+}
+
+// resolveWithVars is the internal two-pass resolver. childOverrides are
+// path-scoped var overrides collected from a child context's vars block
+// that target this or deeper contexts.
+func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, childOverrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
 	ctx, err := withVisited(ctx, contextRef{Registry: r.BaseURL, Context: contextPath})
 	if err != nil {
 		return nil, err
@@ -49,20 +63,55 @@ func (r *HTTPResolver) Resolve(ctx context.Context, contextPath string) (*config
 		if defaultErr != nil {
 			return nil, fmt.Errorf("fetching context: 404 Not Found")
 		}
-		return r.Resolve(ctx, contextPath+"/"+variant)
+		return r.resolveWithVars(ctx, contextPath+"/"+variant, childOverrides, set)
 	}
 	if status != http.StatusOK {
 		return nil, fmt.Errorf("fetching context: %d", status)
 	}
 
-	rendered, err := sewtmpl.Render(data, r.SetOverrides)
+	tree, err := sewtmpl.ExtractVarsTree(data)
 	if err != nil {
-		return nil, fmt.Errorf("templating context file: %w", err)
+		return nil, fmt.Errorf("extracting vars from %s: %w", contextPath, err)
+	}
+
+	ownDefaults := make(map[string]string, len(tree.Defs))
+	for _, d := range tree.Defs {
+		ownDefaults[d.Name] = d.Default
+	}
+
+	myOverrides := make(map[string]string)
+	if childOverrides != nil {
+		if overrides, ok := childOverrides[contextPath]; ok {
+			for k, v := range overrides {
+				myOverrides[k] = v
+			}
+		}
+	}
+
+	parentOverrides := mergeOverrideMaps(childOverrides, tree.Overrides)
+
+	scopedForMe := make(map[string]string)
+	knownPaths := map[string]bool{contextPath: true}
+	for dottedKey, val := range set.Scoped {
+		ctxPath, varName := resolveScopedOverride(dottedKey, knownPaths)
+		if ctxPath == contextPath {
+			scopedForMe[varName] = val
+		}
+	}
+
+	effectiveVars := computeEffectiveVars(ownDefaults, myOverrides, set)
+	for k, v := range scopedForMe {
+		effectiveVars[k] = v
+	}
+
+	rendered, err := sewtmpl.RenderWithVars(data, effectiveVars)
+	if err != nil {
+		return nil, fmt.Errorf("templating context file %s: %w", contextPath, err)
 	}
 
 	var parsed config.Config
 	if err := yaml.Unmarshal(rendered, &parsed); err != nil {
-		return nil, fmt.Errorf("parsing context file: %w", err)
+		return nil, fmt.Errorf("parsing context file %s: %w", contextPath, err)
 	}
 
 	cacheDir := filepath.Join(r.CacheRoot, contextPath)
@@ -109,7 +158,7 @@ func (r *HTTPResolver) Resolve(ctx context.Context, contextPath string) (*config
 	}
 
 	if len(parsed.From) > 0 {
-		return resolveFrom(ctx, parsed, cacheDir, r.BaseURL, r.SewHome, r.SetOverrides)
+		return r.resolveFromWithVars(ctx, parsed, cacheDir, parentOverrides, set)
 	}
 
 	return &config.ResolvedContext{
@@ -123,6 +172,61 @@ func (r *HTTPResolver) Resolve(ctx context.Context, contextPath string) (*config
 		Abstract:   parsed.Abstract,
 		Flags:      flags,
 	}, nil
+}
+
+// resolveFromWithVars resolves all from entries with two-pass var resolution.
+func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
+	registryURL := r.BaseURL
+	if childCfg.Registry != "" {
+		registryURL = resolveRegistryURL(childCfg.Registry, childDir)
+	}
+
+	acc := &config.ResolvedContext{}
+	for _, ref := range childCfg.From {
+		if strings.HasPrefix(registryURL, "file://") {
+			fsResolver := &FSResolver{
+				Root:         strings.TrimPrefix(registryURL, "file://"),
+				SewHome:      r.SewHome,
+				SetOverrides: r.SetOverrides,
+			}
+			parent, err := fsResolver.resolveWithVars(ctx, ref, overrides, set)
+			if err != nil {
+				return nil, fmt.Errorf("resolving from %q: %w", ref, err)
+			}
+			absolutizeComponentPaths(parent)
+			MergeInto(acc, parent)
+		} else {
+			httpResolver := &HTTPResolver{
+				BaseURL:      registryURL,
+				CacheRoot:    r.CacheRoot,
+				SewHome:      r.SewHome,
+				HTTPClient:   newAuthenticatedClient(registryURL),
+				SetOverrides: r.SetOverrides,
+			}
+			parent, err := httpResolver.resolveWithVars(ctx, ref, overrides, set)
+			if err != nil {
+				return nil, fmt.Errorf("resolving from %q: %w", ref, err)
+			}
+			absolutizeComponentPaths(parent)
+			MergeInto(acc, parent)
+		}
+	}
+
+	MergeComponents(acc, childCfg.Components, childDir)
+	acc.Repos = MergeRepos(acc.Repos, childCfg.Helm.Repos)
+	acc.Features = config.MergeFeatures(acc.Features, childCfg.Features)
+	acc.Kind = mergeKind(acc.Kind, childCfg.Kind)
+	acc.Images = config.MergeImages(acc.Images, childCfg.Images)
+	acc.Notes = mergeNotes(acc.Notes, readNotes(childDir))
+	acc.Abstract = childCfg.Abstract
+
+	childFlags, err := DiscoverFlags(childDir)
+	if err != nil {
+		return nil, fmt.Errorf("discovering flags: %w", err)
+	}
+	acc.Flags = MergeFlags(acc.Flags, childFlags)
+
+	return acc, nil
 }
 
 // fetchDefault fetches {baseURL}/{contextPath}/.default and returns the

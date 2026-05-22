@@ -717,3 +717,79 @@ components:
 		t.Fatalf("expected portal.enabled=false, got %v", portal["enabled"])
 	}
 }
+
+func TestHTTPResolver_BroadcastSetDoesNotLeakIntoComposedParent(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, filepath.Join(root, "datastore", "sew.yaml"), `
+vars:
+  imageTag:
+    default: "7"
+  imageRepository:
+    default: "mongo"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+components:
+  - name: datastore
+    type: k8s
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: datastore
+`)
+
+	writeFile(t, filepath.Join(root, "product", "sew.yaml"), `
+from:
+  - datastore
+vars:
+  imageTag:
+    default: "latest"
+  datastore:
+    imageTag:
+      default: "7"
+    imageRepository:
+      default: "mongo"
+components:
+  - name: product
+    type: k8s
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: product
+`)
+
+	srv := newTestServer(t, root)
+	sewHome := t.TempDir()
+	resolver := &HTTPResolver{
+		BaseURL:      srv.URL,
+		CacheRoot:    filepath.Join(sewHome, "cache"),
+		SewHome:      sewHome,
+		SetOverrides: map[string]string{"imageTag": "custom-tag"},
+	}
+
+	resolved, err := resolver.Resolve(context.Background(), "product")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	refs := resolved.Images.Preload.Refs
+	if len(refs) == 0 {
+		t.Fatal("expected at least one preload ref")
+	}
+
+	for _, ref := range refs {
+		if strings.Contains(ref, "custom-tag") {
+			t.Fatalf("broadcast --set imageTag leaked into datastore preload: got %q, "+
+				"expected path-scoped override to win with tag '7'", ref)
+		}
+	}
+	if refs[0] != "mongo:7" {
+		t.Fatalf("expected preload ref %q, got %q", "mongo:7", refs[0])
+	}
+}

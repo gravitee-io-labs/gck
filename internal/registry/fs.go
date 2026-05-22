@@ -157,8 +157,14 @@ func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Co
 			absolutizeComponentPaths(parent)
 			MergeInto(acc, parent)
 		} else {
-			resolver := NewResolver(registryURL, r.SewHome, r.SetOverrides)
-			parent, err := resolver.Resolve(ctx, ref)
+			httpResolver := &HTTPResolver{
+				BaseURL:      registryURL,
+				CacheRoot:    filepath.Join(r.SewHome, "cache"),
+				SewHome:      r.SewHome,
+				HTTPClient:   newAuthenticatedClient(registryURL),
+				SetOverrides: r.SetOverrides,
+			}
+			parent, err := httpResolver.resolveWithVars(ctx, ref, overrides, set)
 			if err != nil {
 				return nil, fmt.Errorf("resolving from %q: %w", ref, err)
 			}

@@ -44,44 +44,6 @@ func resolveRegistryURL(rawURL, contextDir string) string {
 	return "file://" + filepath.Clean(p)
 }
 
-// resolveFrom resolves all context refs declared in childCfg.From, merges them
-// left-to-right into an accumulator, then applies the child's local overrides
-// on top. selfRegistryURL is used as the parent registry when childCfg.Registry
-// is empty.
-func resolveFrom(ctx context.Context, childCfg config.Config, childDir, selfRegistryURL, sewHome string, setOverrides map[string]string) (*config.ResolvedContext, error) {
-	registryURL := selfRegistryURL
-	if childCfg.Registry != "" {
-		registryURL = resolveRegistryURL(childCfg.Registry, childDir)
-	}
-
-	acc := &config.ResolvedContext{}
-	for _, ref := range childCfg.From {
-		resolver := NewResolver(registryURL, sewHome, setOverrides)
-		parent, err := resolver.Resolve(ctx, ref)
-		if err != nil {
-			return nil, fmt.Errorf("resolving from %q: %w", ref, err)
-		}
-		absolutizeComponentPaths(parent)
-		MergeInto(acc, parent)
-	}
-
-	MergeComponents(acc, childCfg.Components, childDir)
-	acc.Repos = MergeRepos(acc.Repos, childCfg.Helm.Repos)
-	acc.Features = config.MergeFeatures(acc.Features, childCfg.Features)
-	acc.Kind = mergeKind(acc.Kind, childCfg.Kind)
-	acc.Images = config.MergeImages(acc.Images, childCfg.Images)
-	acc.Notes = mergeNotes(acc.Notes, readNotes(childDir))
-	acc.Abstract = childCfg.Abstract
-
-	childFlags, err := DiscoverFlags(childDir)
-	if err != nil {
-		return nil, fmt.Errorf("discovering flags: %w", err)
-	}
-	acc.Flags = MergeFlags(acc.Flags, childFlags)
-
-	return acc, nil
-}
-
 // MergeInto merges a resolved context (src) into an accumulator (acc).
 // Later sources override earlier ones for matching fields.
 func MergeInto(acc, src *config.ResolvedContext) {
