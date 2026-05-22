@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/a-cordier/sew/compare/v0.18.1...v0.18.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* handle context vars in HTTP resolver ([b82f032](https://github.com/a-cordier/sew/commit/b82f032471b43e2536a870a3ea4c90c97517d854))
+
 ## [0.18.1](https://github.com/a-cordier/sew/compare/v0.18.0...v0.18.1) (2026-05-19)
 
 
