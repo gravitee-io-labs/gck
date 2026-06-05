@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 func TestDiscoverFlags_NoFlagFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew.yaml"), `components: []`)
+	writeFile(t, filepath.Join(dir, "gck.yaml"), `components: []`)
 
 	flags, err := DiscoverFlags(dir)
 	if err != nil {
@@ -23,7 +23,7 @@ func TestDiscoverFlags_NoFlagFiles(t *testing.T) {
 
 func TestDiscoverFlags_SingleFlag(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
 description: "Disable the developer portal UI"
 components:
   - name: apim
@@ -53,15 +53,15 @@ components:
 
 func TestDiscoverFlags_MultipleFlags(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--disable-es.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-es.yaml"), `
 description: "Disable Elasticsearch"
 components: []
 `)
-	writeFile(t, filepath.Join(dir, "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
 description: "Disable portal"
 components: []
 `)
-	writeFile(t, filepath.Join(dir, "sew--disable-ui.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-ui.yaml"), `
 description: "Disable all UIs"
 components: []
 `)
@@ -87,7 +87,7 @@ components: []
 
 func TestDiscoverFlags_InvalidFlagName(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--No_Portal.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--No_Portal.yaml"), `
 description: "bad name"
 components: []
 `)
@@ -103,7 +103,7 @@ components: []
 
 func TestDiscoverFlags_NoDescription(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--simple.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--simple.yaml"), `
 components:
   - name: app
     helm:
@@ -125,9 +125,9 @@ components:
 
 func TestDiscoverFlags_IgnoresNonFlagFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew.yaml"), `components: []`)
+	writeFile(t, filepath.Join(dir, "gck.yaml"), `components: []`)
 	writeFile(t, filepath.Join(dir, "values.yaml"), `key: val`)
-	writeFile(t, filepath.Join(dir, "sew--debug.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--debug.yaml"), `
 description: "Enable debug mode"
 components: []
 `)
@@ -263,7 +263,7 @@ func TestApplyFlags_UnknownFlag(t *testing.T) {
 
 func TestApplyFlags_AppliesPatch(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
 description: "Disable the developer portal UI"
 components:
   - name: apim
@@ -315,7 +315,7 @@ components:
 
 func TestApplyFlags_MultipleFlags(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
 description: "Disable portal"
 components:
   - name: apim
@@ -324,7 +324,7 @@ components:
         portal:
           enabled: false
 `)
-	writeFile(t, filepath.Join(dir, "sew--disable-es.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--disable-es.yaml"), `
 description: "Disable Elasticsearch"
 components:
   - name: apim
@@ -371,7 +371,7 @@ components:
 
 func TestApplyFlags_AddsNewComponent(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--with-monitoring.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--with-monitoring.yaml"), `
 description: "Add monitoring stack"
 components:
   - name: prometheus
@@ -405,7 +405,7 @@ func TestApplyFlags_FlagFromDifferentDir(t *testing.T) {
 	parentDir := t.TempDir()
 	childDir := t.TempDir()
 
-	writeFile(t, filepath.Join(parentDir, "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(parentDir, "gck--disable-portal.yaml"), `
 description: "Disable portal (from parent)"
 components:
   - name: apim
@@ -414,7 +414,7 @@ components:
         portal:
           enabled: false
 `)
-	writeFile(t, filepath.Join(childDir, "sew--disable-ui.yaml"), `
+	writeFile(t, filepath.Join(childDir, "gck--disable-ui.yaml"), `
 description: "Disable all UIs"
 components:
   - name: apim
@@ -464,12 +464,12 @@ func TestFlagNameFromFile_Valid(t *testing.T) {
 		filename string
 		expected string
 	}{
-		{"sew--disable-portal.yaml", "disable-portal"},
-		{"sew--disable-ui.yaml", "disable-ui"},
-		{"sew--disable-es.yaml", "disable-es"},
-		{"sew--debug.yaml", "debug"},
-		{"sew--v2.yaml", "v2"},
-		{"sew--my-long-flag-name.yaml", "my-long-flag-name"},
+		{"gck--disable-portal.yaml", "disable-portal"},
+		{"gck--disable-ui.yaml", "disable-ui"},
+		{"gck--disable-es.yaml", "disable-es"},
+		{"gck--debug.yaml", "debug"},
+		{"gck--v2.yaml", "v2"},
+		{"gck--my-long-flag-name.yaml", "my-long-flag-name"},
 	}
 	for _, tt := range tests {
 		name, err := FlagNameFromFile(tt.filename)
@@ -484,12 +484,12 @@ func TestFlagNameFromFile_Valid(t *testing.T) {
 
 func TestFlagNameFromFile_Invalid(t *testing.T) {
 	tests := []string{
-		"sew--No-Portal.yaml",
-		"sew--no_portal.yaml",
-		"sew--UPPER.yaml",
-		"sew--.yaml",
-		"sew---leading-dash.yaml",
-		"sew--trailing-.yaml",
+		"gck--No-Portal.yaml",
+		"gck--no_portal.yaml",
+		"gck--UPPER.yaml",
+		"gck--.yaml",
+		"gck---leading-dash.yaml",
+		"gck--trailing-.yaml",
 	}
 	for _, filename := range tests {
 		_, err := FlagNameFromFile(filename)
@@ -540,7 +540,7 @@ components: []
 
 func TestApplyFlags_WithValueFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "sew--custom.yaml"), `
+	writeFile(t, filepath.Join(dir, "gck--custom.yaml"), `
 description: "Apply custom values"
 components:
   - name: apim

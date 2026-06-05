@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/installer"
-	"github.com/a-cordier/sew/internal/logger"
-	"github.com/a-cordier/sew/internal/registry"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/installer"
+	"github.com/gravitee-io-labs/gck/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/registry"
 )
 
 const defaultReadyTimeout = 5 * time.Minute
@@ -38,7 +38,7 @@ func installComponents(
 	helmInst, _ := installer.ForType("helm")
 	if hi, ok := helmInst.(*installer.HelmInstaller); ok {
 		if err := logger.WithSpinner("Initializing Helm", func() error {
-			return hi.AddRepos(resolved.Repos, sewHome)
+			return hi.AddRepos(resolved.Repos, gckHome)
 		}); err != nil {
 			return err
 		}

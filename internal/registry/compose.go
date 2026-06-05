@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 type contextRef struct {

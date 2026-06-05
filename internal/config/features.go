@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	DNSDefaultDomain = "sew.local"
+	DNSDefaultDomain = "gck.local"
 	DNSDefaultPort   = 15353
 )
 

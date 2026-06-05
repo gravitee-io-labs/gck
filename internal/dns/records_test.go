@@ -18,9 +18,9 @@ func newStoreWithRecords(records map[string]string) *RecordStore {
 
 func TestLookup_ExactMatch(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"api.sew.local": "10.0.0.1",
+		"api.gck.local": "10.0.0.1",
 	})
-	ip, ok := s.Lookup("api.sew.local")
+	ip, ok := s.Lookup("api.gck.local")
 	if !ok || ip != "10.0.0.1" {
 		t.Fatalf("expected 10.0.0.1, got %q (ok=%v)", ip, ok)
 	}
@@ -28,9 +28,9 @@ func TestLookup_ExactMatch(t *testing.T) {
 
 func TestLookup_ExactMatchCaseInsensitive(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"api.sew.local": "10.0.0.1",
+		"api.gck.local": "10.0.0.1",
 	})
-	ip, ok := s.Lookup("API.SEW.LOCAL")
+	ip, ok := s.Lookup("API.GCK.LOCAL")
 	if !ok || ip != "10.0.0.1" {
 		t.Fatalf("expected 10.0.0.1, got %q (ok=%v)", ip, ok)
 	}
@@ -38,9 +38,9 @@ func TestLookup_ExactMatchCaseInsensitive(t *testing.T) {
 
 func TestLookup_WildcardMatchSingleLabel(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"*.kafka.sew.local": "10.0.0.2",
+		"*.kafka.gck.local": "10.0.0.2",
 	})
-	ip, ok := s.Lookup("demo.kafka.sew.local")
+	ip, ok := s.Lookup("demo.kafka.gck.local")
 	if !ok || ip != "10.0.0.2" {
 		t.Fatalf("expected 10.0.0.2, got %q (ok=%v)", ip, ok)
 	}
@@ -48,9 +48,9 @@ func TestLookup_WildcardMatchSingleLabel(t *testing.T) {
 
 func TestLookup_WildcardMatchHyphenatedLabel(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"*.kafka.sew.local": "10.0.0.2",
+		"*.kafka.gck.local": "10.0.0.2",
 	})
-	ip, ok := s.Lookup("broker-0-demo.kafka.sew.local")
+	ip, ok := s.Lookup("broker-0-demo.kafka.gck.local")
 	if !ok || ip != "10.0.0.2" {
 		t.Fatalf("expected 10.0.0.2, got %q (ok=%v)", ip, ok)
 	}
@@ -58,10 +58,10 @@ func TestLookup_WildcardMatchHyphenatedLabel(t *testing.T) {
 
 func TestLookup_ExactTakesPriorityOverWildcard(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"*.kafka.sew.local":   "10.0.0.2",
-		"demo.kafka.sew.local": "10.0.0.3",
+		"*.kafka.gck.local":   "10.0.0.2",
+		"demo.kafka.gck.local": "10.0.0.3",
 	})
-	ip, ok := s.Lookup("demo.kafka.sew.local")
+	ip, ok := s.Lookup("demo.kafka.gck.local")
 	if !ok || ip != "10.0.0.3" {
 		t.Fatalf("expected exact match 10.0.0.3, got %q (ok=%v)", ip, ok)
 	}
@@ -69,27 +69,27 @@ func TestLookup_ExactTakesPriorityOverWildcard(t *testing.T) {
 
 func TestLookup_NoMatch(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"*.kafka.sew.local": "10.0.0.2",
+		"*.kafka.gck.local": "10.0.0.2",
 	})
-	_, ok := s.Lookup("api.sew.local")
+	_, ok := s.Lookup("api.gck.local")
 	if ok {
-		t.Fatal("expected no match for api.sew.local against *.kafka.sew.local")
+		t.Fatal("expected no match for api.gck.local against *.kafka.gck.local")
 	}
 }
 
 func TestLookup_NoMatchBareHostname(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{
-		"*.kafka.sew.local": "10.0.0.2",
+		"*.kafka.gck.local": "10.0.0.2",
 	})
-	_, ok := s.Lookup("kafka.sew.local")
+	_, ok := s.Lookup("kafka.gck.local")
 	if ok {
-		t.Fatal("expected no match for kafka.sew.local (wildcard requires a label before the pattern)")
+		t.Fatal("expected no match for kafka.gck.local (wildcard requires a label before the pattern)")
 	}
 }
 
 func TestLookup_EmptyStore(t *testing.T) {
 	s := newStoreWithRecords(map[string]string{})
-	_, ok := s.Lookup("anything.sew.local")
+	_, ok := s.Lookup("anything.gck.local")
 	if ok {
 		t.Fatal("expected no match in empty store")
 	}

@@ -3,7 +3,7 @@ package installer
 import (
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 func TestSplitYAMLDocuments_SingleDocument(t *testing.T) {

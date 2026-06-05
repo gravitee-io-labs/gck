@@ -4,16 +4,16 @@ weight: 1
 type: docs
 ---
 
-This page is generated from the [sew.yaml JSON Schema](https://github.com/a-cordier/sew/blob/main/schema/sew.schema.yaml). It documents every field you can use in your `sew.yaml` configuration file.
+This page is generated from the [gck.yaml JSON Schema](https://github.com/gravitee-io-labs/gck/blob/main/schema/gck.schema.yaml). It documents every field you can use in your `gck.yaml` configuration file.
 
 ## Overview
 
-A `sew.yaml` file is a YAML document with the following top-level fields:
+A `gck.yaml` file is a YAML document with the following top-level fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `abstract` | boolean | When true, marks this configuration as a shared base that cannot be deployed on its own. Abstract configs are meant to be referenced via 'from' by concrete contexts. |
-| `builds` | object[] | Local Docker builds for the inner development loop. Each entry describes how to compile, build, and load a Docker image into the Kind cluster, then restart matching workloads. Use with 'sew build' to iterate quickly on application code. |
+| `builds` | object[] | Local Docker builds for the inner development loop. Each entry describes how to compile, build, and load a Docker image into the Kind cluster, then restart matching workloads. Use with 'gck build' to iterate quickly on application code. |
 | `components` | object[] | Ordered list of components to deploy. Components are applied sequentially; use 'requires' to express inter-component dependencies. |
 | `description` | string | Human-readable description of this configuration. Used by context flag files to document what the flag does; ignored during deployment. |
 | `features` | map | Optional networking features. Each sub-key uses pointer semantics: setting a feature explicitly overrides the inherited context default; omitting it preserves the parent value. |
@@ -34,7 +34,7 @@ When true, marks this configuration as a shared base that cannot be deployed on 
 
 ## `builds`
 
-Local Docker builds for the inner development loop. Each entry describes how to compile, build, and load a Docker image into the Kind cluster, then restart matching workloads. Use with 'sew build' to iterate quickly on application code.
+Local Docker builds for the inner development loop. Each entry describes how to compile, build, and load a Docker image into the Kind cluster, then restart matching workloads. Use with 'gck build' to iterate quickly on application code.
 
 **Type:** `array`
 
@@ -47,7 +47,7 @@ Each entry is an object with the following fields:
 | `dir` | string | No | Working directory for pre-build commands and base for relative context/dockerfile paths. Use the {{ env "VAR" }} template function to reference environment variables (e.g. '{{ env "HOME" }}/src/project'). Default: `.`. |
 | `dockerfile` | string | No | Path to the Dockerfile, resolved relative to 'dir'. When omitted, defaults to 'Dockerfile' in the build context. |
 | `image` | string | Yes | Target Docker image tag (e.g. "graviteeio/apim-gateway:latest-debian"). Images listed here are automatically excluded from preload. |
-| `name` | string | Yes | Short identifier for this build, used to select it in 'sew build <name>'. |
+| `name` | string | Yes | Short identifier for this build, used to select it in 'gck build <name>'. |
 | `platform` | string | No | Target platform for 'docker build --platform' (e.g. "linux/amd64"). Useful when the base image is only available for a specific architecture. |
 | `pre` | string[] | No | Shell commands executed sequentially before 'docker build' (e.g. compilation, packaging). Each command runs in 'dir' with output streamed to the terminal. |
 
@@ -91,7 +91,7 @@ Helm chart installation specification for a component of type "helm". The chart 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `chart` | string | No | Chart reference in "repo/chart" format (e.g. "bitnami/postgresql"). |
-| `valueFiles` | string[] | No | Paths to YAML value files, resolved relative to the sew.yaml directory. Use for large overrides. |
+| `valueFiles` | string[] | No | Paths to YAML value files, resolved relative to the gck.yaml directory. Use for large overrides. |
 | `values` | object | No | Inline Helm values merged on top of valueFiles. Use for small tweaks; prefer valueFiles for large overrides. |
 | `version` | string | No | Explicit chart version constraint. When omitted, the latest version is used. |
 
@@ -104,7 +104,7 @@ Raw Kubernetes resource specification for a component of type "k8s".
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `configMaps` | object[] | No | Local config maps to create as Kubernetes ConfigMap resources before applying other manifests. |
-| `manifestFiles` | string[] | No | Paths to YAML manifest files, resolved relative to the sew.yaml directory. |
+| `manifestFiles` | string[] | No | Paths to YAML manifest files, resolved relative to the gck.yaml directory. |
 | `manifests` | object[] | No | Inline Kubernetes resource manifests. Each entry is a complete resource object (apiVersion, kind, metadata, etc.). |
 | `secrets` | object[] | No | Local secrets to create as Kubernetes Secret resources before applying other manifests. |
 
@@ -227,7 +227,7 @@ Local DNS server that resolves custom hostnames to in-cluster services, making t
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `domain` | string | No | DNS domain served by the local resolver. Default: `sew.local`. |
+| `domain` | string | No | DNS domain served by the local resolver. Default: `gck.local`. |
 | `enabled` | boolean | No | Enable or disable the local DNS feature. |
 | `port` | integer | No | UDP port the local DNS server listens on. Default: `15353`. |
 | `records` | object[] | No | Static DNS records mapping hostnames to Kubernetes services. |
@@ -240,7 +240,7 @@ Maps a hostname (supports wildcards) to a Kubernetes service so the local DNS re
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `hostname` | string | Yes | Hostname pattern to resolve (e.g. "*.kafka.sew.local"). |
+| `hostname` | string | Yes | Hostname pattern to resolve (e.g. "*.kafka.gck.local"). |
 | `namespace` | string | Yes | Namespace of the target Kubernetes Service. |
 | `service` | string | Yes | Name of the Kubernetes Service to resolve the hostname to. |
 
@@ -337,7 +337,7 @@ Configuration for the Kind (Kubernetes-in-Docker) cluster.
 | `apiVersion` | string | No | Kind API version for the cluster manifest. Default: `kind.x-k8s.io/v1alpha4`. |
 | `containerdConfigPatches` | string[] | No | Raw containerd configuration patches applied to all nodes in the cluster. |
 | `kind` | string | No | Kind resource type (always "Cluster"). Default: `Cluster`. |
-| `name` | string | No | Name of the Kind cluster. Default: `sew`. |
+| `name` | string | No | Name of the Kind cluster. Default: `gck`. |
 | `nodes` | object[] | No | List of cluster nodes. Defaults to a single control-plane node when omitted. |
 
 ### `kind.nodes[*]`

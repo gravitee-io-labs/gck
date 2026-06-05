@@ -22,7 +22,7 @@ func SetupResolver(domain string, port int) error {
 
 	script := fmt.Sprintf("mkdir -p %s && printf '%%s' '%s' > %s", resolverDir, content, path)
 	cmd := exec.Command("sudo", "-p",
-		"\n  sew needs administrator privileges to configure DNS routing.\n  Password: ",
+		"\n  gck needs administrator privileges to configure DNS routing.\n  Password: ",
 		"sh", "-c", script,
 	)
 	cmd.Stdin = os.Stdin
@@ -42,7 +42,7 @@ func TeardownResolver(domain string) error {
 	}
 
 	cmd := exec.Command("sudo", "-p",
-		"\n  sew needs administrator privileges to remove DNS routing.\n  Password: ",
+		"\n  gck needs administrator privileges to remove DNS routing.\n  Password: ",
 		"rm", path,
 	)
 	cmd.Stdin = os.Stdin

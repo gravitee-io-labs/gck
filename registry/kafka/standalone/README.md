@@ -9,26 +9,26 @@ tags: [messaging]
 Deploys a single-node Apache Kafka broker running in KRaft combined mode
 (no ZooKeeper) with host access on port 30092.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from kafka/standalone
+gck create --from kafka/standalone
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start

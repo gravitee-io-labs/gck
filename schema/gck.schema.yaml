@@ -1,8 +1,8 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://github.com/a-cordier/sew/schema/sew.schema.yaml
-title: sew configuration
+$id: https://github.com/gravitee-io-labs/gck/schema/gck.schema.yaml
+title: gck configuration
 description: >-
-  Schema for sew.yaml — the configuration file that defines a local
+  Schema for gck.yaml — the configuration file that defines a local
   Kubernetes development environment powered by Kind, Helm, and raw
   manifests.
 type: object
@@ -77,7 +77,7 @@ properties:
       Local Docker builds for the inner development loop. Each entry
       describes how to compile, build, and load a Docker image into the
       Kind cluster, then restart matching workloads. Use with
-      'sew build' to iterate quickly on application code.
+      'gck build' to iterate quickly on application code.
     items:
       $ref: "#/$defs/Build"
 
@@ -122,7 +122,7 @@ $defs:
       name:
         type: string
         description: Name of the Kind cluster.
-        default: sew
+        default: gck
       nodes:
         type: array
         description: >-
@@ -267,7 +267,7 @@ $defs:
       domain:
         type: string
         description: DNS domain served by the local resolver.
-        default: sew.local
+        default: gck.local
       port:
         type: integer
         description: UDP port the local DNS server listens on.
@@ -293,7 +293,7 @@ $defs:
       hostname:
         type: string
         description: >-
-          Hostname pattern to resolve (e.g. "*.kafka.sew.local").
+          Hostname pattern to resolve (e.g. "*.kafka.gck.local").
       service:
         type: string
         description: >-
@@ -413,7 +413,7 @@ $defs:
         type: string
         description: >-
           Short identifier for this build, used to select it in
-          'sew build <name>'.
+          'gck build <name>'.
       image:
         type: string
         description: >-
@@ -588,7 +588,7 @@ $defs:
         type: array
         description: >-
           Paths to YAML value files, resolved relative to the
-          sew.yaml directory. Use for large overrides.
+          gck.yaml directory. Use for large overrides.
         items:
           type: string
       values:
@@ -608,7 +608,7 @@ $defs:
         type: array
         description: >-
           Paths to YAML manifest files, resolved relative to the
-          sew.yaml directory.
+          gck.yaml directory.
         items:
           type: string
       manifests:

@@ -8,17 +8,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
 // flagFilePrefix is the filename prefix for context flag patch files.
-const flagFilePrefix = "sew--"
+const flagFilePrefix = "gck--"
 
 // flagNamePattern validates that a flag name is lowercase kebab-case.
 var flagNamePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-// DiscoverFlags scans dir for sew--*.yaml files and returns one ContextFlag
+// DiscoverFlags scans dir for gck--*.yaml files and returns one ContextFlag
 // per valid file. Each file is parsed to extract its description field. Files
 // whose names don't match the naming convention are returned as errors.
 func DiscoverFlags(dir string) ([]config.ContextFlag, error) {
@@ -117,7 +117,7 @@ func ApplyFlags(resolved *config.ResolvedContext, activeFlags []string, setOverr
 }
 
 // FlagNameFromFile extracts and validates the flag name from a filename like
-// "sew--disable-portal.yaml". Returns an error if the name doesn't match the
+// "gck--disable-portal.yaml". Returns an error if the name doesn't match the
 // kebab-case convention.
 func FlagNameFromFile(basename string) (string, error) {
 	name := strings.TrimPrefix(basename, flagFilePrefix)
@@ -160,7 +160,7 @@ func ValidateFlagDescription(data []byte) error {
 	return nil
 }
 
-// loadFlagConfig loads and parses a flag's sew--{name}.yaml file into a
+// loadFlagConfig loads and parses a flag's gck--{name}.yaml file into a
 // Config struct ready for merging.
 func loadFlagConfig(flag config.ContextFlag, setOverrides map[string]string) (*config.Config, error) {
 	path := filepath.Join(flag.Dir, flagFilePrefix+flag.Name+".yaml")

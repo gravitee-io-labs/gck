@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/a-cordier/sew/internal/cache"
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/installer"
-	"github.com/a-cordier/sew/internal/kind"
-	"github.com/a-cordier/sew/internal/logger"
-	"github.com/a-cordier/sew/internal/registry"
+	"github.com/gravitee-io-labs/gck/internal/cache"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/installer"
+	"github.com/gravitee-io-labs/gck/internal/kind"
+	"github.com/gravitee-io-labs/gck/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/registry"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -33,12 +33,12 @@ There are two ways to use patch:
   1. With a patch file — merges the file into the resolved context and upgrades
      only the components listed in the file:
 
-       sew patch upgrade.yaml
+       gck patch upgrade.yaml
 
   2. With --set only — re-renders the resolved context with new template variable
      values and upgrades all components:
 
-       sew patch --set imageTag=4.11.0
+       gck patch --set imageTag=4.11.0
 
 Both modes can be combined: a patch file with --set overrides.`,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
@@ -66,7 +66,7 @@ func runPatch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if resolved == nil {
-		return fmt.Errorf("no registry context configured; patch requires a resolved context (set registry and from in sew.yaml or via flags)")
+		return fmt.Errorf("no registry context configured; patch requires a resolved context (set registry and from in gck.yaml or via flags)")
 	}
 
 	if _, err := applyContextFlags(cmd, resolved); err != nil {
@@ -86,10 +86,10 @@ func runPatch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("checking cluster %q: %w", clusterName, err)
 	}
 	if !exists {
-		return fmt.Errorf("cluster %q not found; create it first with \"sew create\"", clusterName)
+		return fmt.Errorf("cluster %q not found; create it first with \"gck create\"", clusterName)
 	}
 
-	logDir := filepath.Join(sewHome, "logs")
+	logDir := filepath.Join(gckHome, "logs")
 	if len(cfg.From) > 0 {
 		logDir = filepath.Join(logDir, strings.Join(cfg.From, "_"))
 	}

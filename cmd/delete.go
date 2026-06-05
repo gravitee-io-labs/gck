@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/a-cordier/sew/internal/cache"
-	"github.com/a-cordier/sew/internal/cloudprovider"
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/dns"
-	"github.com/a-cordier/sew/internal/kind"
-	"github.com/a-cordier/sew/internal/logger"
-	"github.com/a-cordier/sew/internal/state"
+	"github.com/gravitee-io-labs/gck/internal/cache"
+	"github.com/gravitee-io-labs/gck/internal/cloudprovider"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/dns"
+	"github.com/gravitee-io-labs/gck/internal/kind"
+	"github.com/gravitee-io-labs/gck/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/state"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -50,7 +50,7 @@ func runDown(_ *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	stateDir := filepath.Join(sewHome, "clusters")
+	stateDir := filepath.Join(gckHome, "clusters")
 
 	var clusterName string
 	if len(args) > 0 {
@@ -62,7 +62,7 @@ func runDown(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	logDir := filepath.Join(sewHome, "logs")
+	logDir := filepath.Join(gckHome, "logs")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return fmt.Errorf("creating log directory %s: %w", logDir, err)
 	}
@@ -76,7 +76,7 @@ func runDown(_ *cobra.Command, args []string) error {
 	klog.SetOutput(logFile)
 	logger.SetLogFile(logPath)
 
-	dnsDir := filepath.Join(sewHome, "dns")
+	dnsDir := filepath.Join(gckHome, "dns")
 	if err := dns.RemoveRecordFile(dnsDir, target.Name); err != nil {
 		logger.Warn("failed to remove DNS record file: %v", err)
 	} else {
@@ -136,8 +136,8 @@ func runDown(_ *cobra.Command, args []string) error {
 // resolveDeleteTarget determines which cluster to delete and returns the
 // teardown information. Resolution order:
 //  1. Explicit name argument: load state file, fall back to best-effort.
-//  2. State files in ~/.sew/clusters/: auto-select if one, prompt if many.
-//  3. Config fallback: use cfg.Kind.Name from sew.yaml.
+//  2. State files in ~/.gck/clusters/: auto-select if one, prompt if many.
+//  3. Config fallback: use cfg.Kind.Name from gck.yaml.
 func resolveDeleteTarget(stateDir, name string) (*deleteTarget, error) {
 	if name != "" {
 		return resolveByName(stateDir, name)
@@ -195,7 +195,7 @@ func targetFromState(cs *state.ClusterState) *deleteTarget {
 	}
 }
 
-// resolveFromConfig falls back to reading the cluster name from sew.yaml
+// resolveFromConfig falls back to reading the cluster name from gck.yaml
 // config. This handles clusters created before the state file feature.
 func resolveFromConfig() (*deleteTarget, error) {
 	if cfg.Kind.Name == "" {
@@ -235,12 +235,12 @@ func promptClusterSelection(stateDir string, names []string) (*deleteTarget, err
 }
 
 func cpkProcessRunning() bool {
-	out, err := exec.Command("pgrep", "-f", "sew.*cpk serve").Output()
+	out, err := exec.Command("pgrep", "-f", "gck.*cpk serve").Output()
 	return err == nil && len(strings.TrimSpace(string(out))) > 0
 }
 
 func stopDNSIfNoRecords() {
-	dnsDir := filepath.Join(sewHome, "dns")
+	dnsDir := filepath.Join(gckHome, "dns")
 	entries, err := os.ReadDir(dnsDir)
 	if err != nil {
 		return
@@ -251,7 +251,7 @@ func stopDNSIfNoRecords() {
 		}
 	}
 
-	pidPath := filepath.Join(sewHome, "pids", "dns.pid")
+	pidPath := filepath.Join(gckHome, "pids", "dns.pid")
 	data, err := os.ReadFile(pidPath)
 	if err != nil {
 		return
@@ -278,13 +278,13 @@ func stopCPKIfNoKindClusters() {
 		return
 	}
 
-	pidPath := filepath.Join(sewHome, "pids", "cpk.pid")
+	pidPath := filepath.Join(gckHome, "pids", "cpk.pid")
 
 	if cloudprovider.NeedsTunnels() {
 		if cpkProcessRunning() {
 			cmd := exec.Command("sudo", "-p",
-				"\n  sew needs administrator privileges to stop the cloud provider controller.\n  Password: ",
-				"pkill", "-f", "sew.*cpk serve")
+				"\n  gck needs administrator privileges to stop the cloud provider controller.\n  Password: ",
+				"pkill", "-f", "gck.*cpk serve")
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

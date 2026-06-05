@@ -3,7 +3,7 @@ title: "Documentation"
 type: docs
 ---
 
-**sew** removes the boilerplate of setting up local Kubernetes environments. It maintains a registry of composable contexts — complete stacks with Helm charts, manifests, networking, and DNS — that you can deploy to a Kind cluster in one command.
+**gck** removes the boilerplate of setting up local Kubernetes environments. It maintains a registry of composable contexts — complete stacks with Helm charts, manifests, networking, and DNS — that you can deploy to a Kind cluster in one command.
 
 <div class="docs-overview-grid">
 
@@ -13,7 +13,7 @@ type: docs
   </span>
   <span class="docs-overview-card-body">
     <span class="docs-overview-card-title">Getting Started</span>
-    <span class="docs-overview-card-desc">Learn why sew exists, install it, and create your first cluster in under a minute.</span>
+    <span class="docs-overview-card-desc">Learn why gck exists, install it, and create your first cluster in under a minute.</span>
   </span>
 </a>
 

@@ -3,7 +3,7 @@ package build
 import (
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	v1 "k8s.io/api/core/v1"
 	"gopkg.in/yaml.v3"
 )
@@ -115,7 +115,7 @@ func TestBuildArgPointers_Empty(t *testing.T) {
 func TestBuildArgPointers_ValuesPassedThrough(t *testing.T) {
 	args := map[string]string{
 		"LITERAL":  "plain",
-		"WITH_VAR": "$SEW_TEST_VAR",
+		"WITH_VAR": "$GCK_TEST_VAR",
 	}
 	result := buildArgPointers(args)
 
@@ -125,8 +125,8 @@ func TestBuildArgPointers_ValuesPassedThrough(t *testing.T) {
 	if result["LITERAL"] == nil || *result["LITERAL"] != "plain" {
 		t.Fatalf("expected LITERAL %q, got %v", "plain", result["LITERAL"])
 	}
-	if result["WITH_VAR"] == nil || *result["WITH_VAR"] != "$SEW_TEST_VAR" {
-		t.Fatalf("expected WITH_VAR %q (no expansion), got %v", "$SEW_TEST_VAR", result["WITH_VAR"])
+	if result["WITH_VAR"] == nil || *result["WITH_VAR"] != "$GCK_TEST_VAR" {
+		t.Fatalf("expected WITH_VAR %q (no expansion), got %v", "$GCK_TEST_VAR", result["WITH_VAR"])
 	}
 }
 

@@ -1,4 +1,4 @@
-# Contributing to sew
+# Contributing to gck
 
 This document is the single source of truth for contribution guidelines.
 
@@ -12,13 +12,13 @@ This document is the single source of truth for contribution guidelines.
 
 | Command | Description |
 |---|---|
-| `go build` | Build the `sew` binary |
+| `go build` | Build the `gck` binary |
 | `go run . create` | Build and run in one step |
 | `task test` | Run all tests (`gotestsum`) |
 | `task lint` | Run Go linter (`revive`) |
 | `task fmt:yaml` | Format YAML files in `registry/` and root |
 | `task lint:yaml` | Check YAML formatting (CI-safe, no writes) |
-| `task validate` | Validate all registry `sew.yaml` files against the schema |
+| `task validate` | Validate all registry `gck.yaml` files against the schema |
 | `task site:generate` | Generate Hugo site content from the registry |
 | `task site:serve` | Generate content and start the Hugo dev server |
 | `task site:build` | Generate content and build the Hugo site for production |
@@ -136,15 +136,15 @@ registry/
 
 | File | Purpose |
 |---|---|
-| `sew.yaml` | Component definitions, Helm repos, Kind config, features, images |
-| `sew--{flag}.yaml` | Context flag patch file (optional, see [Context flags](#context-flags)) |
+| `gck.yaml` | Component definitions, Helm repos, Kind config, features, images |
+| `gck--{flag}.yaml` | Context flag patch file (optional, see [Context flags](#context-flags)) |
 | `README.md` | Human-readable documentation with Hugo YAML frontmatter |
-| `notes.create` | Go `text/template` rendered after `sew create` (connection info) |
+| `notes.create` | Go `text/template` rendered after `gck create` (connection info) |
 | `.default` | Points to the default child variant (one variant name per file) |
 
 ### `.default` files
 
-When a user specifies a partial path (e.g. `gravitee-io/oss/apim`), sew walks
+When a user specifies a partial path (e.g. `gravitee-io/oss/apim`), gck walks
 `.default` files to resolve the full path. Each `.default` file contains a
 single line with the name of the default child directory:
 
@@ -168,30 +168,30 @@ tags: [relevant, tags]
 ```
 
 Every concrete context README must include the following sections in
-order: **Install sew**, **Usage**, **Quick Start**, and optionally
+order: **Install gck**, **Usage**, **Quick Start**, and optionally
 **Endpoints**.
 
-The **Install sew** section tells newcomers how to get started:
+The **Install gck** section tells newcomers how to get started:
 
 ```markdown
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 ```
 
 If the context uses DNS (directly or via a parent with
 `features.dns.enabled: true`), append the DNS setup instructions to the
-same **Install sew** section — do not create a second one. Explain that
-`sew setup dns` must be run after creating the cluster, that it may
+same **Install gck** section — do not create a second one. Explain that
+`gck setup dns` must be run after creating the cluster, that it may
 require `sudo`, and link to the
-[Networking guide](https://a-cordier.github.io/sew/docs/guides/networking/#local-dns).
+[Networking guide](https://gravitee-io-labs.github.io/gck/docs/guides/networking/#local-dns).
 
-The **Usage** section must include both the `sew create` command under a
-`### Create` subtitle and a `### Cleanup` block showing `sew delete`:
+The **Usage** section must include both the `gck create` command under a
+`### Create` subtitle and a `### Cleanup` block showing `gck delete`:
 
 ```markdown
 ## Usage
@@ -199,18 +199,18 @@ The **Usage** section must include both the `sew create` command under a
 ### Create
 
 ```bash
-sew create --from <context-path>
+gck create --from <context-path>
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 ```
 
 Concrete context READMEs must be **self-contained**. A reader who has
-never used sew should be able to go from zero to a running cluster using
+never used gck should be able to go from zero to a running cluster using
 only the README. Abstract contexts don't get pages on the documentation
 site, so linking to a parent abstract README produces broken links.
 Inline any relevant documentation from the abstract parent directly into
@@ -231,7 +231,7 @@ each concrete variant's README.
 | `security` | Secrets management, auth, certificates |
 | `ai` | LLM, MCP, A2A |
 
-- `sew validate --tags registry/tags.yaml` enforces this vocabulary;
+- `gck validate --tags registry/tags.yaml` enforces this vocabulary;
   CI rejects unknown tags.
 - Do not use product or organization names as tags (e.g. `kafka`,
   `mongodb`, `gravitee`, `elasticsearch`). Tags describe *what the
@@ -271,7 +271,7 @@ Portal       http://localhost:30081
 ```
 
 `hasFlag` returns `true` when the user passed the named flag on the CLI
-(e.g. `--disable-portal`). It always returns `false` during `sew delete`
+(e.g. `--disable-portal`). It always returns `false` during `gck delete`
 (which has no flag context).
 
 ### Port allocation
@@ -420,11 +420,11 @@ components:
 
 Context flags let users customize a deployment without requiring a
 separate context directory for every combination. Define a flag by
-creating a `sew--{flag-name}.yaml` patch file alongside the context's
-`sew.yaml`:
+creating a `gck--{flag-name}.yaml` patch file alongside the context's
+`gck.yaml`:
 
 ```yaml
-# sew--disable-portal.yaml
+# gck--disable-portal.yaml
 description: "Disable the developer portal UI"
 components:
   - name: apim
@@ -468,12 +468,12 @@ components:
 Users activate flags on the command line:
 
 ```bash
-sew create --from gravitee-io/oss/apim --disable-portal --enable-hc-vault
+gck create --from gravitee-io/oss/apim --disable-portal --enable-hc-vault
 ```
 
 ## Template variables
 
-sew.yaml files support Go `text/template` expressions. Declare variable
+gck.yaml files support Go `text/template` expressions. Declare variable
 defaults in a top-level `vars` block and reference them with
 `{{ .variableName }}`:
 
@@ -496,7 +496,7 @@ components:
 Users override defaults at deploy time with `--set`:
 
 ```bash
-sew create --set imageTag=4.12.0
+gck create --set imageTag=4.12.0
 ```
 
 ### Path-scoped overrides
@@ -505,7 +505,7 @@ A child context can override a parent's variables by nesting them under
 the parent's registry path segments in its own `vars` block:
 
 ```yaml
-# gravitee-io/oss/am/jdbc/mysql/sew.yaml
+# gravitee-io/oss/am/jdbc/mysql/gck.yaml
 from:
   - mysql/standalone
   - gravitee-io/oss/am/jdbc/base
@@ -532,17 +532,17 @@ matching:
 
 ```bash
 # Override mysql/standalone's imageTag only
-sew create --from gravitee-io/oss/am/jdbc/mysql --set mysql.standalone.imageTag=8.4
+gck create --from gravitee-io/oss/am/jdbc/mysql --set mysql.standalone.imageTag=8.4
 
 # Broadcast to all contexts declaring imageTag
-sew create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
+gck create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
 ```
 
 ### Conventions
 
 - Variable names use **camelCase** (`imageTag`, `helmVersion`).
 - Variable names must not contain dots.
-- Registry path segments must not contain dots (enforced by `sew validate`).
+- Registry path segments must not contain dots (enforced by `gck validate`).
 - The `vars` block must not itself contain template expressions.
 - Undefined variables with no default cause a clear error
   (`missingkey=error`).
@@ -578,8 +578,8 @@ builds:
 
 ### Scope
 
-Templating applies to every sew.yaml in the pipeline: user config,
-`$SEW_HOME/sew.yaml`, patch files, flag overlays, and registry context
+Templating applies to every gck.yaml in the pipeline: user config,
+`$GCK_HOME/gck.yaml`, patch files, flag overlays, and registry context
 files. Each context is rendered with its effective vars: own defaults,
 overridden by child path-scoped overrides, overridden by `--set`
 (broadcast then scoped). Templates use short names (`{{ .imageTag }}`)
@@ -587,14 +587,14 @@ overridden by child path-scoped overrides, overridden by `--set`
 
 ## Schema
 
-The JSON Schema for `sew.yaml` lives at `schema/sew.schema.yaml`. 
+The JSON Schema for `gck.yaml` lives at `schema/gck.schema.yaml`. 
 
-Validate your context files against it with `sew validate` (or `go run . validate`) and always keep it in sync when modifying config structs in `internal/config/`.
+Validate your context files against it with `gck validate` (or `go run . validate`) and always keep it in sync when modifying config structs in `internal/config/`.
 
 ```bash
 # Validate a single file
-sew validate registry/kafka/standalone/sew.yaml
+gck validate registry/kafka/standalone/gck.yaml
 
 # Validate all contexts in the registry
-sew validate registry/
+gck validate registry/
 ```

@@ -10,26 +10,26 @@ Deploys the Gravitee API Management gateway in DB-less mode alongside the
 Gravitee Kubernetes Operator (GKO). APIs are defined entirely through
 Kubernetes custom resources — no database is involved.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from gravitee-io/oss/apim/dbless
+gck create --from gravitee-io/oss/apim/dbless
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start

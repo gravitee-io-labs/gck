@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/a-cordier/sew/internal/cache"
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/cache"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/logger"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -26,7 +26,7 @@ import (
 // Options configures the build pipeline.
 type Options struct {
 	ClusterName string
-	SewHome     string
+	GckHome     string
 	SkipPre     bool
 	NoRestart   bool
 	LogWriter   io.Writer
@@ -79,7 +79,7 @@ func Run(ctx context.Context, b config.Build, opts Options) error {
 	if err := logger.WithSpinner(
 		"Pushing image to preload registry",
 		func() error {
-			if err := cache.EnsurePreloadRegistry(ctx, opts.SewHome); err != nil {
+			if err := cache.EnsurePreloadRegistry(ctx, opts.GckHome); err != nil {
 				return fmt.Errorf("ensuring preload registry: %w", err)
 			}
 			if err := cache.ConnectPreloadToKindNetwork(ctx); err != nil {

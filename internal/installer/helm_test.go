@@ -3,7 +3,7 @@ package installer
 import (
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"helm.sh/helm/v3/pkg/release"
 )
 

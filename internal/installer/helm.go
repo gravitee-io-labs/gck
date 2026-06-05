@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -21,7 +21,7 @@ import (
 
 // HelmInstaller installs Helm charts (upgrade --install).
 type HelmInstaller struct {
-	home string // sew home directory (absolute), set by AddRepos
+	home string // gck home directory (absolute), set by AddRepos
 }
 
 // AddRepos adds the given Helm repositories and downloads their indexes.
@@ -141,7 +141,7 @@ func (h *HelmInstaller) Install(ctx context.Context, comp config.Component, dir 
 		if err != nil {
 			return fmt.Errorf("serializing inline values: %w", err)
 		}
-		tmp, err := os.CreateTemp("", "sew-values-*.yaml")
+		tmp, err := os.CreateTemp("", "gck-values-*.yaml")
 		if err != nil {
 			return fmt.Errorf("creating temp values file: %w", err)
 		}

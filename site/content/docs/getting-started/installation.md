@@ -7,13 +7,13 @@ type: docs
 ## Homebrew
 
 ```bash
-brew tap a-cordier/sew https://github.com/a-cordier/sew
-brew install sew
+brew tap gravitee-io-labs/gck https://github.com/gravitee-io-labs/gck
+brew install gck
 ```
 
 ## Linux packages
 
-Download the `.deb` or `.rpm` from the [latest release](https://github.com/a-cordier/sew/releases/latest):
+Download the `.deb` or `.rpm` from the [latest release](https://github.com/gravitee-io-labs/gck/releases/latest):
 
 ```bash
 # Debian / Ubuntu
@@ -26,7 +26,7 @@ sudo rpm -i sew_*_linux_amd64.rpm
 ## go install
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
 Requires Go 1.25+.
@@ -34,7 +34,7 @@ Requires Go 1.25+.
 ## From source
 
 ```bash
-git clone https://github.com/a-cordier/sew.git
-cd sew
-go build -o sew .
+git clone https://github.com/gravitee-io-labs/gck.git
+cd gck
+go build -o gck .
 ```

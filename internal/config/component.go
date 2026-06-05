@@ -87,12 +87,12 @@ type ResolvedNotes struct {
 	Delete string
 }
 
-// ContextFlag represents an optional toggle defined by a sew--{name}.yaml
+// ContextFlag represents an optional toggle defined by a gck--{name}.yaml
 // patch file in a context directory.
 type ContextFlag struct {
 	Name        string
 	Description string
-	Dir         string // directory containing the sew--{name}.yaml file
+	Dir         string // directory containing the gck--{name}.yaml file
 }
 
 // ResolvedContext is a fully resolved context with all referenced files in Dir.

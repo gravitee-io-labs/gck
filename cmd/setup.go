@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/dns"
-	"github.com/a-cordier/sew/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/dns"
+	"github.com/gravitee-io-labs/gck/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -16,22 +16,22 @@ var setupCmd = &cobra.Command{
 
 var setupDNSCmd = &cobra.Command{
 	Use:   "dns",
-	Short: "Configure OS-level DNS routing for sew domains",
-	Long: `Configure the operating system to route DNS queries for the sew domain
-(e.g. *.sew.local) to the local DNS server.
+	Short: "Configure OS-level DNS routing for gck domains",
+	Long: `Configure the operating system to route DNS queries for the gck domain
+(e.g. *.gck.local) to the local DNS server.
 
 On macOS, this creates a per-domain resolver file in /etc/resolver/.
 On Linux, this configures systemd-resolved on the loopback interface.
 
 This is a one-time operation that requires administrator privileges.
-After setup, "sew create" and "sew delete" run without sudo.`,
+After setup, "gck create" and "gck delete" run without sudo.`,
 	RunE: runSetupDNS,
 }
 
 var teardownDNSCmd = &cobra.Command{
 	Use:   "dns",
-	Short: "Remove OS-level DNS routing for sew domains",
-	Long: `Remove the DNS routing configuration previously created by "sew setup dns".
+	Short: "Remove OS-level DNS routing for gck domains",
+	Long: `Remove the DNS routing configuration previously created by "gck setup dns".
 
 On macOS, this removes the resolver file from /etc/resolver/.
 On Linux, this reverts the systemd-resolved configuration on loopback.`,

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 type MirrorConfig struct {
@@ -21,8 +21,8 @@ type MirrorConfig struct {
 // When both mirrors and preload are configured, each upstream's hosts.toml
 // lists the preload registry first (for pre-pushed images) and the mirror
 // proxy second (for transparent caching of non-preloaded images).
-func PrepareContainerdHosts(cfg *config.MirrorsConfig, preloadUpstreams []string, sewHome string) (*MirrorConfig, error) {
-	hostsDir := filepath.Join(sewHome, "mirrors", "containerd-hosts")
+func PrepareContainerdHosts(cfg *config.MirrorsConfig, preloadUpstreams []string, gckHome string) (*MirrorConfig, error) {
+	hostsDir := filepath.Join(gckHome, "mirrors", "containerd-hosts")
 
 	// Collect all upstreams that need a hosts.toml entry.
 	seen := make(map[string]bool)
@@ -92,6 +92,6 @@ func PrepareContainerdHosts(cfg *config.MirrorsConfig, preloadUpstreams []string
 
 // PrepareMirrors is a convenience wrapper for PrepareContainerdHosts when only
 // mirrors are configured (no preloading).
-func PrepareMirrors(cfg *config.MirrorsConfig, sewHome string) (*MirrorConfig, error) {
-	return PrepareContainerdHosts(cfg, nil, sewHome)
+func PrepareMirrors(cfg *config.MirrorsConfig, gckHome string) (*MirrorConfig, error) {
+	return PrepareContainerdHosts(cfg, nil, gckHome)
 }

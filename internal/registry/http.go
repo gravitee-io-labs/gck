@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
-	sewtmpl "github.com/a-cordier/sew/internal/template"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,22 +18,22 @@ import (
 type HTTPResolver struct {
 	BaseURL      string
 	CacheRoot    string
-	SewHome      string
+	GckHome      string
 	HTTPClient   *http.Client
 	SetOverrides map[string]string
 }
 
-// Resolve fetches {BaseURL}/{contextPath}/sew.yaml, downloads referenced
+// Resolve fetches {BaseURL}/{contextPath}/gck.yaml, downloads referenced
 // values files to a local cache directory, and returns a ResolvedContext
 // whose Dir points to that cache.
 //
 // Resolution uses a two-pass approach (same as FSResolver):
-//  1. Read raw sew.yaml, extract own var defaults and path-scoped overrides
+//  1. Read raw gck.yaml, extract own var defaults and path-scoped overrides
 //  2. Recurse into from entries, collecting var defaults from each parent
 //  3. Compute effective vars (own defaults + child overrides + --set)
-//  4. Render sew.yaml with effective vars, unmarshal, and merge
+//  4. Render gck.yaml with effective vars, unmarshal, and merge
 //
-// If sew.yaml returns 404, Resolve tries the .default variant lookup.
+// If gck.yaml returns 404, Resolve tries the .default variant lookup.
 func (r *HTTPResolver) Resolve(ctx context.Context, contextPath string) (*config.ResolvedContext, error) {
 	set := SplitSetOverrides(r.SetOverrides)
 	return r.resolveWithVars(ctx, contextPath, nil, set)
@@ -69,7 +69,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 		return nil, fmt.Errorf("fetching context: %d", status)
 	}
 
-	tree, err := sewtmpl.ExtractVarsTree(data)
+	tree, err := gcktmpl.ExtractVarsTree(data)
 	if err != nil {
 		return nil, fmt.Errorf("extracting vars from %s: %w", contextPath, err)
 	}
@@ -104,7 +104,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 		effectiveVars[k] = v
 	}
 
-	rendered, err := sewtmpl.RenderWithVars(data, effectiveVars)
+	rendered, err := gcktmpl.RenderWithVars(data, effectiveVars)
 	if err != nil {
 		return nil, fmt.Errorf("templating context file %s: %w", contextPath, err)
 	}
@@ -186,7 +186,7 @@ func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.
 		if strings.HasPrefix(registryURL, "file://") {
 			fsResolver := &FSResolver{
 				Root:         strings.TrimPrefix(registryURL, "file://"),
-				SewHome:      r.SewHome,
+				GckHome:      r.GckHome,
 				SetOverrides: r.SetOverrides,
 			}
 			parent, err := fsResolver.resolveWithVars(ctx, ref, overrides, set)
@@ -199,7 +199,7 @@ func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.
 			httpResolver := &HTTPResolver{
 				BaseURL:      registryURL,
 				CacheRoot:    r.CacheRoot,
-				SewHome:      r.SewHome,
+				GckHome:      r.GckHome,
 				HTTPClient:   newAuthenticatedClient(registryURL),
 				SetOverrides: r.SetOverrides,
 			}
@@ -302,11 +302,11 @@ type flagEntry struct {
 	Description string `yaml:"description"`
 }
 
-// fetchFlags fetches the sew.flags.yaml manifest from the remote registry,
+// fetchFlags fetches the gck.flags.yaml manifest from the remote registry,
 // downloads each referenced flag patch file to cacheDir, and returns the
 // corresponding ContextFlag entries. A 404 on the manifest means no flags.
 func (r *HTTPResolver) fetchFlags(ctx context.Context, client *http.Client, baseURL, contextPath, cacheDir string) ([]config.ContextFlag, error) {
-	u := baseURL + "/" + contextPath + "/sew.flags.yaml"
+	u := baseURL + "/" + contextPath + "/gck.flags.yaml"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("building request for flags manifest: %w", err)
@@ -347,12 +347,12 @@ func (r *HTTPResolver) fetchFlags(ctx context.Context, client *http.Client, base
 	return flags, nil
 }
 
-// fetchContextFile fetches sew.yaml from the registry. It returns the body
+// fetchContextFile fetches gck.yaml from the registry. It returns the body
 // bytes, the HTTP status code, and any transport-level error. A 404 is
 // returned as status (not as an error) so the caller can attempt the
 // .default fallback.
 func (r *HTTPResolver) fetchContextFile(ctx context.Context, client *http.Client, baseURL, contextPath string) ([]byte, int, error) {
-	u := baseURL + "/" + contextPath + "/sew.yaml"
+	u := baseURL + "/" + contextPath + "/gck.yaml"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, 0, fmt.Errorf("building request: %w", err)

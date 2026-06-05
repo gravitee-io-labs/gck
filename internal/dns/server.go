@@ -1,5 +1,5 @@
 // Package dns implements a local DNS server that resolves hostnames from
-// per-cluster record files stored in .sew/dns/. The server watches the
+// per-cluster record files stored in .gck/dns/. The server watches the
 // directory for changes, hot-reloads records, and shuts itself down
 // automatically when all record files are removed.
 package dns
@@ -17,9 +17,9 @@ import (
 
 // Config holds settings for the local DNS server.
 type Config struct {
-	// Dir is the path to the record file directory (e.g. ~/.sew/dns/).
+	// Dir is the path to the record file directory (e.g. ~/.gck/dns/).
 	Dir string
-	// Domain is the DNS domain to serve (e.g. "sew.local").
+	// Domain is the DNS domain to serve (e.g. "gck.local").
 	Domain string
 	// Addr is the UDP listen address (e.g. "127.0.0.1:5353").
 	Addr string

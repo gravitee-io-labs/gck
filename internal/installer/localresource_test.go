@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 func TestBuildSecrets_SingleFileShorthand(t *testing.T) {

@@ -3,7 +3,7 @@ package registry
 import (
 	"path/filepath"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 // MergeComponents merges user-level component customizations into the resolved

@@ -4,7 +4,7 @@ weight: 4
 type: docs
 ---
 
-Pulling container images over the network every time you recreate a cluster gets old fast. sew gives you two strategies to speed things up: **mirror proxies** that cache layers locally, and **image preloading** that stages images before the cluster starts. The [Architecture]({{< ref "/docs/reference/architecture#component-interactions" >}}) page shows how these fit into the overall system.
+Pulling container images over the network every time you recreate a cluster gets old fast. gck gives you two strategies to speed things up: **mirror proxies** that cache layers locally, and **image preloading** that stages images before the cluster starts. The [Architecture]({{< ref "/docs/reference/architecture#component-interactions" >}}) page shows how these fit into the overall system.
 
 ## Image mirrors
 
@@ -12,11 +12,11 @@ Mirror proxies run as local `registry:2` containers that cache image layers on y
 
 ### How it works
 
-Each upstream registry gets its own pull-through cache container, bound to a local port. The Kind nodes' containerd is configured to check the mirror first. Mirror containers use a `restart: unless-stopped` policy, so they survive `sew delete` and keep their cache across cluster lifecycles.
+Each upstream registry gets its own pull-through cache container, bound to a local port. The Kind nodes' containerd is configured to check the mirror first. Mirror containers use a `restart: unless-stopped` policy, so they survive `gck delete` and keep their cache across cluster lifecycles.
 
 ### Enabling mirrors
 
-Add `images.mirrors` to your `sew.yaml`:
+Add `images.mirrors` to your `gck.yaml`:
 
 ```yaml
 # Mirror docker.io only (always implicit)
@@ -40,7 +40,7 @@ images:
 | Field | Default | Description |
 |-------|---------|-------------|
 | `upstreams` | *(none)* | Additional registries to mirror (on top of `docker.io`) |
-| `data` | `$SEW_HOME/mirrors` | Directory for cached layers and containerd host configs |
+| `data` | `$GCK_HOME/mirrors` | Directory for cached layers and containerd host configs |
 
 ### Private registries
 
@@ -65,11 +65,11 @@ As an alternative (or complement) to mirrors, you can preload specific images in
 
 ### How it works
 
-1. Before the Kind cluster is created, sew pulls each image listed in `images.preload.refs` on the host Docker daemon.
-2. A local `registry:2` container (`sew-preload`) is started, backed by persistent storage in `$SEW_HOME/preload`. Pre-pulled images are re-tagged and pushed to this registry.
+1. Before the Kind cluster is created, gck pulls each image listed in `images.preload.refs` on the host Docker daemon.
+2. A local `registry:2` container (`gck-preload`) is started, backed by persistent storage in `$GCK_HOME/preload`. Pre-pulled images are re-tagged and pushed to this registry.
 3. Kind nodes are configured to check the preload registry first for each upstream referenced by the listed images.
 
-Because the preload registry stores its data on the host filesystem, cached layers survive across cluster lifecycles. When you delete and recreate a cluster, only layers that have actually changed need to be re-pushed -- stable images like databases are available instantly. For mutable-tag images (snapshots, `latest`), sew re-pulls the upstream version and pushes only the changed layers.
+Because the preload registry stores its data on the host filesystem, cached layers survive across cluster lifecycles. When you delete and recreate a cluster, only layers that have actually changed need to be re-pushed -- stable images like databases are available instantly. For mutable-tag images (snapshots, `latest`), gck re-pulls the upstream version and pushes only the changed layers.
 
 ### Enabling preloading
 
@@ -82,7 +82,7 @@ images:
       - bitnami/redis:7.4
 ```
 
-Context authors can ship the image list directly in the context `sew.yaml`, so you don't have to maintain it yourself.
+Context authors can ship the image list directly in the context `gck.yaml`, so you don't have to maintain it yourself.
 
 ### How preload merges across layers
 
@@ -168,8 +168,8 @@ images:
 If a context defines preload images but you want to bypass preloading for a particular run, use `--skip-preload`:
 
 ```bash
-sew create --skip-preload
-sew patch upgrade.yaml --skip-preload
+gck create --skip-preload
+gck patch upgrade.yaml --skip-preload
 ```
 
 This is useful when mirrors already cover the upstreams you need, or during iterative development where you want a faster cluster startup. If you're building images locally as part of a dev loop, see the [Developer Loop]({{< ref "/docs/guides/developer-loop" >}}) guide.

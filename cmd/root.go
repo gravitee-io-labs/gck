@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/registry"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/registry"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -16,11 +16,11 @@ import (
 // Version is set by main from the build-time ldflags value.
 var Version string
 
-// DefaultConfigData holds the embedded sew.yaml from the project root,
+// DefaultConfigData holds the embedded gck.yaml from the project root,
 // set by main before Execute().
 var DefaultConfigData []byte
 
-// SchemaData holds the embedded JSON Schema for sew.yaml,
+// SchemaData holds the embedded JSON Schema for gck.yaml,
 // set by main before Execute().
 var SchemaData []byte
 
@@ -31,7 +31,7 @@ var (
 	setValues    []string
 	setOverrides map[string]string
 	cfg          *config.Config
-	sewHome      string
+	gckHome      string
 )
 
 // parseSetValues converts the raw --set flag values (each "key=value") into a
@@ -49,16 +49,16 @@ func parseSetValues(raw []string) (map[string]string, error) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "sew",
-	Short: "Kubernetes stacks for dev, test, and CI — easy to use, easy to maintain",
+	Use:   "gck",
+	Short: "Provisions ready-made stacks on local Kubernetes clusters in one command",
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-		sewHome = os.Getenv("SEW_HOME")
-		if sewHome == "" {
+		gckHome = os.Getenv("GCK_HOME")
+		if gckHome == "" {
 			home, err := os.UserHomeDir()
 			if err != nil {
 				return fmt.Errorf("determining user home directory: %w", err)
 			}
-			sewHome = filepath.Join(home, ".sew")
+			gckHome = filepath.Join(home, ".gck")
 		}
 
 		parsed, err := parseSetValues(setValues)
@@ -67,7 +67,7 @@ var rootCmd = &cobra.Command{
 		}
 		setOverrides = parsed
 
-		if cmd.Annotations["sew_skip_config"] == "true" {
+		if cmd.Annotations["gck_skip_config"] == "true" {
 			return nil
 		}
 		cfg, err = resolveConfig(cfgFile)
@@ -85,7 +85,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "path to config file (default: ./sew.yaml or ~/.sew/sew.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "path to config file (default: ./gck.yaml or ~/.gck/gck.yaml)")
 	rootCmd.PersistentFlags().StringVar(&registryURL, "registry", "", "registry URL to use (overrides config file)")
 	rootCmd.PersistentFlags().StringSliceVar(&fromPaths, "from", nil, "context paths to compose (repeatable, overrides config file)")
 	rootCmd.PersistentFlags().StringSliceVar(&setValues, "set", nil, "set template variables (key=value, repeatable)")
@@ -98,12 +98,12 @@ func Execute() error {
 }
 
 // resolveConfig loads the configuration using layered merging:
-//  1. Load $sewHome/sew.yaml as the base config (if it exists).
-//  2. If --config is given, load and merge on top; otherwise if ./sew.yaml
+//  1. Load $gckHome/gck.yaml as the base config (if it exists).
+//  2. If --config is given, load and merge on top; otherwise if ./gck.yaml
 //     exists, load and merge on top.
 //  3. Apply embedded defaults to fill any remaining gaps.
 func resolveConfig(explicit string) (*config.Config, error) {
-	basePath := filepath.Join(sewHome, "sew.yaml")
+	basePath := filepath.Join(gckHome, "gck.yaml")
 	var base *config.Config
 	if fileExists(basePath) {
 		var err error
@@ -124,9 +124,9 @@ func resolveConfig(explicit string) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-	case fileExists("sew.yaml"):
+	case fileExists("gck.yaml"):
 		var err error
-		projectCfg, err = config.Load("sew.yaml", setOverrides)
+		projectCfg, err = config.Load("gck.yaml", setOverrides)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +183,7 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 
 	acc := &config.ResolvedContext{}
 	for _, ref := range cfg.From {
-		resolver := registry.NewResolver(regURL, sewHome, setOverrides)
+		resolver := registry.NewResolver(regURL, gckHome, setOverrides)
 		resolved, err := resolver.Resolve(context.Background(), ref)
 		if err != nil {
 			return nil, fmt.Errorf("resolving context %q: %w", ref, err)

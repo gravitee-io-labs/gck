@@ -8,29 +8,29 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
-	sewtmpl "github.com/a-cordier/sew/internal/template"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
 
 // FSResolver resolves contexts from a local filesystem directory.
 type FSResolver struct {
 	Root         string // absolute path to the registry root
-	SewHome      string
+	GckHome      string
 	SetOverrides map[string]string
 }
 
-// Resolve reads {Root}/{contextPath}/sew.yaml and returns a
+// Resolve reads {Root}/{contextPath}/gck.yaml and returns a
 // ResolvedContext whose Dir points to the context directory on disk.
 // Values files are already local, so no downloads are needed.
 //
 // Resolution uses a two-pass approach:
-//  1. Read raw sew.yaml, extract own var defaults and path-scoped overrides
+//  1. Read raw gck.yaml, extract own var defaults and path-scoped overrides
 //  2. Recurse into from entries, collecting var defaults from each parent
 //  3. Compute effective vars (own defaults + child overrides + --set)
-//  4. Render sew.yaml with effective vars, unmarshal, and merge
+//  4. Render gck.yaml with effective vars, unmarshal, and merge
 //
-// If sew.yaml does not exist, Resolve looks for a .default file
+// If gck.yaml does not exist, Resolve looks for a .default file
 // containing the name of a default variant sub-directory. When found,
 // it appends the variant to contextPath and resolves again.
 func (r *FSResolver) Resolve(ctx context.Context, contextPath string) (*config.ResolvedContext, error) {
@@ -66,7 +66,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 		return r.resolveWithVars(ctx, filepath.Join(contextPath, name), childOverrides, set)
 	}
 
-	tree, err := sewtmpl.ExtractVarsTree(data)
+	tree, err := gcktmpl.ExtractVarsTree(data)
 	if err != nil {
 		return nil, fmt.Errorf("extracting vars from %s: %w", contextPath, err)
 	}
@@ -103,7 +103,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 		effectiveVars[k] = v
 	}
 
-	rendered, err := sewtmpl.RenderWithVars(data, effectiveVars)
+	rendered, err := gcktmpl.RenderWithVars(data, effectiveVars)
 	if err != nil {
 		return nil, fmt.Errorf("templating context file %s: %w", contextPath, err)
 	}
@@ -147,7 +147,7 @@ func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Co
 		if strings.HasPrefix(registryURL, "file://") {
 			parentResolver := &FSResolver{
 				Root:         strings.TrimPrefix(registryURL, "file://"),
-				SewHome:      r.SewHome,
+				GckHome:      r.GckHome,
 				SetOverrides: r.SetOverrides,
 			}
 			parent, err := parentResolver.resolveWithVars(ctx, ref, overrides, set)
@@ -159,8 +159,8 @@ func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Co
 		} else {
 			httpResolver := &HTTPResolver{
 				BaseURL:      registryURL,
-				CacheRoot:    filepath.Join(r.SewHome, "cache"),
-				SewHome:      r.SewHome,
+				CacheRoot:    filepath.Join(r.GckHome, "cache"),
+				GckHome:      r.GckHome,
 				HTTPClient:   newAuthenticatedClient(registryURL),
 				SetOverrides: r.SetOverrides,
 			}
@@ -192,7 +192,7 @@ func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Co
 
 // mergeOverrideMaps merges VarOverride entries into the existing
 // override map (contextPath -> varName -> value).
-func mergeOverrideMaps(existing map[string]map[string]string, overrides []sewtmpl.VarOverride) map[string]map[string]string {
+func mergeOverrideMaps(existing map[string]map[string]string, overrides []gcktmpl.VarOverride) map[string]map[string]string {
 	result := make(map[string]map[string]string)
 	for k, v := range existing {
 		inner := make(map[string]string, len(v))
@@ -222,5 +222,5 @@ func readNotes(dir string) config.ResolvedNotes {
 }
 
 func (r *FSResolver) readContextFile(dir string) ([]byte, error) {
-	return os.ReadFile(filepath.Join(dir, "sew.yaml"))
+	return os.ReadFile(filepath.Join(dir, "gck.yaml"))
 }

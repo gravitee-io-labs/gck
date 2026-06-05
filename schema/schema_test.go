@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
-	internalschema "github.com/a-cordier/sew/internal/schema"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	internalschema "github.com/gravitee-io-labs/gck/internal/schema"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 )
 
 func compileSchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
-	yamlBytes, err := os.ReadFile("sew.schema.yaml")
+	yamlBytes, err := os.ReadFile("gck.schema.yaml")
 	if err != nil {
 		t.Fatalf("reading schema: %v", err)
 	}
@@ -26,7 +26,7 @@ func compileSchema(t *testing.T) *jsonschema.Schema {
 	return sch
 }
 
-// TestRegistryValidation walks registry/**/sew.yaml and validates each file
+// TestRegistryValidation walks registry/**/gck.yaml and validates each file
 // against the JSON Schema. This proves the schema accepts every real config.
 func TestRegistryValidation(t *testing.T) {
 	sch := compileSchema(t)
@@ -37,7 +37,7 @@ func TestRegistryValidation(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && info.Name() == "sew.yaml" {
+		if !info.IsDir() && info.Name() == "gck.yaml" {
 			files = append(files, path)
 		}
 		return nil
@@ -46,7 +46,7 @@ func TestRegistryValidation(t *testing.T) {
 		t.Fatalf("walking registry: %v", err)
 	}
 	if len(files) == 0 {
-		t.Fatal("no sew.yaml files found in registry/")
+		t.Fatal("no gck.yaml files found in registry/")
 	}
 
 	for _, file := range files {
@@ -59,7 +59,7 @@ func TestRegistryValidation(t *testing.T) {
 	}
 }
 
-// TestRegistryFlagValidation walks registry/**/sew--*.yaml and validates each
+// TestRegistryFlagValidation walks registry/**/gck--*.yaml and validates each
 // flag file against the JSON Schema and checks for a valid name and description.
 func TestRegistryFlagValidation(t *testing.T) {
 	sch := compileSchema(t)
@@ -70,7 +70,7 @@ func TestRegistryFlagValidation(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && strings.HasPrefix(info.Name(), "sew--") && strings.HasSuffix(info.Name(), ".yaml") {
+		if !info.IsDir() && strings.HasPrefix(info.Name(), "gck--") && strings.HasSuffix(info.Name(), ".yaml") {
 			files = append(files, path)
 		}
 		return nil
@@ -109,7 +109,7 @@ func TestRegistryFlagValidation(t *testing.T) {
 // every yaml tag, and asserts a corresponding property exists in the schema.
 // This catches drift when a Go field is added but not mirrored in the schema.
 func TestStructCoverage(t *testing.T) {
-	yamlBytes, err := os.ReadFile("sew.schema.yaml")
+	yamlBytes, err := os.ReadFile("gck.schema.yaml")
 	if err != nil {
 		t.Fatalf("reading schema: %v", err)
 	}

@@ -21,7 +21,7 @@ import (
 
 const (
 	pullWorkers          = 4
-	preloadContainerName = "sew-preload"
+	preloadContainerName = "gck-preload"
 	preloadPort          = "5100"
 )
 
@@ -31,7 +31,7 @@ func PreloadRegistryHost() string {
 	return preloadContainerName + ":5000"
 }
 
-// IsPreloadRunning reports whether the sew-preload registry container is
+// IsPreloadRunning reports whether the gck-preload registry container is
 // currently running.
 func IsPreloadRunning(ctx context.Context) (bool, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -94,9 +94,9 @@ func PullImages(ctx context.Context, images []string) error {
 // EnsurePreloadRegistry starts a plain registry:2 container for receiving
 // pre-pushed images. Unlike mirror proxies, this registry has no
 // proxy.remoteurl -- it only serves images that have been explicitly pushed.
-// Registry data is persisted to $SEW_HOME/preload so that cached layers
+// Registry data is persisted to $GCK_HOME/preload so that cached layers
 // survive container removal across cluster lifecycles.
-func EnsurePreloadRegistry(ctx context.Context, sewHome string) error {
+func EnsurePreloadRegistry(ctx context.Context, gckHome string) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("creating docker client: %w", err)
@@ -122,7 +122,7 @@ func EnsurePreloadRegistry(ctx context.Context, sewHome string) error {
 	_, _ = io.Copy(io.Discard, rc)
 	rc.Close()
 
-	dataDir := filepath.Join(sewHome, "preload")
+	dataDir := filepath.Join(gckHome, "preload")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return fmt.Errorf("creating preload data directory %s: %w", dataDir, err)
 	}
@@ -132,7 +132,7 @@ func EnsurePreloadRegistry(ctx context.Context, sewHome string) error {
 			Image:        registryImage,
 			ExposedPorts: nat.PortSet{internalPort: struct{}{}},
 			Labels: map[string]string{
-				"sew.role": "preload-registry",
+				"gck.role": "preload-registry",
 			},
 		},
 		&container.HostConfig{

@@ -4,14 +4,14 @@ weight: 2
 type: docs
 ---
 
-One of sew's key strengths is composition. You can layer contexts together using `from` to build complex stacks from simple, reusable building blocks -- without duplicating configuration. The [Architecture]({{< ref "/docs/reference/architecture#context-composition" >}}) page illustrates how this works visually.
+One of gck's key strengths is composition. You can layer contexts together using `from` to build complex stacks from simple, reusable building blocks -- without duplicating configuration. The [Architecture]({{< ref "/docs/reference/architecture#context-composition" >}}) page illustrates how this works visually.
 
 ## The basics
 
 The `from` field lists registry paths to compose. Each context is resolved and merged in order, with your local overrides applied last:
 
 ```yaml
-registry: https://raw.githubusercontent.com/a-cordier/sew/refs/heads/main/registry
+registry: https://raw.githubusercontent.com/gravitee-io-labs/gck/refs/heads/main/registry
 from:
   - elastic/elasticsearch/standalone
 
@@ -59,7 +59,7 @@ Contexts in `from` are merged left-to-right: later entries override earlier ones
 When several variants share a common foundation, extract the shared parts into an **abstract** context. Mark it with `abstract: true` -- it can't be deployed on its own, only composed into concrete contexts:
 
 ```yaml
-# registry/mycompany/myproduct/base/sew.yaml
+# registry/mycompany/myproduct/base/gck.yaml
 abstract: true
 
 helm:
@@ -80,7 +80,7 @@ components:
 Concrete variants compose from the abstract base:
 
 ```yaml
-# registry/mycompany/myproduct/dev/sew.yaml
+# registry/mycompany/myproduct/dev/gck.yaml
 from:
   - mycompany/myproduct/base
 
@@ -102,29 +102,29 @@ When a product has multiple variants, the registry can define a **default** so y
 registry/mycompany/myproduct/
 ├── .default          # contains "dev"
 ├── dev/
-│   └── sew.yaml
+│   └── gck.yaml
 └── staging/
-    └── sew.yaml
+    └── gck.yaml
 ```
 
 With this setup, `from: [mycompany/myproduct]` resolves to `mycompany/myproduct/dev`.
 
-Defaults chain across multiple levels -- sew reads `.default` at each directory until it finds a `sew.yaml`. For example, `from: [elastic]` resolves first to `elastic/elasticsearch` (via `elastic/.default`), then to `elastic/elasticsearch/standalone` (via `elastic/elasticsearch/.default`), where the actual `sew.yaml` lives.
+Defaults chain across multiple levels -- gck reads `.default` at each directory until it finds a `gck.yaml`. For example, `from: [elastic]` resolves first to `elastic/elasticsearch` (via `elastic/.default`), then to `elastic/elasticsearch/standalone` (via `elastic/elasticsearch/.default`), where the actual `gck.yaml` lives.
 
 ## Config resolution order
 
-When you run `sew create`, sew builds the final configuration by merging multiple layers. Each layer overrides the one before it:
+When you run `gck create`, gck builds the final configuration by merging multiple layers. Each layer overrides the one before it:
 
-- **User-level base** (`$SEW_HOME/sew.yaml`, defaults to `~/.sew/sew.yaml`) -- Shared settings across all your projects. Use this for things like a custom registry URL, image mirrors, or a default DNS domain. This file is optional.
-- **Project-level** (`./sew.yaml` or the path given with `--config`) -- Your project's specific config. This is where you list `from` entries, add components, and set cluster options.
+- **User-level base** (`$GCK_HOME/gck.yaml`, defaults to `~/.gck/gck.yaml`) -- Shared settings across all your projects. Use this for things like a custom registry URL, image mirrors, or a default DNS domain. This file is optional.
+- **Project-level** (`./gck.yaml` or the path given with `--config`) -- Your project's specific config. This is where you list `from` entries, add components, and set cluster options.
 - **Registry contexts** -- Each entry in `from` is fetched and merged left-to-right. Later contexts override earlier ones on conflicts.
-- **Embedded defaults** -- sew fills in any remaining gaps with sensible defaults (cluster name, ports, feature flags).
+- **Embedded defaults** -- gck fills in any remaining gaps with sensible defaults (cluster name, ports, feature flags).
 
-The `--registry` and `--from` CLI flags override the corresponding values from config files, so you can quickly test a different context without editing your `sew.yaml`.
+The `--registry` and `--from` CLI flags override the corresponding values from config files, so you can quickly test a different context without editing your `gck.yaml`.
 
 ## Local overrides
 
-Beyond composing registry contexts, you can add your own components and Helm repos directly in your project `sew.yaml`. This is useful for supporting services that aren't part of the upstream context:
+Beyond composing registry contexts, you can add your own components and Helm repos directly in your project `gck.yaml`. This is useful for supporting services that aren't part of the upstream context:
 
 ```yaml
 from:
@@ -148,7 +148,7 @@ If a component name matches one from the context, your values are merged on top.
 
 ### Using value files
 
-For large overrides, you can use `valueFiles` instead of (or alongside) inline `values`. Paths are resolved relative to the `sew.yaml` directory:
+For large overrides, you can use `valueFiles` instead of (or alongside) inline `values`. Paths are resolved relative to the `gck.yaml` directory:
 
 ```yaml
 components:
@@ -188,7 +188,7 @@ components:
               app: my-service
 ```
 
-For larger manifests, you can use `manifestFiles` to reference external YAML files instead of inlining them. Paths are resolved relative to the `sew.yaml` directory:
+For larger manifests, you can use `manifestFiles` to reference external YAML files instead of inlining them. Paths are resolved relative to the `gck.yaml` directory:
 
 ```yaml
 components:
@@ -237,26 +237,26 @@ The `onMissing` field controls behavior when a source file or env var is missing
 Registry contexts can declare template variables with defaults using a `vars` block. As a user, you override these at deploy time with `--set` -- no files to edit:
 
 ```bash
-sew create --from gravitee-io/oss/apim/jdbc/postgres --set imageTag=4.6.0 --set helmVersion=4.6.0
+gck create --from gravitee-io/oss/apim/jdbc/postgres --set imageTag=4.6.0 --set helmVersion=4.6.0
 ```
 
-This works because the APIM base context declares `vars` with defaults (`imageTag: "latest"`, `helmVersion: ""`), and `--set` values take precedence. Check a context's Variables table on the registry site or run `sew info` to discover which variables it supports.
+This works because the APIM base context declares `vars` with defaults (`imageTag: "latest"`, `helmVersion: ""`), and `--set` values take precedence. Check a context's Variables table on the registry site or run `gck info` to discover which variables it supports.
 
 When a composition chain includes multiple contexts that declare the same variable name (e.g. `imageTag`), a plain `--set` broadcasts to all of them. To target a specific context, use dotted path notation:
 
 ```bash
 # Override MySQL's imageTag without affecting the product's imageTag
-sew create --from gravitee-io/oss/am/jdbc/mysql --set mysql.standalone.imageTag=8.4
+gck create --from gravitee-io/oss/am/jdbc/mysql --set mysql.standalone.imageTag=8.4
 
 # This still broadcasts to every context declaring imageTag
-sew create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
+gck create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
 ```
 
 The system matches the dotted key against known context paths in the composition chain using longest-prefix matching: `mysql.standalone.imageTag` resolves to path `mysql/standalone`, variable `imageTag`.
 
 ### Declaring your own variables
 
-You can also declare `vars` in your project-level `sew.yaml` and use template expressions anywhere in the file:
+You can also declare `vars` in your project-level `gck.yaml` and use template expressions anywhere in the file:
 
 ```yaml
 vars:
@@ -277,7 +277,7 @@ components:
 Then deploy with:
 
 ```bash
-sew create --set appVersion=2.1.0
+gck create --set appVersion=2.1.0
 ```
 
 ### Overriding parent variables in the registry
@@ -285,7 +285,7 @@ sew create --set appVersion=2.1.0
 Context authors can override a parent's variable default by nesting it under the parent's path segments in the `vars` block:
 
 ```yaml
-# gravitee-io/oss/am/jdbc/mysql/sew.yaml
+# gravitee-io/oss/am/jdbc/mysql/gck.yaml
 from:
   - mysql/standalone
   - gravitee-io/oss/am/jdbc/base
@@ -321,7 +321,7 @@ See [Commands -- Template variables]({{< ref "/docs/reference/commands#template-
 
 ## Dependencies between components
 
-Use `requires` to express inter-component dependencies. sew installs components in dependency order and can wait for readiness:
+Use `requires` to express inter-component dependencies. gck installs components in dependency order and can wait for readiness:
 
 ```yaml
 components:
@@ -340,7 +340,7 @@ components:
 
 ## Merge rules
 
-When composing contexts or applying local overrides, sew merges fields following these rules:
+When composing contexts or applying local overrides, gck merges fields following these rules:
 
 | Field | Behavior |
 |-------|----------|
@@ -359,7 +359,7 @@ When composing contexts or applying local overrides, sew merges fields following
 
 ### Values deep merge
 
-When `helm.values` overlap on the same key, sew picks a strategy based on the value type:
+When `helm.values` overlap on the same key, gck picks a strategy based on the value type:
 
 | Value type | Strategy |
 |-----------|----------|
@@ -371,7 +371,7 @@ An empty list (`env: []`) replaces the parent's list entirely -- use this to cle
 
 ## Multi-level composition
 
-Composition chains work to arbitrary depth. A grandparent context can be composed by a parent, which is then composed by your project config. sew tracks visited contexts and errors if it detects a cycle.
+Composition chains work to arbitrary depth. A grandparent context can be composed by a parent, which is then composed by your project config. gck tracks visited contexts and errors if it detects a cycle.
 
 ## Overriding service networking
 

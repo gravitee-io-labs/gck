@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/dns"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/dns"
 	"github.com/spf13/cobra"
 )
 
@@ -33,13 +33,13 @@ var dnsServeCmd = &cobra.Command{
 record files. The server watches the record directory for changes, hot-reloads
 records, and shuts itself down automatically when all record files are removed.
 
-This command is typically started as a background process by "sew create" and does
+This command is typically started as a background process by "gck create" and does
 not need to be invoked directly.`,
 	RunE: runDNSServe,
 }
 
 func init() {
-	dnsServeCmd.Flags().StringVar(&dnsDir, "dir", "", "path to DNS record directory (default: $SEW_HOME/dns)")
+	dnsServeCmd.Flags().StringVar(&dnsDir, "dir", "", "path to DNS record directory (default: $GCK_HOME/dns)")
 	dnsServeCmd.Flags().StringVar(&dnsDomain, "domain", config.DNSDefaultDomain, "DNS domain to serve")
 	dnsServeCmd.Flags().StringVar(&dnsAddr, "addr", "", "UDP listen address (default: 127.0.0.1:<port>)")
 	dnsServeCmd.Flags().StringVar(&dnsUpstream, "upstream", "8.8.8.8:53", "upstream DNS server for non-matching queries")
@@ -50,7 +50,7 @@ func init() {
 
 func runDNSServe(cmd *cobra.Command, _ []string) error {
 	if dnsDir == "" {
-		dnsDir = filepath.Join(sewHome, "dns")
+		dnsDir = filepath.Join(gckHome, "dns")
 	}
 	if err := os.MkdirAll(dnsDir, 0o755); err != nil {
 		return fmt.Errorf("creating DNS record directory: %w", err)

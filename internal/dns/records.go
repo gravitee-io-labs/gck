@@ -16,7 +16,7 @@ import (
 
 // RecordFile is the on-disk format for a cluster's DNS records.
 // Each cluster gets its own file (<cluster-name>.json) in the records
-// directory (.sew/dns/).
+// directory (.gck/dns/).
 type RecordFile struct {
 	Records map[string]string `json:"records"`
 }
@@ -74,7 +74,7 @@ func (s *RecordStore) Load() error {
 // Lookup returns the IP for hostname if any record matches.
 // The lookup is case-insensitive. When no exact match is found, it falls back
 // to wildcard matching per RFC 4592: the first DNS label is replaced with "*"
-// and tried again (e.g. "foo.kafka.sew.local" matches "*.kafka.sew.local").
+// and tried again (e.g. "foo.kafka.gck.local" matches "*.kafka.gck.local").
 func (s *RecordStore) Lookup(hostname string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

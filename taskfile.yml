@@ -5,9 +5,9 @@ vars:
 
 tasks:
   build:
-    desc: Build the sew binary
+    desc: Build the gck binary
     cmds:
-      - go build -ldflags "-X main.version={{.VERSION}}" -o sew .
+      - go build -ldflags "-X main.version={{.VERSION}}" -o gck .
 
   lint:
     desc: Run linter
@@ -25,7 +25,7 @@ tasks:
       - go tool gotestsum ./...
 
   validate:
-    desc: Validate all registry sew.yaml files against the schema
+    desc: Validate all registry gck.yaml files against the schema
     cmds:
       - go run . validate registry/
 

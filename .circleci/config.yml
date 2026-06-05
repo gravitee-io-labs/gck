@@ -13,17 +13,17 @@ jobs:
       - go/install:
           version: "1.25.9"
       - run:
-          name: Build sew
-          command: go build -o ./sew .
+          name: Build gck
+          command: go build -o ./gck .
       - run:
           name: Create cluster
-          command: ./sew create --config sew.local.yaml --from gravitee-io/oss/apim/dbless
+          command: ./gck create --config gck.local.yaml --from gravitee-io/oss/apim/dbless
       - run:
           name: Verify
-          command: ./sew describe gravitee
+          command: ./gck describe gravitee
       - run:
           name: Delete cluster
-          command: ./sew delete gravitee
+          command: ./gck delete gravitee
           when: always
 
 workflows:

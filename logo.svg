@@ -5,16 +5,15 @@
       <stop offset="100%" style="stop-color:#326CE5"/>
     </linearGradient>
   </defs>
-  <!-- s -->
+  <!-- g -->
   <rect x="2" y="2" width="42" height="44" rx="6" fill="none" stroke="url(#letterGrad)" stroke-width="2"/>
-  <text x="23" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">s</text>
-  <!-- e -->
+  <text x="23" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">g</text>
+  <!-- c -->
   <rect x="50" y="2" width="42" height="44" rx="6" fill="none" stroke="url(#letterGrad)" stroke-width="2"/>
-  <text x="71" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">e</text>
-  <!-- w -->
+  <text x="71" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">c</text>
+  <!-- k -->
   <rect x="98" y="2" width="42" height="44" rx="6" fill="none" stroke="url(#letterGrad)" stroke-width="2"/>
-  <text x="119" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">w</text>
-  <!-- Small dots between the boxes (subtle, with room to breathe) -->
+  <text x="119" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">k</text>
   <circle cx="47" cy="24" r="1.5" fill="#326CE5"/>
   <circle cx="95" cy="24" r="1.5" fill="#326CE5"/>
 </svg>

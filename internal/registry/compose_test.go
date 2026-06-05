@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 // writeFile is a test helper that creates parent dirs and writes data.
@@ -23,9 +23,9 @@ func writeFile(t *testing.T, path, content string) {
 
 func TestFSResolver_ParentComposition(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 kind:
   name: parent-cluster
   nodes:
@@ -45,7 +45,7 @@ components:
       chart: base/chart
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -58,7 +58,7 @@ components:
       chart: child/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -83,9 +83,9 @@ components:
 
 func TestFSResolver_ParentComposition_ChildOverridesComponent(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 helm:
   repos:
     - name: repo1
@@ -101,7 +101,7 @@ components:
         key2: val2
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -114,7 +114,7 @@ components:
         key3: new
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -143,9 +143,9 @@ components:
 
 func TestFSResolver_ParentComposition_FeaturesMerge(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 features:
   lb:
     enabled: true
@@ -156,7 +156,7 @@ features:
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -169,7 +169,7 @@ features:
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -188,20 +188,20 @@ components: []
 
 func TestFSResolver_CycleDetection(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "a", "gck.yaml"), `
 from:
   - b
 components: []
 `)
-	writeFile(t, filepath.Join(root, "b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "b", "gck.yaml"), `
 from:
   - a
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	_, err := resolver.Resolve(context.Background(), "a")
 	if err == nil {
 		t.Fatal("expected cycle detection error")
@@ -213,15 +213,15 @@ components: []
 
 func TestFSResolver_SelfCycleDetection(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "self", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "self", "gck.yaml"), `
 from:
   - self
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	_, err := resolver.Resolve(context.Background(), "self")
 	if err == nil {
 		t.Fatal("expected cycle detection error for self-reference")
@@ -233,9 +233,9 @@ components: []
 
 func TestFSResolver_ThreeLevelComposition(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "grandparent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "grandparent", "gck.yaml"), `
 kind:
   name: gp-cluster
   nodes:
@@ -257,7 +257,7 @@ components:
         gp-key: gp-val
 `)
 
-	writeFile(t, filepath.Join(root, "mid", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "mid", "gck.yaml"), `
 from:
   - grandparent
 
@@ -276,7 +276,7 @@ components:
       chart: mid/chart
 `)
 
-	writeFile(t, filepath.Join(root, "leaf", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "leaf", "gck.yaml"), `
 from:
   - mid
 
@@ -289,7 +289,7 @@ components:
       chart: leaf/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "leaf")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -321,9 +321,9 @@ components:
 
 func TestFSResolver_SameRegistryImplicit(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "base", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "base", "gck.yaml"), `
 components:
   - name: shared
     helm:
@@ -331,7 +331,7 @@ components:
 `)
 
 	// Child omits registry → uses the same FS registry
-	writeFile(t, filepath.Join(root, "derived", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "derived", "gck.yaml"), `
 from:
   - base
 
@@ -341,7 +341,7 @@ components:
       chart: extra/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "derived")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -354,16 +354,16 @@ components:
 func TestFSResolver_CrossRegistryComposition(t *testing.T) {
 	regA := t.TempDir()
 	regB := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(regA, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(regA, "parent", "gck.yaml"), `
 components:
   - name: from-a
     helm:
       chart: a/chart
 `)
 
-	writeFile(t, filepath.Join(regB, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(regB, "child", "gck.yaml"), `
 registry: file://`+regA+`
 from:
   - parent
@@ -374,7 +374,7 @@ components:
       chart: b/chart
 `)
 
-	resolver := &FSResolver{Root: regB, SewHome: sewHome}
+	resolver := &FSResolver{Root: regB, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -393,9 +393,9 @@ components:
 
 func TestFSResolver_RelativeFileRegistryURL(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "org", "base", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "org", "base", "gck.yaml"), `
 kind:
   name: base-cluster
 
@@ -405,7 +405,7 @@ components:
       chart: base/chart
 `)
 
-	writeFile(t, filepath.Join(root, "org", "variants", "custom", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "org", "variants", "custom", "gck.yaml"), `
 registry: file://../..
 from:
   - base
@@ -416,7 +416,7 @@ kind:
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "org/variants/custom")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -431,9 +431,9 @@ components: []
 
 func TestFSResolver_NoParent(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "standalone", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "standalone", "gck.yaml"), `
 kind:
   name: standalone
 
@@ -443,7 +443,7 @@ components:
       chart: app/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "standalone")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -627,9 +627,9 @@ func TestResolveRegistryURL_HTTPPassthrough(t *testing.T) {
 
 func TestFSResolver_ParentComposition_ImagesMerge(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 images:
   preload:
     refs:
@@ -642,7 +642,7 @@ components:
       chart: app/chart
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -655,7 +655,7 @@ images:
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -677,9 +677,9 @@ components: []
 
 func TestFSResolver_NoParent_ImagesPreserved(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "standalone", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "standalone", "gck.yaml"), `
 images:
   preload:
     refs:
@@ -691,7 +691,7 @@ components:
       chart: app/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "standalone")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -707,10 +707,10 @@ components:
 
 func TestFSResolver_DefaultVariant(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
 	writeFile(t, filepath.Join(root, "product", ".default"), `standard`)
-	writeFile(t, filepath.Join(root, "product", "standard", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "product", "standard", "gck.yaml"), `
 kind:
   name: standard-cluster
 
@@ -720,7 +720,7 @@ components:
       chart: std/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "product")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -735,9 +735,9 @@ components:
 
 func TestFSResolver_DefaultVariantWithComposition(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "base", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "base", "gck.yaml"), `
 helm:
   repos:
     - name: base-repo
@@ -749,7 +749,7 @@ components:
       chart: base/chart
 `)
 	writeFile(t, filepath.Join(root, "product", ".default"), `standard`)
-	writeFile(t, filepath.Join(root, "product", "standard", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "product", "standard", "gck.yaml"), `
 from:
   - base
 
@@ -759,7 +759,7 @@ components:
       chart: extra/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "product")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -774,25 +774,25 @@ components:
 
 func TestFSResolver_ThreeLevelCycleDetection(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "a", "gck.yaml"), `
 from:
   - b
 components: []
 `)
-	writeFile(t, filepath.Join(root, "b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "b", "gck.yaml"), `
 from:
   - c
 components: []
 `)
-	writeFile(t, filepath.Join(root, "c", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "c", "gck.yaml"), `
 from:
   - a
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	_, err := resolver.Resolve(context.Background(), "a")
 	if err == nil {
 		t.Fatal("expected cycle detection error for a→b→c→a")
@@ -804,9 +804,9 @@ components: []
 
 func TestFSResolver_MultiFromComposition(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "mongodb", "standalone", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "mongodb", "standalone", "gck.yaml"), `
 helm:
   repos:
     - name: mongodb-repo
@@ -826,7 +826,7 @@ components:
 `)
 	writeFile(t, filepath.Join(root, "mongodb", "standalone", "mongodb.yaml"), "# mongo manifest")
 
-	writeFile(t, filepath.Join(root, "elastic", "elasticsearch", "standalone", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "elastic", "elasticsearch", "standalone", "gck.yaml"), `
 helm:
   repos:
     - name: elastic-repo
@@ -847,7 +847,7 @@ components:
 `)
 	writeFile(t, filepath.Join(root, "elastic", "elasticsearch", "standalone", "values-elasticsearch.yaml"), "# elastic values")
 
-	writeFile(t, filepath.Join(root, "app", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "app", "gck.yaml"), `
 from:
   - mongodb/standalone
   - elastic/elasticsearch/standalone
@@ -866,7 +866,7 @@ components:
       chart: app/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "app")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -906,9 +906,9 @@ components:
 
 func TestFSResolver_MultiFromPathAbsolutization(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent-a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent-a", "gck.yaml"), `
 components:
   - name: comp-a
     type: helm
@@ -919,7 +919,7 @@ components:
 `)
 	writeFile(t, filepath.Join(root, "parent-a", "values-a.yaml"), "# values a")
 
-	writeFile(t, filepath.Join(root, "parent-b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent-b", "gck.yaml"), `
 components:
   - name: comp-b
     type: k8s
@@ -929,14 +929,14 @@ components:
 `)
 	writeFile(t, filepath.Join(root, "parent-b", "manifest-b.yaml"), "# manifest b")
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent-a
   - parent-b
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -970,9 +970,9 @@ components: []
 
 func TestFSResolver_AbstractContextDirect(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "base", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "base", "gck.yaml"), `
 abstract: true
 
 helm:
@@ -986,7 +986,7 @@ components:
       chart: base/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "base")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -998,9 +998,9 @@ components:
 
 func TestFSResolver_AbstractComposedProducesNonAbstract(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "base", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "base", "gck.yaml"), `
 abstract: true
 
 helm:
@@ -1014,7 +1014,7 @@ components:
       chart: base/chart
 `)
 
-	writeFile(t, filepath.Join(root, "concrete", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "concrete", "gck.yaml"), `
 from:
   - base
 
@@ -1024,7 +1024,7 @@ components:
       chart: extra/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "concrete")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1039,16 +1039,16 @@ components:
 
 func TestFSResolver_AbstractWithFrom(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "grandparent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "grandparent", "gck.yaml"), `
 components:
   - name: gp-comp
     helm:
       chart: gp/chart
 `)
 
-	writeFile(t, filepath.Join(root, "mid", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "mid", "gck.yaml"), `
 abstract: true
 from:
   - grandparent
@@ -1059,7 +1059,7 @@ components:
       chart: mid/chart
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "mid")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1074,27 +1074,27 @@ components:
 
 func TestFSResolver_MultiFromCycleDetection(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "a", "gck.yaml"), `
 from:
   - b
   - c
 components: []
 `)
-	writeFile(t, filepath.Join(root, "b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "b", "gck.yaml"), `
 components:
   - name: b-comp
     helm:
       chart: b/chart
 `)
-	writeFile(t, filepath.Join(root, "c", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "c", "gck.yaml"), `
 from:
   - a
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	_, err := resolver.Resolve(context.Background(), "a")
 	if err == nil {
 		t.Fatal("expected cycle detection error for a→c→a")
@@ -1119,9 +1119,9 @@ components: []
 // namespace "gravitee".
 func TestFSResolver_NamespacePropagatesThroughAbstractComposition(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "kafka", "standalone", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "kafka", "standalone", "gck.yaml"), `
 components:
   - name: kafka
     type: k8s
@@ -1158,14 +1158,14 @@ components:
               app: kafka
 `)
 
-	writeFile(t, filepath.Join(root, "oss", "postgres", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "oss", "postgres", "gck.yaml"), `
 components:
   - name: apim
     helm:
       chart: graviteeio/apim3
 `)
 
-	writeFile(t, filepath.Join(root, "ee", "kafka", "base", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ee", "kafka", "base", "gck.yaml"), `
 abstract: true
 from:
   - kafka/standalone
@@ -1192,7 +1192,7 @@ components:
             enabled: true
 `)
 
-	writeFile(t, filepath.Join(root, "ee", "kafka", "postgres", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ee", "kafka", "postgres", "gck.yaml"), `
 from:
   - oss/postgres
   - ee/kafka/base
@@ -1200,7 +1200,7 @@ from:
 
 	writeFile(t, filepath.Join(root, "ee", "kafka", ".default"), `postgres`)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "ee/kafka")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1239,24 +1239,24 @@ from:
 
 func TestFSResolver_NoParent_DiscoversFlagsInDir(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.yaml"), `
 components:
   - name: app
     helm:
       chart: app/chart
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck--disable-portal.yaml"), `
 description: "Disable portal"
 components: []
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew--disable-ui.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck--disable-ui.yaml"), `
 description: "Disable all UIs"
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "ctx")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1275,26 +1275,26 @@ components: []
 
 func TestFSResolver_ParentFlagsInherited(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 components:
   - name: app
     helm:
       chart: app/chart
 `)
-	writeFile(t, filepath.Join(root, "parent", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck--disable-portal.yaml"), `
 description: "Disable portal"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1313,30 +1313,30 @@ components: []
 
 func TestFSResolver_ChildFlagOverridesParent(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 components:
   - name: app
     helm:
       chart: app/chart
 `)
-	writeFile(t, filepath.Join(root, "parent", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck--disable-portal.yaml"), `
 description: "Parent: disable portal"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 components: []
 `)
-	writeFile(t, filepath.Join(root, "child", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck--disable-portal.yaml"), `
 description: "Child: disable portal with extras"
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1355,30 +1355,30 @@ components: []
 
 func TestFSResolver_ChildAddsFlagsToParent(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 components:
   - name: app
     helm:
       chart: app/chart
 `)
-	writeFile(t, filepath.Join(root, "parent", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck--disable-portal.yaml"), `
 description: "Disable portal"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 components: []
 `)
-	writeFile(t, filepath.Join(root, "child", "sew--disable-ui.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck--disable-ui.yaml"), `
 description: "Disable all UIs"
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1397,38 +1397,38 @@ components: []
 
 func TestFSResolver_MultiFromFlagsMerged(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent-a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent-a", "gck.yaml"), `
 components:
   - name: comp-a
     helm:
       chart: a/chart
 `)
-	writeFile(t, filepath.Join(root, "parent-a", "sew--flag-a.yaml"), `
+	writeFile(t, filepath.Join(root, "parent-a", "gck--flag-a.yaml"), `
 description: "Flag from A"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "parent-b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent-b", "gck.yaml"), `
 components:
   - name: comp-b
     helm:
       chart: b/chart
 `)
-	writeFile(t, filepath.Join(root, "parent-b", "sew--flag-b.yaml"), `
+	writeFile(t, filepath.Join(root, "parent-b", "gck--flag-b.yaml"), `
 description: "Flag from B"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent-a
   - parent-b
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "child")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1447,9 +1447,9 @@ components: []
 
 func TestFSResolver_TemplatedContext(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "tmpl-ctx", "sew.yaml"), `vars:
+	writeFile(t, filepath.Join(root, "tmpl-ctx", "gck.yaml"), `vars:
   helmVersion: ""
   imageTag: "latest"
 
@@ -1465,7 +1465,7 @@ components:
 
 	resolver := &FSResolver{
 		Root:         root,
-		SewHome:      sewHome,
+		GckHome:      gckHome,
 		SetOverrides: map[string]string{"imageTag": "4.12.0"},
 	}
 	resolved, err := resolver.Resolve(context.Background(), "tmpl-ctx")
@@ -1488,9 +1488,9 @@ components:
 
 func TestFSResolver_TemplatedContext_DefaultVars(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "default-ctx", "sew.yaml"), `vars:
+	writeFile(t, filepath.Join(root, "default-ctx", "gck.yaml"), `vars:
   imageTag: "latest"
 
 components:
@@ -1502,7 +1502,7 @@ components:
           tag: "{{ .imageTag }}"
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "default-ctx")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1516,9 +1516,9 @@ components:
 
 func TestFSResolver_TemplatedParentChild(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `vars:
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `vars:
   dbVersion: "15"
 
 components:
@@ -1528,7 +1528,7 @@ components:
       version: "{{ .dbVersion }}"
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `vars:
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `vars:
   imageTag: "latest"
 
 from:
@@ -1545,7 +1545,7 @@ components:
 
 	resolver := &FSResolver{
 		Root:         root,
-		SewHome:      sewHome,
+		GckHome:      gckHome,
 		SetOverrides: map[string]string{"dbVersion": "16", "imageTag": "v2"},
 	}
 	resolved, err := resolver.Resolve(context.Background(), "child")
@@ -1572,36 +1572,36 @@ components:
 
 func TestFSResolver_ThreeLevelFlagInheritance(t *testing.T) {
 	root := t.TempDir()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "grandparent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "grandparent", "gck.yaml"), `
 components:
   - name: gp-comp
     helm:
       chart: gp/chart
 `)
-	writeFile(t, filepath.Join(root, "grandparent", "sew--gp-flag.yaml"), `
+	writeFile(t, filepath.Join(root, "grandparent", "gck--gp-flag.yaml"), `
 description: "Grandparent flag"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "mid", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "mid", "gck.yaml"), `
 from:
   - grandparent
 components: []
 `)
-	writeFile(t, filepath.Join(root, "mid", "sew--mid-flag.yaml"), `
+	writeFile(t, filepath.Join(root, "mid", "gck--mid-flag.yaml"), `
 description: "Mid-level flag"
 components: []
 `)
 
-	writeFile(t, filepath.Join(root, "leaf", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "leaf", "gck.yaml"), `
 from:
   - mid
 components: []
 `)
 
-	resolver := &FSResolver{Root: root, SewHome: sewHome}
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
 	resolved, err := resolver.Resolve(context.Background(), "leaf")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

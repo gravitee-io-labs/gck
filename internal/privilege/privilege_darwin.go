@@ -14,7 +14,7 @@ import (
 // prompt in the terminal.
 func Elevate(command string) error {
 	cmd := exec.Command("sudo", "-p",
-		"\n  sew needs administrator privileges to configure load balancer network routing.\n  Password: ",
+		"\n  gck needs administrator privileges to configure load balancer network routing.\n  Password: ",
 		"sh", "-c", command,
 	)
 	cmd.Stdin = os.Stdin

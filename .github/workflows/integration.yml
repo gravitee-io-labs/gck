@@ -12,21 +12,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go build -o ./sew .
+      - run: go build -o ./gck .
 
       - name: Restore mirror cache
         uses: actions/cache@v4
         with:
-          path: ~/.sew/mirrors
-          key: sew-mirrors-${{ hashFiles('sew.yaml') }}
-          restore-keys: sew-mirrors-
+          path: ~/.gck/mirrors
+          key: gck-mirrors-${{ hashFiles('gck.yaml') }}
+          restore-keys: gck-mirrors-
 
       - name: Create cluster
-        run: ./sew create --config sew.local.yaml --from gravitee-io/oss/apim/dbless
+        run: ./gck create --config gck.local.yaml --from gravitee-io/oss/apim/dbless
 
       - name: Verify
-        run: ./sew describe gravitee
+        run: ./gck describe gravitee
 
       - name: Delete cluster
         if: always()
-        run: ./sew delete gravitee
+        run: ./gck delete gravitee

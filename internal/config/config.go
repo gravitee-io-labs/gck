@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	sewtmpl "github.com/a-cordier/sew/internal/template"
+	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
 
@@ -80,7 +80,7 @@ func Load(path string, setOverrides map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("reading config file %s: %w", path, err)
 	}
 
-	rendered, err := sewtmpl.Render(data, setOverrides)
+	rendered, err := gcktmpl.Render(data, setOverrides)
 	if err != nil {
 		return nil, fmt.Errorf("templating config file %s: %w", path, err)
 	}

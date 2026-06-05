@@ -10,26 +10,26 @@ Deploys a full Gravitee API Management stack (Console, Portal, Gateway, and
 Management API) backed by MongoDB for persistence and OpenSearch for
 analytics.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from gravitee-io/oss/apim/opensearch/mongodb
+gck create --from gravitee-io/oss/apim/opensearch/mongodb
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start

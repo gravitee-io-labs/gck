@@ -9,10 +9,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/a-cordier/sew/internal/cloudprovider"
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/dns"
-	"github.com/a-cordier/sew/internal/state"
+	"github.com/gravitee-io-labs/gck/internal/cloudprovider"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/dns"
+	"github.com/gravitee-io-labs/gck/internal/state"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,7 @@ import (
 var describeCmd = &cobra.Command{
 	Use:         "describe [name]",
 	Short:       "Show detailed information about a cluster",
-	Annotations: map[string]string{"sew_skip_config": "true"},
+	Annotations: map[string]string{"gck_skip_config": "true"},
 	Args:        cobra.MaximumNArgs(1),
 	RunE:        runDescribe,
 }
@@ -30,7 +30,7 @@ func init() {
 }
 
 func runDescribe(_ *cobra.Command, args []string) error {
-	stateDir := filepath.Join(sewHome, "clusters")
+	stateDir := filepath.Join(gckHome, "clusters")
 
 	cs, err := resolveDescribeTarget(stateDir, args)
 	if err != nil {
@@ -79,11 +79,11 @@ func resolveDescribeTarget(stateDir string, args []string) (*state.ClusterState,
 
 	switch len(names) {
 	case 0:
-		return nil, fmt.Errorf("no clusters found; create one with \"sew create\"")
+		return nil, fmt.Errorf("no clusters found; create one with \"gck create\"")
 	case 1:
 		return state.Load(stateDir, names[0])
 	default:
-		return nil, fmt.Errorf("multiple clusters found; specify a name or run \"sew list\" to see them")
+		return nil, fmt.Errorf("multiple clusters found; specify a name or run \"gck list\" to see them")
 	}
 }
 
@@ -157,7 +157,7 @@ func printDescribeDNS(bold *color.Color, features config.FeaturesConfig) {
 	if resolverOK {
 		color.Blue("  resolver: configured for %s", domain)
 	} else {
-		color.Yellow("  resolver: not configured (run \"sew setup dns\")")
+		color.Yellow("  resolver: not configured (run \"gck setup dns\")")
 	}
 
 	serverRunning := isDNSServerRunning()
@@ -167,7 +167,7 @@ func printDescribeDNS(bold *color.Color, features config.FeaturesConfig) {
 		color.Yellow("  server:   not running")
 	}
 
-	dnsDir := filepath.Join(sewHome, "dns")
+	dnsDir := filepath.Join(gckHome, "dns")
 	printDNSRecords(dnsDir)
 }
 
@@ -210,7 +210,7 @@ func printDNSRecords(dnsDir string) {
 }
 
 func isDNSServerRunning() bool {
-	pidPath := filepath.Join(sewHome, "pids", "dns.pid")
+	pidPath := filepath.Join(gckHome, "pids", "dns.pid")
 	data, err := os.ReadFile(pidPath)
 	if err != nil {
 		return false

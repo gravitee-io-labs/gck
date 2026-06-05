@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 func TestSaveAndLoad(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSaveAndLoadWithContextInfo(t *testing.T) {
 		Registry:  "file://./registry",
 		From:      []string{"gravitee-io/oss/apim/jdbc/postgres"},
 		Features: config.FeaturesConfig{
-			DNS: &config.DNSConfig{Enabled: true, Domain: "sew.local"},
+			DNS: &config.DNSConfig{Enabled: true, Domain: "gck.local"},
 		},
 	}
 

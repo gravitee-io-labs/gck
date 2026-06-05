@@ -1,5 +1,0 @@
-registry: https://a-cordier.github.io/sew
-kind:
-  name: sew
-  nodes:
-    - role: control-plane

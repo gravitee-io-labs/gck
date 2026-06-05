@@ -10,43 +10,43 @@ Deploys a full Gravitee API Management Enterprise Edition stack (Console,
 Portal, Gateway, and Management API) backed by PostgreSQL via JDBC for
 persistence and Elasticsearch for analytics. The Kafka Gateway is enabled
 by default, allowing the APIM Gateway to act as a Kafka proxy — clients
-connect using the Kafka protocol via `*.kafka.sew.local:9092` with TLS.
+connect using the Kafka protocol via `*.kafka.gck.local:9092` with TLS.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
-This context uses DNS for host-based Kafka routing (`*.kafka.sew.local`).
+This context uses DNS for host-based Kafka routing (`*.kafka.gck.local`).
 After creating the cluster, run the one-time OS setup so these hostnames
 resolve on your machine:
 
 ```bash
-sew setup dns
+gck setup dns
 ```
 
 > The setup command requires `sudo` because it writes to system
 > directories: `/etc/resolver/` on macOS, and `systemd-resolved`
-> configuration on Linux. Once done, day-to-day `sew create` and
-> `sew delete` commands run without elevated privileges.
+> configuration on Linux. Once done, day-to-day `gck create` and
+> `gck delete` commands run without elevated privileges.
 
-See the [Networking guide](https://a-cordier.github.io/sew/docs/guides/networking/#local-dns) for details.
+See the [Networking guide](https://gravitee-io-labs.github.io/gck/docs/guides/networking/#local-dns) for details.
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from gravitee-io/ee/apim/jdbc/postgres
+gck create --from gravitee-io/ee/apim/jdbc/postgres
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start
@@ -75,8 +75,8 @@ ssl.endpoint.identification.algorithm=
 ```
 
 The `ssl.endpoint.identification.algorithm` must be set to empty because the
-self-signed certificate covers `*.kafka.sew.local` but broker metadata
-addresses use two-level subdomains (e.g. `broker-0-acr.kafka.sew.local`)
+self-signed certificate covers `*.kafka.gck.local` but broker metadata
+addresses use two-level subdomains (e.g. `broker-0-acr.kafka.gck.local`)
 that don't match the single-level wildcard.
 
 ## Endpoints
@@ -87,16 +87,16 @@ that don't match the single-level wildcard.
 | APIM Portal    | http://localhost:30081           |
 | APIM Gateway   | http://localhost:30082           |
 | Management API | http://localhost:30083           |
-| Kafka Gateway  | `*.kafka.sew.local:9092` (TLS)  |
+| Kafka Gateway  | `*.kafka.gck.local:9092` (TLS)  |
 
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Gravitee license
-key at `$HOME/opt/gravitee/license.key` and sew will automatically mount
+key at `$HOME/opt/gravitee/license.key` and gck will automatically mount
 it into the cluster. If the file is missing, the license component is
 silently skipped (`onMissing: ignore`).
 
-To use a different path, override it in your `sew.yaml`:
+To use a different path, override it in your `gck.yaml`:
 
 ```yaml
 components:

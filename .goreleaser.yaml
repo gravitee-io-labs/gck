@@ -5,7 +5,7 @@ release:
 
 builds:
   - main: .
-    binary: sew
+    binary: gck
     ldflags:
       - -s -w -X main.version={{ .Version }}
     env:
@@ -25,19 +25,19 @@ archives:
 
 brews:
   - repository:
-      owner: a-cordier
-      name: sew
+      owner: gravitee-io-labs
+      name: gck
     directory: HomebrewFormula
-    homepage: https://a-cordier.github.io/sew/
-    description: "Kubernetes application stacks for dev, test, and CI"
+    homepage: https://gravitee-io-labs.github.io/gck/
+    description: "Provisions ready-made stacks on local Kubernetes clusters in one command"
     license: Apache-2.0
     test: |
-      system "#{bin}/sew", "version"
+      system "#{bin}/gck", "version"
 
 nfpms:
-  - package_name: sew
-    homepage: https://a-cordier.github.io/sew/
-    description: "Kubernetes application stacks for dev, test, and CI"
+  - package_name: gck
+    homepage: https://gravitee-io-labs.github.io/gck/
+    description: "Provisions ready-made stacks on local Kubernetes clusters in one command"
     license: Apache-2.0
     formats:
       - deb

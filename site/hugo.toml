@@ -1,11 +1,11 @@
-baseURL = "https://a-cordier.github.io/sew/"
+baseURL = "https://gravitee-io-labs.github.io/gck/"
 languageCode = "en-us"
-title = "sew"
+title = "gck"
 
 [params]
-  description = "Your local Kubernetes tailor shop"
-  tagline = "sew provisions local Kubernetes clusters from a registry of composable application stacks. Each stack packages its Helm charts, manifests, networking, and dependencies into a single deployable unit. One command sets everything up."
-  githubRepo = "https://github.com/a-cordier/sew"
+  description = "Gravitee Cluster Kit"
+  tagline = "gck provisions ready-made stacks on local Kubernetes clusters in one command. From dev to CI, compose what you need from a registry and deploy it."
+  githubRepo = "https://github.com/gravitee-io-labs/gck"
   pinnedGroups = ["gravitee-io"]
 
 [menu]
@@ -19,7 +19,7 @@ title = "sew"
     weight = 2
   [[menu.main]]
     name = "GitHub"
-    url = "https://github.com/a-cordier/sew"
+    url = "https://github.com/gravitee-io-labs/gck"
     weight = 3
 
 [markup]

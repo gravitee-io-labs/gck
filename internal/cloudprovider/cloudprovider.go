@@ -1,9 +1,9 @@
 // Package cloudprovider wraps cloud-provider-kind (CPK) to provide one-shot
 // load balancer provisioning and Gateway API CRD installation for Kind clusters.
 //
-// During "sew create", EnsureLBs scans the cluster for Services of type LoadBalancer
+// During "gck create", EnsureLBs scans the cluster for Services of type LoadBalancer
 // and creates Docker proxy containers (envoy) for each. These containers persist
-// independently after sew exits. CleanupLBs removes them during "sew delete".
+// independently after gck exits. CleanupLBs removes them during "gck delete".
 package cloudprovider
 
 import (
@@ -20,8 +20,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/privilege"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/privilege"
 	cpkconfig "sigs.k8s.io/cloud-provider-kind/pkg/config"
 	"sigs.k8s.io/cloud-provider-kind/pkg/container"
 	"sigs.k8s.io/cloud-provider-kind/pkg/constants"

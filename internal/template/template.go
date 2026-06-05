@@ -1,4 +1,4 @@
-package sewtmpl
+package gcktmpl
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Render templates raw sew.yaml bytes by extracting the vars block,
+// Render templates raw gck.yaml bytes by extracting the vars block,
 // merging with --set overrides, and executing the document as a Go
 // text/template. The returned bytes are ready for YAML unmarshaling.
 func Render(raw []byte, setOverrides map[string]string) ([]byte, error) {
@@ -26,12 +26,12 @@ func Render(raw []byte, setOverrides map[string]string) ([]byte, error) {
 	return RenderWithVars(raw, vars)
 }
 
-// RenderWithVars templates raw sew.yaml bytes using a pre-computed
+// RenderWithVars templates raw gck.yaml bytes using a pre-computed
 // variable map. Unlike Render, it does not extract vars from the document
 // or apply --set overrides — the caller is responsible for providing the
 // fully-merged effective vars.
 func RenderWithVars(raw []byte, vars map[string]string) ([]byte, error) {
-	tmpl, err := template.New("sew").
+	tmpl, err := template.New("gck").
 		Option("missingkey=error").
 		Funcs(funcMap()).
 		Parse(string(raw))
@@ -69,7 +69,7 @@ type VarsTree struct {
 	Overrides []VarOverride
 }
 
-// ExtractVarsTree scans raw sew.yaml bytes for a top-level vars block and
+// ExtractVarsTree scans raw gck.yaml bytes for a top-level vars block and
 // separates own var declarations from path-scoped overrides.
 //
 // Disambiguation: a mapping node with a "default" key is a var declaration
@@ -182,7 +182,7 @@ func collectOverrides(node *yaml.Node, pathPrefix string) ([]VarOverride, error)
 	return overrides, nil
 }
 
-// ExtractVarDefs scans raw sew.yaml bytes for a top-level vars block and
+// ExtractVarDefs scans raw gck.yaml bytes for a top-level vars block and
 // returns structured metadata for each variable. Supports both simple
 // (key: "value") and extended (key: {default: "value", description: "..."})
 // forms. Path-scoped override entries are excluded.
@@ -247,7 +247,7 @@ func isolateVarsBlock(raw []byte) (string, bool) {
 	return strings.Join(lines[start:end], "\n"), true
 }
 
-// funcMap returns the template.FuncMap shared by all sew template
+// funcMap returns the template.FuncMap shared by all gck template
 // rendering. It provides:
 //
 //   - env: returns the value of an environment variable.

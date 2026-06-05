@@ -4,15 +4,15 @@ weight: 7
 type: docs
 ---
 
-sew is designed from the ground up to work well with AI coding assistants. Whether you use Cursor, Codex, Copilot, or another AI toolchain, everything in the repo is structured so your assistant can understand the project, validate configs, and follow product-specific rules without guessing.
+gck is designed from the ground up to work well with AI coding assistants. Whether you use Cursor, Codex, Copilot, or another AI toolchain, everything in the repo is structured so your assistant can understand the project, validate configs, and follow product-specific rules without guessing.
 
-This page explains what makes sew agent-friendly, and how you as a maintainer can extend these capabilities for your own products.
+This page explains what makes gck agent-friendly, and how you as a maintainer can extend these capabilities for your own products.
 
-## What makes sew AI-friendly
+## What makes gck AI-friendly
 
 Three things work together:
 
-1. **A typed config schema** -- sew comes with a [JSON Schema](https://github.com/a-cordier/sew/blob/main/schema/sew.schema.yaml) that describes every field in `sew.yaml`. Agents use it to validate configs, discover available options, and generate correct YAML without having to explore the source code.
+1. **A typed config schema** -- gck comes with a [JSON Schema](https://github.com/gravitee-io-labs/gck/blob/main/schema/gck.schema.yaml) that describes every field in `gck.yaml`. Agents use it to validate configs, discover available options, and generate correct YAML without having to explore the source code.
 2. **A structured registry** -- the registry is designed with a well-structured hierarchy that makes it easy for an agent to discover available contexts, understand what each one does, and compose them together.
 3. **Explicit agent rules** -- `AGENTS.md` at the repo root gives agents project-wide guidance, and product-specific instruction files in `agents/` provide domain rules scoped to particular registry subtrees.
 
@@ -20,9 +20,9 @@ Three things work together:
 
 The `AGENTS.md` file sits at the repository root. AI coding assistants (Cursor, Codex, etc.) automatically discover and read it when they open the project. It tells the agent:
 
-- **What sew is** -- a one-line description so the agent has context.
-- **Where the schema lives** -- points to `schema/sew.schema.yaml` and tells the agent to prefer it over reading Go source code.
-- **Agent-specific rules** -- guardrails like "always run `task lint` and `task test` before proposing changes" and "validate `sew.yaml` files against the schema."
+- **What gck is** -- a one-line description so the agent has context.
+- **Where the schema lives** -- points to `schema/gck.schema.yaml` and tells the agent to prefer it over reading Go source code.
+- **Agent-specific rules** -- guardrails like "always run `task lint` and `task test` before proposing changes" and "validate `gck.yaml` files against the schema."
 - **Product-specific instructions** -- a table linking to dedicated instruction files for each product in the registry.
 
 Here's what the structure looks like:
@@ -30,20 +30,20 @@ Here's what the structure looks like:
 ```markdown
 # AGENTS.md
 
-sew is a CLI tool that makes Kubernetes stacks for dev, test, and CI
+gck is a CLI tool that makes Kubernetes stacks for dev, test, and CI
 easy to use and easy to maintain — compose what you need from a registry and deploy it in one command.
 
 ## Guidelines
 Read and follow CONTRIBUTING.md for toolchain, commit conventions, ...
 
 ## Schema
-The machine-readable JSON Schema for sew.yaml lives at
-schema/sew.schema.yaml. Use it as the primary reference ...
+The machine-readable JSON Schema for gck.yaml lives at
+schema/gck.schema.yaml. Use it as the primary reference ...
 
 ## Agent-specific rules
 - Do not add AI-attribution footers to commits
 - Always run task lint and task test before proposing changes
-- When authoring sew.yaml files, validate against the schema
+- When authoring gck.yaml files, validate against the schema
 - ...
 
 ## Product-specific instructions
@@ -101,9 +101,9 @@ This scans `agents/*-agent.md` files, reads their front matter, and regenerates 
 
 ## The config schema
 
-The JSON Schema at `schema/sew.schema.yaml` is the machine-readable contract for `sew.yaml`. It defines every field, its type, description, default value, and allowed values. Agents use it to:
+The JSON Schema at `schema/gck.schema.yaml` is the machine-readable contract for `gck.yaml`. It defines every field, its type, description, default value, and allowed values. Agents use it to:
 
-- **Validate** existing configs -- catch typos, missing required fields, or invalid values before running `sew create`.
+- **Validate** existing configs -- catch typos, missing required fields, or invalid values before running `gck create`.
 - **Generate** new configs -- produce correct YAML by following the schema's structure and constraints.
 - **Discover** options -- understand what features are available (DNS, load balancers, Gateway API, image mirrors) without reading documentation.
 
@@ -116,14 +116,14 @@ See the [Configuration reference]({{< ref "/docs/reference/configuration" >}}) f
 The registry is designed to be both human-readable and machine-parseable. Its well-structured hierarchy makes it easy for an agent to browse available contexts, read their metadata, and compose them together:
 
 - **README front matter** -- `title`, `description`, and `tags` in YAML front matter give agents structured metadata about each context without parsing free-text.
-- **`sew.yaml` in every context** -- a single, schema-validated file that describes the entire stack. No implicit configuration, no magic.
+- **`gck.yaml` in every context** -- a single, schema-validated file that describes the entire stack. No implicit configuration, no magic.
 
 ## Making your product AI-friendly
 
-If you maintain contexts in the sew registry and want AI assistants to work well with your product, follow this checklist:
+If you maintain contexts in the gck registry and want AI assistants to work well with your product, follow this checklist:
 
 1. **Create an agent instruction file** at `agents/<product>-agent.md` with YAML front matter (`product`, `paths`) and your domain rules.
 2. **Run `task agents:update`** to regenerate the product table in `AGENTS.md`.
 3. **Add front matter to every README** (`title`, `description`, `tags`) so the registry browser and agents can discover your contexts.
-4. **Validate your `sew.yaml` files against the schema** -- if the schema doesn't cover a field you need, contribute to the schema first.
+4. **Validate your `gck.yaml` files against the schema** -- if the schema doesn't cover a field you need, contribute to the schema first.
 5. **Document required patterns** in your agent file -- license handling, naming conventions, mandatory components, anything an agent needs to know to produce correct contexts.

@@ -6,29 +6,29 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/logger"
-	"github.com/a-cordier/sew/internal/registry"
-	internalschema "github.com/a-cordier/sew/internal/schema"
+	"github.com/gravitee-io-labs/gck/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/registry"
+	internalschema "github.com/gravitee-io-labs/gck/internal/schema"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/spf13/cobra"
 )
 
 var validateCmd = &cobra.Command{
 	Use:   "validate [path...]",
-	Short: "Validate sew.yaml and context flag files against the configuration schema",
-	Long: `Validate one or more sew.yaml files against the sew configuration schema.
+	Short: "Validate gck.yaml and context flag files against the configuration schema",
+	Long: `Validate one or more gck.yaml files against the gck configuration schema.
 
-Each argument can be a path to a sew.yaml file or a directory. When a
-directory is given, all sew.yaml and sew--*.yaml (context flag) files
+Each argument can be a path to a gck.yaml file or a directory. When a
+directory is given, all gck.yaml and gck--*.yaml (context flag) files
 under it are validated recursively. Context flag files are additionally
 checked for a valid naming convention and a non-empty description field.
 
 When --tags is provided with a path to a tags vocabulary file, README.md
-files that sit alongside a sew.yaml are also checked: every tag in the
+files that sit alongside a gck.yaml are also checked: every tag in the
 README's YAML frontmatter must belong to the allowed set. When --tags is
 omitted, tag validation is skipped entirely.
 
-When no argument is given, validates ./sew.yaml in the current directory.`,
+When no argument is given, validates ./gck.yaml in the current directory.`,
 	RunE: runValidate,
 }
 
@@ -40,7 +40,7 @@ func init() {
 }
 
 func isFlagFile(name string) bool {
-	return strings.HasPrefix(name, "sew--") && strings.HasSuffix(name, ".yaml")
+	return strings.HasPrefix(name, "gck--") && strings.HasSuffix(name, ".yaml")
 }
 
 func runValidate(_ *cobra.Command, args []string) error {
@@ -51,12 +51,12 @@ func runValidate(_ *cobra.Command, args []string) error {
 
 	targets := args
 	if len(targets) == 0 {
-		targets = []string{"sew.yaml"}
+		targets = []string{"gck.yaml"}
 	}
 
-	// sewDirs tracks directories that contain a sew.yaml so we can locate
+	// gckDirs tracks directories that contain a gck.yaml so we can locate
 	// README.md files sitting alongside them for tag validation.
-	sewDirs := make(map[string]bool)
+	gckDirs := make(map[string]bool)
 
 	var configFiles []string
 	var flagFiles []string
@@ -86,9 +86,9 @@ func runValidate(_ *cobra.Command, args []string) error {
 				return nil
 			}
 			name := fi.Name()
-			if name == "sew.yaml" {
+			if name == "gck.yaml" {
 				configFiles = append(configFiles, path)
-				sewDirs[filepath.Dir(path)] = true
+				gckDirs[filepath.Dir(path)] = true
 			} else if isFlagFile(name) {
 				flagFiles = append(flagFiles, path)
 			}
@@ -106,7 +106,7 @@ func runValidate(_ *cobra.Command, args []string) error {
 
 	total := len(configFiles) + len(flagFiles)
 	if total == 0 && failed == 0 {
-		return fmt.Errorf("no sew.yaml or flag files found")
+		return fmt.Errorf("no gck.yaml or flag files found")
 	}
 	for _, f := range configFiles {
 		if err := internalschema.ValidateFile(sch, f); err != nil {
@@ -127,7 +127,7 @@ func runValidate(_ *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("loading tags: %w", err)
 		}
-		for dir := range sewDirs {
+		for dir := range gckDirs {
 			readme := filepath.Join(dir, "README.md")
 			if _, err := os.Stat(readme); err != nil {
 				continue

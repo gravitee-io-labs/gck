@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/spf13/pflag"
 )
 
@@ -23,7 +23,7 @@ func writeFile(t *testing.T, path, content string) {
 func setupCfg(t *testing.T, registryRoot string, from []string) {
 	t.Helper()
 	resetContextConfigCache()
-	sewHome = t.TempDir()
+	gckHome = t.TempDir()
 	cfg = &config.Config{
 		Registry: "file://" + registryRoot,
 		From:     from,
@@ -70,7 +70,7 @@ func TestParseSetValues_Empty(t *testing.T) {
 func TestResolveContextConfig_TemplatedContext(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "tmpl-ctx", "sew.yaml"), `vars:
+	writeFile(t, filepath.Join(root, "tmpl-ctx", "gck.yaml"), `vars:
   imageTag: "latest"
 
 kind:
@@ -86,7 +86,7 @@ components:
 `)
 
 	resetContextConfigCache()
-	sewHome = t.TempDir()
+	gckHome = t.TempDir()
 	setOverrides = map[string]string{"imageTag": "4.12.0"}
 	cfg = &config.Config{
 		Registry: "file://" + root,
@@ -110,7 +110,7 @@ components:
 func TestResolveContextConfig_MultiFrom_LeftToRightMerge(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "ctx-a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx-a", "gck.yaml"), `
 kind:
   name: cluster-a
   nodes:
@@ -130,7 +130,7 @@ components:
       chart: a/chart
 `)
 
-	writeFile(t, filepath.Join(root, "ctx-b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx-b", "gck.yaml"), `
 kind:
   name: cluster-b
   nodes:
@@ -184,7 +184,7 @@ components:
 func TestResolveContextConfig_MultiFrom_PortOverride(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "base-infra", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "base-infra", "gck.yaml"), `
 kind:
   nodes:
   - role: control-plane
@@ -200,7 +200,7 @@ components:
       chart: kafka/chart
 `)
 
-	writeFile(t, filepath.Join(root, "gateway", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "gateway", "gck.yaml"), `
 kind:
   nodes:
   - role: control-plane
@@ -236,7 +236,7 @@ components:
 func TestResolveContextConfig_MultiFrom_FeaturesMerge(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "feat-a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "feat-a", "gck.yaml"), `
 features:
   lb:
     enabled: true
@@ -250,7 +250,7 @@ components:
       chart: a/chart
 `)
 
-	writeFile(t, filepath.Join(root, "feat-b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "feat-b", "gck.yaml"), `
 features:
   dns:
     enabled: true
@@ -284,7 +284,7 @@ components:
 func TestResolveContextConfig_MultiFrom_ImagesMerge(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "img-a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "img-a", "gck.yaml"), `
 images:
   preload:
     refs:
@@ -297,7 +297,7 @@ components:
       chart: a/chart
 `)
 
-	writeFile(t, filepath.Join(root, "img-b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "img-b", "gck.yaml"), `
 images:
   preload:
     refs:
@@ -335,7 +335,7 @@ components:
 func TestResolveContextConfig_MultiFrom_AbstractSkipped(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "abstract-ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "abstract-ctx", "gck.yaml"), `
 abstract: true
 
 components:
@@ -344,7 +344,7 @@ components:
       chart: base/chart
 `)
 
-	writeFile(t, filepath.Join(root, "concrete-ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "concrete-ctx", "gck.yaml"), `
 components:
   - name: extra
     helm:
@@ -368,7 +368,7 @@ components:
 func TestResolveContextConfig_SingleFrom_AbstractBlocked(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "abstract-only", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "abstract-only", "gck.yaml"), `
 abstract: true
 
 components:
@@ -391,7 +391,7 @@ components:
 func TestResolveContextConfig_SingleFrom_NonAbstract(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "simple", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "simple", "gck.yaml"), `
 kind:
   name: simple-cluster
 
@@ -420,7 +420,7 @@ components:
 
 func TestResolveContextConfig_NoRegistryReturnsNil(t *testing.T) {
 	resetContextConfigCache()
-	sewHome = t.TempDir()
+	gckHome = t.TempDir()
 	cfg = &config.Config{
 		From: []string{"something"},
 	}
@@ -436,7 +436,7 @@ func TestResolveContextConfig_NoRegistryReturnsNil(t *testing.T) {
 
 func TestResolveContextConfig_NoFromReturnsNil(t *testing.T) {
 	resetContextConfigCache()
-	sewHome = t.TempDir()
+	gckHome = t.TempDir()
 	cfg = &config.Config{
 		Registry: "file:///some/path",
 	}
@@ -453,7 +453,7 @@ func TestResolveContextConfig_NoFromReturnsNil(t *testing.T) {
 func TestResolveContextConfig_MultiFrom_ComponentOverride(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "provider", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "provider", "gck.yaml"), `
 components:
   - name: database
     helm:
@@ -464,7 +464,7 @@ components:
           enabled: false
 `)
 
-	writeFile(t, filepath.Join(root, "consumer", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "consumer", "gck.yaml"), `
 components:
   - name: database
     helm:
@@ -497,7 +497,7 @@ components:
 func TestResolveContextConfig_MultiFrom_ThreeContexts(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "first", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "first", "gck.yaml"), `
 kind:
   name: first-cluster
   nodes:
@@ -512,7 +512,7 @@ components:
       chart: first/chart
 `)
 
-	writeFile(t, filepath.Join(root, "second", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "second", "gck.yaml"), `
 kind:
   name: second-cluster
   nodes:
@@ -527,7 +527,7 @@ components:
       chart: second/chart
 `)
 
-	writeFile(t, filepath.Join(root, "third", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "third", "gck.yaml"), `
 kind:
   name: third-cluster
 
@@ -567,7 +567,7 @@ components:
 func TestResolveContextConfig_MultiFrom_UserCfgOverridesContext(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "ctx-a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx-a", "gck.yaml"), `
 features:
   lb:
     enabled: true
@@ -578,7 +578,7 @@ components:
       chart: a/chart
 `)
 
-	writeFile(t, filepath.Join(root, "ctx-b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx-b", "gck.yaml"), `
 components:
   - name: comp-b
     helm:
@@ -586,7 +586,7 @@ components:
 `)
 
 	resetContextConfigCache()
-	sewHome = t.TempDir()
+	gckHome = t.TempDir()
 	cfg = &config.Config{
 		Registry: "file://" + root,
 		From:     []string{"ctx-a", "ctx-b"},
@@ -621,7 +621,7 @@ func TestExtractActiveFlags_NoContextFlagsPassed(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--config", "sew.yaml"},
+		[]string{"gck", "create", "--config", "gck.yaml"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -641,7 +641,7 @@ func TestExtractActiveFlags_RecognizesContextFlag(t *testing.T) {
 	}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--from", "ctx", "--disable-portal"},
+		[]string{"gck", "create", "--from", "ctx", "--disable-portal"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -662,7 +662,7 @@ func TestExtractActiveFlags_MultipleContextFlags(t *testing.T) {
 	}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--disable-portal", "--disable-es"},
+		[]string{"gck", "create", "--disable-portal", "--disable-es"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -679,7 +679,7 @@ func TestExtractActiveFlags_UnknownFlag(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	_, err := extractActiveFlags(
-		[]string{"sew", "create", "--no-such-flag"},
+		[]string{"gck", "create", "--no-such-flag"},
 		inherited, local, available,
 	)
 	if err == nil {
@@ -699,7 +699,7 @@ func TestExtractActiveFlags_SkipsKnownCobraFlags(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--config", "sew.yaml", "--registry", "http://r", "--name", "test", "--disable-portal"},
+		[]string{"gck", "create", "--config", "gck.yaml", "--registry", "http://r", "--name", "test", "--disable-portal"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -716,7 +716,7 @@ func TestExtractActiveFlags_StopsAtDoubleDash(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--", "--disable-portal"},
+		[]string{"gck", "create", "--", "--disable-portal"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -733,7 +733,7 @@ func TestExtractActiveFlags_EqualsForm(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--disable-portal=true"},
+		[]string{"gck", "create", "--disable-portal=true"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -750,7 +750,7 @@ func TestExtractActiveFlags_SkipsHelpAndVersion(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "--help"},
+		[]string{"gck", "create", "--help"},
 		inherited, local, available,
 	)
 	if err != nil {
@@ -767,7 +767,7 @@ func TestExtractActiveFlags_IgnoresSingleDash(t *testing.T) {
 	available := []config.ContextFlag{{Name: "disable-portal"}}
 
 	active, err := extractActiveFlags(
-		[]string{"sew", "create", "-v", "--disable-portal"},
+		[]string{"gck", "create", "-v", "--disable-portal"},
 		inherited, local, available,
 	)
 	if err != nil {

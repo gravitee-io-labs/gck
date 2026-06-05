@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

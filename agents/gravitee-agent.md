@@ -24,24 +24,24 @@ conventional path:
 $HOME/opt/gravitee/license.key
 ```
 
-> In sew.yaml files, reference this path using the `env` template function:
+> In gck.yaml files, reference this path using the `env` template function:
 > `{{ env "HOME" }}/opt/gravitee/license.key`.
 
 If you place your license at this location, there is nothing else to
-do -- sew will automatically mount it into the cluster as a Kubernetes
+do -- gck will automatically mount it into the cluster as a Kubernetes
 Secret and wire it into the gateway and API components.
 
 If you store your license at a different location, you can override the
-path from your own project-level `sew.yaml` without modifying the
+path from your own project-level `gck.yaml` without modifying the
 registry context (see [Overriding the license
 path](#overriding-the-license-path) below).
 
-### sew.yaml requirements
+### gck.yaml requirements
 
 The license must be mounted as a Kubernetes Secret with `onMissing: ignore`
 so the context still works (gracefully degraded) when the file is absent.
 
-Every Gravitee-platform EE context `sew.yaml` (APIM, AM, etc.) or its
+Every Gravitee-platform EE context `gck.yaml` (APIM, AM, etc.) or its
 abstract base must include the following components exactly as shown.
 Products with their own license format (e.g. Edge Stack) document their
 own pattern in their product agent file.
@@ -90,12 +90,12 @@ components:
 ### Overriding the license path
 
 If you keep your license at a different location, you can override it
-in your own `sew.yaml` without touching the registry. The `license`
+in your own `gck.yaml` without touching the registry. The `license`
 component is merged by name, so only the `fromFile` field needs to be
 set:
 
 ```yaml
-# user sew.yaml
+# user gck.yaml
 components:
   - name: license
     k8s:
@@ -114,11 +114,11 @@ consistent):
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Gravitee license
-key at `$HOME/opt/gravitee/license.key` and sew will automatically mount
+key at `$HOME/opt/gravitee/license.key` and gck will automatically mount
 it into the cluster. If the file is missing, the license component is
 silently skipped (`onMissing: ignore`).
 
-To use a different path, override it in your `sew.yaml`:
+To use a different path, override it in your `gck.yaml`:
 
 \```yaml
 components:

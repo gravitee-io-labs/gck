@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/a-cordier/sew/internal/build"
-	"github.com/a-cordier/sew/internal/config"
-	"github.com/a-cordier/sew/internal/kind"
-	"github.com/a-cordier/sew/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/build"
+	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/kind"
+	"github.com/gravitee-io-labs/gck/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ var buildCmd = &cobra.Command{
 cluster's preload registry, and restart any Deployments or StatefulSets
 that reference them.
 
-Build entries are defined in the "builds" section of sew.yaml.
+Build entries are defined in the "builds" section of gck.yaml.
 When called without arguments, all entries are built. Pass one or more
 names to build a subset.
 
@@ -56,7 +56,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(cfg.Builds) == 0 {
-		return fmt.Errorf("no builds defined in config; add a \"builds\" section to sew.yaml")
+		return fmt.Errorf("no builds defined in config; add a \"builds\" section to gck.yaml")
 	}
 
 	clusterName := buildCluster
@@ -70,7 +70,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 	if !exists {
 		if !buildCreate {
-			return fmt.Errorf("cluster %q not found — create it first with \"sew create\" or pass --create", clusterName)
+			return fmt.Errorf("cluster %q not found — create it first with \"gck create\" or pass --create", clusterName)
 		}
 		activeFlags, err := applyContextFlags(cmd, resolved)
 		if err != nil {
@@ -87,7 +87,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	logDir := filepath.Join(sewHome, "logs", "build")
+	logDir := filepath.Join(gckHome, "logs", "build")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return fmt.Errorf("creating build log directory: %w", err)
 	}
@@ -103,7 +103,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	opts := build.Options{
 		ClusterName: clusterName,
-		SewHome:     sewHome,
+		GckHome:     gckHome,
 		SkipPre:     buildSkipPre,
 		NoRestart:   buildNoRestart,
 		LogWriter:   logFile,

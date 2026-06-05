@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/a-cordier/sew/cmd"
+	"github.com/gravitee-io-labs/gck/cmd"
 )
 
 var version = "dev"
@@ -19,10 +19,10 @@ func init() {
 	}
 }
 
-//go:embed sew.yaml
+//go:embed gck.yaml
 var defaultConfigData []byte
 
-//go:embed schema/sew.schema.yaml
+//go:embed schema/gck.schema.yaml
 var schemaData []byte
 
 func main() {

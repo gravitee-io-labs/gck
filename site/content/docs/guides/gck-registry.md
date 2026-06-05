@@ -8,7 +8,7 @@ The registry is where you find ready-to-use application stacks. It's a structure
 
 ## The default registry
 
-sew ships with a curated registry of contexts for common building blocks -- databases, message brokers, search engines, and full application stacks. You can [browse it here]({{< ref "/registry" >}}). It's used by default, so you don't need to set `registry` in your config -- just pick a context and go:
+gck ships with a curated registry of contexts for common building blocks -- databases, message brokers, search engines, and full application stacks. You can [browse it here]({{< ref "/registry" >}}). It's used by default, so you don't need to set `registry` in your config -- just pick a context and go:
 
 ```yaml
 from:
@@ -21,20 +21,20 @@ The default registry follows an `org/edition/product/variant` convention:
 registry/
   mongodb/
     standalone/
-      sew.yaml
+      gck.yaml
   elastic/
     elasticsearch/
       standalone/
-        sew.yaml
+        gck.yaml
   postgresql/
     standalone/
-      sew.yaml
+      gck.yaml
   kafka/
     standalone/
-      sew.yaml
+      gck.yaml
 ```
 
-Each leaf directory with a `sew.yaml` is a deployable context. You pick a context path, and sew fetches the config, creates a cluster, and deploys everything it defines.
+Each leaf directory with a `gck.yaml` is a deployable context. You pick a context path, and gck fetches the config, creates a cluster, and deploys everything it defines.
 
 ### Default variants
 
@@ -44,12 +44,12 @@ When a product has multiple variants, the registry can define a **default** so y
 registry/mycompany/myproduct/
 ├── .default          # contains "dev"
 ├── dev/
-│   └── sew.yaml
+│   └── gck.yaml
 └── staging/
-    └── sew.yaml
+    └── gck.yaml
 ```
 
-With this setup, `from: [mycompany/myproduct]` resolves to `mycompany/myproduct/dev`. Defaults can chain across multiple levels -- sew reads `.default` at each level until it finds a `sew.yaml`.
+With this setup, `from: [mycompany/myproduct]` resolves to `mycompany/myproduct/dev`. Defaults can chain across multiple levels -- gck reads `.default` at each level until it finds a `gck.yaml`.
 
 ## Hosting your own registry
 
@@ -58,13 +58,13 @@ A registry is just a directory tree served over HTTP. There's no server to run, 
 To create your own:
 
 1. Create a directory structure following the `org/edition/product/variant` convention.
-2. Add a `sew.yaml` to each leaf context (see [Context Format]({{< ref "/docs/reference/context-format" >}})).
+2. Add a `gck.yaml` to each leaf context (see [Context Format]({{< ref "/docs/reference/context-format" >}})).
 3. Serve it however you like -- a Git repo's raw URL, a static file server, or an internal CDN.
 
 Your team points their configs at your registry URL and uses your contexts just like the central ones:
 
 ```yaml
-registry: https://registry.mycompany.com/sew
+registry: https://registry.mycompany.com/gck
 from:
   - myproduct/dev
 ```
@@ -73,7 +73,7 @@ You can also compose across registries. A context in your private registry can r
 
 ## Private registry authentication
 
-When your registry requires authentication (e.g. a private GitHub Pages site, a corporate HTTP server behind Basic auth), sew reads credentials from your `~/.netrc` file -- the same mechanism Go modules and curl use.
+When your registry requires authentication (e.g. a private GitHub Pages site, a corporate HTTP server behind Basic auth), gck reads credentials from your `~/.netrc` file -- the same mechanism Go modules and curl use.
 
 Add an entry for your registry's hostname:
 
@@ -83,7 +83,7 @@ machine registry.mycompany.com
   password your-token-here
 ```
 
-sew will send these credentials as HTTP Basic auth on every request to that host. For GitHub Personal Access Tokens, set `login` to any non-empty value and `password` to the token:
+gck will send these credentials as HTTP Basic auth on every request to that host. For GitHub Personal Access Tokens, set `login` to any non-empty value and `password` to the token:
 
 ```
 machine raw.githubusercontent.com
@@ -100,14 +100,14 @@ A few things to keep in mind:
 echo "machine registry.mycompany.com login deploy password ${REGISTRY_TOKEN}" > /tmp/.netrc
 chmod 600 /tmp/.netrc
 export NETRC=/tmp/.netrc
-sew create --from myproduct/dev
+gck create --from myproduct/dev
 ```
 
-- On Windows, sew also checks `~/_netrc` if `~/.netrc` does not exist.
+- On Windows, gck also checks `~/_netrc` if `~/.netrc` does not exist.
 
 ## Local filesystem registries
 
-During development, you don't need to push your registry to a server. Point sew at a directory on your machine using a `file://` URL:
+During development, you don't need to push your registry to a server. Point gck at a directory on your machine using a `file://` URL:
 
 ```yaml
 registry: file://./my-registry
@@ -115,7 +115,7 @@ from:
   - myproduct/dev
 ```
 
-This is the fastest way to iterate on new contexts. You edit your `sew.yaml`, run `sew create`, and see the result immediately -- no deploy step, no HTTP server.
+This is the fastest way to iterate on new contexts. You edit your `gck.yaml`, run `gck create`, and see the result immediately -- no deploy step, no HTTP server.
 
 A few common patterns:
 
@@ -124,7 +124,7 @@ A few common patterns:
 registry: file://./registry
 
 # Absolute path
-registry: file:///home/me/sew-contexts
+registry: file:///home/me/gck-contexts
 
 # Navigate up from the project directory
 registry: file://../shared-registry

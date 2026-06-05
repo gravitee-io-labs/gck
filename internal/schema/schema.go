@@ -21,10 +21,10 @@ func Compile(yamlBytes []byte) (*jsonschema.Schema, error) {
 		return nil, fmt.Errorf("unmarshaling schema: %w", err)
 	}
 	c := jsonschema.NewCompiler()
-	if err := c.AddResource("sew.schema.json", doc); err != nil {
+	if err := c.AddResource("gck.schema.json", doc); err != nil {
 		return nil, fmt.Errorf("adding schema resource: %w", err)
 	}
-	sch, err := c.Compile("sew.schema.json")
+	sch, err := c.Compile("gck.schema.json")
 	if err != nil {
 		return nil, fmt.Errorf("compiling schema: %w", err)
 	}

@@ -9,22 +9,22 @@ import (
 	"sort"
 	"strings"
 
-	sewtmpl "github.com/a-cordier/sew/internal/template"
+	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
 
-type sewConfig struct {
+type gckConfig struct {
 	Abstract   bool           `yaml:"abstract"`
 	From       []string       `yaml:"from"`
-	Kind       sewKind        `yaml:"kind"`
-	Components []sewComponent `yaml:"components"`
+	Kind       gckKind        `yaml:"kind"`
+	Components []gckComponent `yaml:"components"`
 }
 
-type sewKind struct {
+type gckKind struct {
 	Name string `yaml:"name"`
 }
 
-type sewComponent struct {
+type gckComponent struct {
 	Name string `yaml:"name"`
 }
 
@@ -81,7 +81,7 @@ func main() {
 
 	writeRegistryRoot(contentDir)
 
-	configs := map[string]*sewConfig{}
+	configs := map[string]*gckConfig{}
 	componentDirs := map[string]bool{}
 	intermediateDirs := map[string]bool{}
 
@@ -89,7 +89,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || d.Name() != "sew.yaml" {
+		if d.IsDir() || d.Name() != "gck.yaml" {
 			return nil
 		}
 
@@ -99,7 +99,7 @@ func main() {
 			return fmt.Errorf("relative path for %s: %w", dir, err)
 		}
 
-		config, err := parseSewConfig(path)
+		config, err := parseGckConfig(path)
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
@@ -191,13 +191,13 @@ func main() {
 		fatalf("generate flags manifests: %v", err)
 	}
 
-	generateSchemaDoc("schema/sew.schema.yaml", "site/content/docs/reference/configuration.md")
+	generateSchemaDoc("schema/gck.schema.yaml", "site/content/docs/reference/configuration.md")
 	generateContributingDoc("CONTRIBUTING.md", "site/content/docs/reference/contributing.md")
 
 	fmt.Println("done")
 }
 
-func resolveComponents(relDir string, configs map[string]*sewConfig) []string {
+func resolveComponents(relDir string, configs map[string]*gckConfig) []string {
 	seen := map[string]bool{}
 	var result []string
 	var walk func(string)
@@ -246,12 +246,12 @@ func writeRegistryRoot(contentDir string) {
 	}
 }
 
-func parseSewConfig(path string) (*sewConfig, error) {
+func parseGckConfig(path string) (*gckConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var config sewConfig
+	var config gckConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
@@ -411,7 +411,7 @@ func generateContributingDoc(srcPath, outputPath string) {
 	fmt.Printf("generated contributing doc: %s\n", outputPath)
 }
 
-func generateFlagsManifests(registryDir, staticDir string, configs map[string]*sewConfig) error {
+func generateFlagsManifests(registryDir, staticDir string, configs map[string]*gckConfig) error {
 	for relDir := range configs {
 		flags := resolveFlags(relDir, configs, registryDir)
 		if len(flags) == 0 {
@@ -430,12 +430,12 @@ func generateFlagsManifests(registryDir, staticDir string, configs map[string]*s
 		if err != nil {
 			return fmt.Errorf("marshal flags for %s: %w", relDir, err)
 		}
-		if err := os.WriteFile(filepath.Join(staticCtxDir, "sew.flags.yaml"), data, 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(staticCtxDir, "gck.flags.yaml"), data, 0644); err != nil {
 			return fmt.Errorf("write flags manifest for %s: %w", relDir, err)
 		}
 
 		for _, f := range flags {
-			flagFile := "sew--" + f.Name + ".yaml"
+			flagFile := "gck--" + f.Name + ".yaml"
 			destPath := filepath.Join(staticCtxDir, flagFile)
 			if _, err := os.Stat(destPath); err == nil {
 				continue
@@ -460,14 +460,14 @@ func generateFlagsManifests(registryDir, staticDir string, configs map[string]*s
 }
 
 func discoverLocalFlags(dir string) []flagInfo {
-	matches, err := filepath.Glob(filepath.Join(dir, "sew--*.yaml"))
+	matches, err := filepath.Glob(filepath.Join(dir, "gck--*.yaml"))
 	if err != nil || len(matches) == 0 {
 		return nil
 	}
 	sort.Strings(matches)
 	var flags []flagInfo
 	for _, path := range matches {
-		name := strings.TrimPrefix(filepath.Base(path), "sew--")
+		name := strings.TrimPrefix(filepath.Base(path), "gck--")
 		name = strings.TrimSuffix(name, ".yaml")
 		flags = append(flags, flagInfo{
 			Name:        name,
@@ -491,7 +491,7 @@ func readFlagDescription(path string) string {
 
 // resolveFlags walks the from chain for relDir, discovering flags at each
 // level and merging them (child overrides parent for the same name).
-func resolveFlags(relDir string, configs map[string]*sewConfig, registryDir string) []flagInfo {
+func resolveFlags(relDir string, configs map[string]*gckConfig, registryDir string) []flagInfo {
 	seen := map[string]int{}
 	var result []flagInfo
 	var walk func(string)
@@ -517,8 +517,8 @@ func resolveFlags(relDir string, configs map[string]*sewConfig, registryDir stri
 }
 
 // resolveVars walks the from chain for relDir, extracting var definitions
-// from each sew.yaml and merging them (child overrides parent for same name).
-func resolveVars(relDir string, configs map[string]*sewConfig, registryDir string) []varInfo {
+// from each gck.yaml and merging them (child overrides parent for same name).
+func resolveVars(relDir string, configs map[string]*gckConfig, registryDir string) []varInfo {
 	seen := map[string]int{}
 	var result []varInfo
 	var walk func(string)
@@ -529,12 +529,12 @@ func resolveVars(relDir string, configs map[string]*sewConfig, registryDir strin
 		for _, parent := range configs[dir].From {
 			walk(parent)
 		}
-		path := filepath.Join(registryDir, dir, "sew.yaml")
+		path := filepath.Join(registryDir, dir, "gck.yaml")
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return
 		}
-		defs, err := sewtmpl.ExtractVarDefs(data)
+		defs, err := gcktmpl.ExtractVarDefs(data)
 		if err != nil {
 			return
 		}
@@ -552,12 +552,12 @@ func resolveVars(relDir string, configs map[string]*sewConfig, registryDir strin
 	return result
 }
 
-// findFlagSource locates the sew--{flagName}.yaml file by walking the
+// findFlagSource locates the gck--{flagName}.yaml file by walking the
 // from chain of relDir, returning the first match.
-func findFlagSource(relDir, flagName string, configs map[string]*sewConfig, registryDir string) string {
+func findFlagSource(relDir, flagName string, configs map[string]*gckConfig, registryDir string) string {
 	var find func(string) string
 	find = func(dir string) string {
-		path := filepath.Join(registryDir, dir, "sew--"+flagName+".yaml")
+		path := filepath.Join(registryDir, dir, "gck--"+flagName+".yaml")
 		if _, err := os.Stat(path); err == nil {
 			return path
 		}

@@ -19,17 +19,17 @@ func newTestServer(t *testing.T, root string) *httptest.Server {
 
 func newHTTPResolver(t *testing.T, baseURL string) *HTTPResolver {
 	t.Helper()
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 	return &HTTPResolver{
 		BaseURL:   baseURL,
-		CacheRoot: filepath.Join(sewHome, "cache"),
-		SewHome:   sewHome,
+		CacheRoot: filepath.Join(gckHome, "cache"),
+		GckHome:   gckHome,
 	}
 }
 
 func TestHTTPResolver_Standalone(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "myctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "myctx", "gck.yaml"), `
 kind:
   name: my-cluster
 
@@ -56,7 +56,7 @@ components:
 
 func TestHTTPResolver_ParentComposition(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 kind:
   name: parent-cluster
   nodes:
@@ -75,7 +75,7 @@ components:
     helm:
       chart: base/chart
 `)
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -111,7 +111,7 @@ components:
 
 func TestHTTPResolver_ChildOverridesComponent(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 components:
   - name: app
     helm:
@@ -121,7 +121,7 @@ components:
         key1: val1
         key2: val2
 `)
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -164,7 +164,7 @@ components:
 
 func TestHTTPResolver_FeaturesMerge(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 features:
   lb:
     enabled: true
@@ -174,7 +174,7 @@ features:
 
 components: []
 `)
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 
@@ -207,12 +207,12 @@ components: []
 
 func TestHTTPResolver_CycleDetection(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "a", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "a", "gck.yaml"), `
 from:
   - b
 components: []
 `)
-	writeFile(t, filepath.Join(root, "b", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "b", "gck.yaml"), `
 from:
   - a
 components: []
@@ -232,7 +232,7 @@ components: []
 
 func TestHTTPResolver_ThreeLevelComposition(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "grandparent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "grandparent", "gck.yaml"), `
 kind:
   name: gp-cluster
   nodes:
@@ -253,7 +253,7 @@ components:
       values:
         gp-key: gp-val
 `)
-	writeFile(t, filepath.Join(root, "mid", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "mid", "gck.yaml"), `
 from:
   - grandparent
 
@@ -271,7 +271,7 @@ components:
     helm:
       chart: mid/chart
 `)
-	writeFile(t, filepath.Join(root, "leaf", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "leaf", "gck.yaml"), `
 from:
   - mid
 
@@ -317,7 +317,7 @@ components:
 
 func TestHTTPResolver_CrossRegistryToFS(t *testing.T) {
 	fsRoot := t.TempDir()
-	writeFile(t, filepath.Join(fsRoot, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(fsRoot, "parent", "gck.yaml"), `
 components:
   - name: from-fs
     helm:
@@ -325,7 +325,7 @@ components:
 `)
 
 	httpRoot := t.TempDir()
-	writeFile(t, filepath.Join(httpRoot, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(httpRoot, "child", "gck.yaml"), `
 registry: file://`+fsRoot+`
 from:
   - parent
@@ -361,13 +361,13 @@ func TestHTTPResolver_CrossRegistryCycleDetection(t *testing.T) {
 
 	srv := newTestServer(t, httpRoot)
 
-	writeFile(t, filepath.Join(httpRoot, "a", "sew.yaml"), `
+	writeFile(t, filepath.Join(httpRoot, "a", "gck.yaml"), `
 registry: file://`+fsRoot+`
 from:
   - b
 components: []
 `)
-	writeFile(t, filepath.Join(fsRoot, "b", "sew.yaml"), `
+	writeFile(t, filepath.Join(fsRoot, "b", "gck.yaml"), `
 registry: `+srv.URL+`
 from:
   - a
@@ -387,7 +387,7 @@ components: []
 func TestHTTPResolver_DefaultVariant(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "product", ".default"), `standard`)
-	writeFile(t, filepath.Join(root, "product", "standard", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "product", "standard", "gck.yaml"), `
 kind:
   name: standard-cluster
 
@@ -414,7 +414,7 @@ components:
 
 func TestHTTPResolver_ValueFilesDownload(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.yaml"), `
 components:
   - name: app
     helm:
@@ -425,11 +425,11 @@ components:
 	writeFile(t, filepath.Join(root, "ctx", "custom-values.yaml"), `replicas: 3`)
 
 	srv := newTestServer(t, root)
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 	resolver := &HTTPResolver{
 		BaseURL:   srv.URL,
-		CacheRoot: filepath.Join(sewHome, "cache"),
-		SewHome:   sewHome,
+		CacheRoot: filepath.Join(gckHome, "cache"),
+		GckHome:   gckHome,
 	}
 
 	resolved, err := resolver.Resolve(context.Background(), "ctx")
@@ -464,7 +464,7 @@ func TestHTTPResolver_NotFound(t *testing.T) {
 
 func TestHTTPResolver_FlagsFromManifest(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.yaml"), `
 kind:
   name: my-cluster
 components:
@@ -472,14 +472,14 @@ components:
     helm:
       chart: repo/app
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew.flags.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.flags.yaml"), `
 flags:
   - name: disable-portal
     description: "Disable the developer portal UI"
   - name: disable-ui
     description: "Disable all UIs"
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck--disable-portal.yaml"), `
 description: "Disable the developer portal UI"
 components:
   - name: app
@@ -488,7 +488,7 @@ components:
         portal:
           enabled: false
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew--disable-ui.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck--disable-ui.yaml"), `
 description: "Disable all UIs"
 components:
   - name: app
@@ -519,7 +519,7 @@ components:
 
 func TestHTTPResolver_NoFlagsManifest(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.yaml"), `
 components:
   - name: app
     helm:
@@ -541,18 +541,18 @@ components:
 func TestHTTPResolver_FlagsWithComposition(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "parent", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
 components:
   - name: app
     helm:
       chart: repo/app
 `)
-	writeFile(t, filepath.Join(root, "parent", "sew.flags.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck.flags.yaml"), `
 flags:
   - name: parent-flag
     description: "A flag from parent"
 `)
-	writeFile(t, filepath.Join(root, "parent", "sew--parent-flag.yaml"), `
+	writeFile(t, filepath.Join(root, "parent", "gck--parent-flag.yaml"), `
 description: "A flag from parent"
 components:
   - name: app
@@ -561,7 +561,7 @@ components:
         debug: true
 `)
 
-	writeFile(t, filepath.Join(root, "child", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
 from:
   - parent
 components:
@@ -569,14 +569,14 @@ components:
     helm:
       chart: extra/chart
 `)
-	writeFile(t, filepath.Join(root, "child", "sew.flags.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck.flags.yaml"), `
 flags:
   - name: parent-flag
     description: "A flag from parent"
   - name: child-flag
     description: "A flag from child"
 `)
-	writeFile(t, filepath.Join(root, "child", "sew--parent-flag.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck--parent-flag.yaml"), `
 description: "A flag from parent"
 components:
   - name: app
@@ -584,7 +584,7 @@ components:
       values:
         debug: true
 `)
-	writeFile(t, filepath.Join(root, "child", "sew--child-flag.yaml"), `
+	writeFile(t, filepath.Join(root, "child", "gck--child-flag.yaml"), `
 description: "A flag from child"
 components:
   - name: extra
@@ -616,7 +616,7 @@ func TestHTTPResolver_NetrcAuth(t *testing.T) {
 	var authHeader string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader = r.Header.Get("Authorization")
-		if r.URL.Path == "/ctx/sew.yaml" {
+		if r.URL.Path == "/ctx/gck.yaml" {
 			w.Write([]byte("components:\n  - name: app\n    helm:\n      chart: repo/app\n"))
 			return
 		}
@@ -629,8 +629,8 @@ func TestHTTPResolver_NetrcAuth(t *testing.T) {
 	writeFile(t, netrcFile, "machine 127.0.0.1 login deploy password tok3n\n")
 	t.Setenv("NETRC", netrcFile)
 
-	sewHome := t.TempDir()
-	resolver := NewResolver(srv.URL, sewHome, nil)
+	gckHome := t.TempDir()
+	resolver := NewResolver(srv.URL, gckHome, nil)
 
 	_, err := resolver.Resolve(context.Background(), "ctx")
 	if err != nil {
@@ -648,7 +648,7 @@ func TestHTTPResolver_NoNetrcNoAuth(t *testing.T) {
 	var authHeader string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader = r.Header.Get("Authorization")
-		if r.URL.Path == "/ctx/sew.yaml" {
+		if r.URL.Path == "/ctx/gck.yaml" {
 			w.Write([]byte("components:\n  - name: app\n    helm:\n      chart: repo/app\n"))
 			return
 		}
@@ -658,8 +658,8 @@ func TestHTTPResolver_NoNetrcNoAuth(t *testing.T) {
 
 	t.Setenv("NETRC", filepath.Join(t.TempDir(), "does-not-exist"))
 
-	sewHome := t.TempDir()
-	resolver := NewResolver(srv.URL, sewHome, nil)
+	gckHome := t.TempDir()
+	resolver := NewResolver(srv.URL, gckHome, nil)
 
 	_, err := resolver.Resolve(context.Background(), "ctx")
 	if err != nil {
@@ -672,7 +672,7 @@ func TestHTTPResolver_NoNetrcNoAuth(t *testing.T) {
 
 func TestHTTPResolver_FlagsApply(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "ctx", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.yaml"), `
 components:
   - name: app
     helm:
@@ -681,12 +681,12 @@ components:
         portal:
           enabled: true
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew.flags.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck.flags.yaml"), `
 flags:
   - name: disable-portal
     description: "Disable portal"
 `)
-	writeFile(t, filepath.Join(root, "ctx", "sew--disable-portal.yaml"), `
+	writeFile(t, filepath.Join(root, "ctx", "gck--disable-portal.yaml"), `
 description: "Disable portal"
 components:
   - name: app
@@ -721,7 +721,7 @@ components:
 func TestHTTPResolver_BroadcastSetDoesNotLeakIntoComposedParent(t *testing.T) {
 	root := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "datastore", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "datastore", "gck.yaml"), `
 vars:
   imageTag:
     default: "7"
@@ -742,7 +742,7 @@ components:
             name: datastore
 `)
 
-	writeFile(t, filepath.Join(root, "product", "sew.yaml"), `
+	writeFile(t, filepath.Join(root, "product", "gck.yaml"), `
 from:
   - datastore
 vars:
@@ -765,11 +765,11 @@ components:
 `)
 
 	srv := newTestServer(t, root)
-	sewHome := t.TempDir()
+	gckHome := t.TempDir()
 	resolver := &HTTPResolver{
 		BaseURL:      srv.URL,
-		CacheRoot:    filepath.Join(sewHome, "cache"),
-		SewHome:      sewHome,
+		CacheRoot:    filepath.Join(gckHome, "cache"),
+		GckHome:      gckHome,
 		SetOverrides: map[string]string{"imageTag": "custom-tag"},
 	}
 

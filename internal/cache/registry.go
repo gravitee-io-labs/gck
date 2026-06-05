@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	containerPrefix = "sew-mirror-"
+	containerPrefix = "gck-mirror-"
 	registryImage   = "registry:2"
 	basePort        = 5000
 	internalPort    = nat.Port("5000/tcp")
@@ -50,18 +50,18 @@ func AllUpstreams(cfg *config.MirrorsConfig) []string {
 }
 
 // ResolveDir returns the mirror storage directory, falling back to
-// $sewHome/mirrors when the config does not specify one.
-func ResolveDir(cfg *config.MirrorsConfig, sewHome string) string {
+// $gckHome/mirrors when the config does not specify one.
+func ResolveDir(cfg *config.MirrorsConfig, gckHome string) string {
 	if cfg.Data != "" {
 		return cfg.Data
 	}
-	return filepath.Join(sewHome, "mirrors")
+	return filepath.Join(gckHome, "mirrors")
 }
 
 // EnsureProxies creates and starts a registry:2 pull-through proxy container
 // for each configured upstream registry. Containers that are already running
 // are left untouched. Stale (stopped) containers are replaced.
-func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, sewHome string) error {
+func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, gckHome string) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("creating docker client: %w", err)
@@ -75,7 +75,7 @@ func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, sewHome strin
 	_, _ = io.Copy(io.Discard, rc)
 	rc.Close()
 
-	dir := ResolveDir(cfg, sewHome)
+	dir := ResolveDir(cfg, gckHome)
 
 	for i, upstream := range AllUpstreams(cfg) {
 		name := ContainerName(upstream)
@@ -109,8 +109,8 @@ func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, sewHome strin
 				Image:        registryImage,
 				ExposedPorts: nat.PortSet{internalPort: struct{}{}},
 				Labels: map[string]string{
-					"sew.role":     "cache-proxy",
-					"sew.upstream": upstream,
+					"gck.role":     "cache-proxy",
+					"gck.upstream": upstream,
 				},
 			},
 			&container.HostConfig{
@@ -148,7 +148,7 @@ func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, sewHome strin
 	return nil
 }
 
-// StopProxies stops and removes all sew-mirror-* proxy containers for the
+// StopProxies stops and removes all gck-mirror-* proxy containers for the
 // configured upstreams.
 func StopProxies(ctx context.Context, cfg *config.MirrorsConfig) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())

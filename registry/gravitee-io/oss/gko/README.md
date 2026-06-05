@@ -10,26 +10,26 @@ Deploys the Gravitee Kubernetes Operator (GKO) as a standalone Helm release.
 This context is designed to be used on its own for GKO development, or composed
 into other contexts (such as `dbless` or `gateway`) via `from:`.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from gravitee-io/oss/gko
+gck create --from gravitee-io/oss/gko
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start

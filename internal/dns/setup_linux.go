@@ -19,7 +19,7 @@ func SetupResolver(domain string, port int) error {
 
 	cmds := fmt.Sprintf("resolvectl dns lo %s && resolvectl domain lo %s", dnsServer, routingDomain)
 	cmd := exec.Command("sudo", "-p",
-		"\n  sew needs administrator privileges to configure DNS routing.\n  Password: ",
+		"\n  gck needs administrator privileges to configure DNS routing.\n  Password: ",
 		"sh", "-c", cmds,
 	)
 	cmd.Stdin = os.Stdin
@@ -35,7 +35,7 @@ func SetupResolver(domain string, port int) error {
 // systemd-resolved, removing the domain routing.
 func TeardownResolver(_ string) error {
 	cmd := exec.Command("sudo", "-p",
-		"\n  sew needs administrator privileges to remove DNS routing.\n  Password: ",
+		"\n  gck needs administrator privileges to remove DNS routing.\n  Password: ",
 		"resolvectl", "revert", "lo",
 	)
 	cmd.Stdin = os.Stdin

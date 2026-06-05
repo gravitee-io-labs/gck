@@ -28,7 +28,7 @@ var cpkServeCmd = &cobra.Command{
 Kind clusters, reconciles LoadBalancer services and Gateway API resources
 (creating Docker proxy/envoy containers as needed).
 
-This command is started automatically by "sew create" when the lb feature
+This command is started automatically by "gck create" when the lb feature
 is enabled. It does not need to be invoked directly.`,
 	RunE: runCPKServe,
 }

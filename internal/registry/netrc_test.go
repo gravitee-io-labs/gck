@@ -126,7 +126,7 @@ func TestNewAuthenticatedClient_WithCredentials(t *testing.T) {
 	}
 	t.Setenv("NETRC", netrcFile)
 
-	client := newAuthenticatedClient("https://pages.example.com/sew")
+	client := newAuthenticatedClient("https://pages.example.com/gck")
 	if client == nil {
 		t.Fatal("expected authenticated client")
 	}
@@ -135,7 +135,7 @@ func TestNewAuthenticatedClient_WithCredentials(t *testing.T) {
 func TestNewAuthenticatedClient_NoCredentials(t *testing.T) {
 	t.Setenv("NETRC", filepath.Join(t.TempDir(), "does-not-exist"))
 
-	client := newAuthenticatedClient("https://pages.example.com/sew")
+	client := newAuthenticatedClient("https://pages.example.com/gck")
 	if client != nil {
 		t.Fatal("expected nil client when no credentials match")
 	}

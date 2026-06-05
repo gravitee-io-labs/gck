@@ -4,7 +4,7 @@ weight: 3
 type: docs
 ---
 
-sew gives you production-like networking on your local machine: load balancers, Gateway API support, and automatic DNS resolution. Say goodbye to `/etc/hosts` edits and IP hunting -- services are reachable by name out of the box.
+gck gives you production-like networking on your local machine: load balancers, Gateway API support, and automatic DNS resolution. Say goodbye to `/etc/hosts` edits and IP hunting -- services are reachable by name out of the box.
 
 ```mermaid
 flowchart TD
@@ -14,15 +14,15 @@ flowchart TD
     end
     cpk["Cloud provider controller"] -. "assigns IPs" .-> svc
     gw -- "exposes via" --> svc
-    dns["DNS server"] -- "resolves *.sew.local" --> cpk
+    dns["DNS server"] -- "resolves *.gck.local" --> cpk
     os["OS resolver"] -- "forwards queries" --> dns
 ```
 
 ## Load balancers
 
-By default, `LoadBalancer`-type Services in Kind stay in `Pending` state because there's no cloud provider to assign IPs. sew can emulate this with a local cloud provider controller that assigns real IPs from the Docker network range.
+By default, `LoadBalancer`-type Services in Kind stay in `Pending` state because there's no cloud provider to assign IPs. gck can emulate this with a local cloud provider controller that assigns real IPs from the Docker network range.
 
-Enable it in your `sew.yaml`:
+Enable it in your `gck.yaml`:
 
 ```yaml
 features:
@@ -32,11 +32,11 @@ features:
 
 Once enabled, any Service of type `LoadBalancer` in your cluster gets an external IP that's reachable from your host machine.
 
-> **macOS note:** On macOS, Docker runs inside a lightweight VM, so container networks are not directly routable from the host. sew sets up a packet tunnel to bridge this gap, which requires `sudo` privileges. You will be prompted for your password when creating a cluster with load balancers enabled.
+> **macOS note:** On macOS, Docker runs inside a lightweight VM, so container networks are not directly routable from the host. gck sets up a packet tunnel to bridge this gap, which requires `sudo` privileges. You will be prompted for your password when creating a cluster with load balancers enabled.
 
 ## Gateway API
 
-sew supports the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) for managing ingress traffic. Enabling it automatically enables load balancers too (Gateway controllers need them):
+gck supports the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) for managing ingress traffic. Enabling it automatically enables load balancers too (Gateway controllers need them):
 
 ```yaml
 features:
@@ -49,13 +49,13 @@ This installs the Gateway API CRDs so you can define `Gateway` and `HTTPRoute` r
 
 ## Local DNS
 
-sew can run a local DNS server that lets you reach services by hostname (e.g. `api.sew.local`) instead of looking up IPs manually.
+gck can run a local DNS server that lets you reach services by hostname (e.g. `api.gck.local`) instead of looking up IPs manually.
 
 ### How it works
 
-1. **Record collection** -- After all components are installed, sew introspects the cluster for hostnames. It discovers routes from Gateway API resources (`Gateway` + `HTTPRoute`) and resolves static records you define manually.
+1. **Record collection** -- After all components are installed, gck introspects the cluster for hostnames. It discovers routes from Gateway API resources (`Gateway` + `HTTPRoute`) and resolves static records you define manually.
 2. **DNS server** -- A lightweight DNS server runs in the background, serving A queries for `*.<domain>`. It watches for changes and hot-reloads when records are updated.
-3. **OS routing** -- A one-time `sew setup dns` command tells your operating system to forward queries for the sew domain to the local server.
+3. **OS routing** -- A one-time `gck setup dns` command tells your operating system to forward queries for the gck domain to the local server.
 
 ### Enabling DNS
 
@@ -65,33 +65,33 @@ features:
     enabled: true
 ```
 
-On the next `sew create`, sew collects records, starts the DNS server, and prints a reminder if OS routing isn't configured yet.
+On the next `gck create`, gck collects records, starts the DNS server, and prints a reminder if OS routing isn't configured yet.
 
 ### One-time OS setup
 
 Run this once after enabling DNS:
 
 ```bash
-sew setup dns
+gck setup dns
 ```
 
-This configures your OS to route `*.sew.local` queries to the local DNS server:
+This configures your OS to route `*.gck.local` queries to the local DNS server:
 
-- **macOS**: creates `/etc/resolver/sew.local` (persists across reboots)
+- **macOS**: creates `/etc/resolver/gck.local` (persists across reboots)
 - **Linux**: configures `systemd-resolved` on the loopback interface (runtime only)
 
-> The setup command requires `sudo` because it writes to system directories: `/etc/resolver/` on macOS, and `systemd-resolved` configuration on Linux. Once done, day-to-day `sew create` and `sew delete` commands run without elevated privileges. To undo, just run `sew teardown dns`.
+> The setup command requires `sudo` because it writes to system directories: `/etc/resolver/` on macOS, and `systemd-resolved` configuration on Linux. Once done, day-to-day `gck create` and `gck delete` commands run without elevated privileges. To undo, just run `gck teardown dns`.
 
 ### Static records
 
-By default, sew discovers hostnames from Gateway API resources. You can also map hostnames to `LoadBalancer` Services explicitly:
+By default, gck discovers hostnames from Gateway API resources. You can also map hostnames to `LoadBalancer` Services explicitly:
 
 ```yaml
 features:
   dns:
     enabled: true
     records:
-      - hostname: api.sew.local
+      - hostname: api.gck.local
         service: my-api-gateway
         namespace: default
 ```
@@ -105,19 +105,19 @@ features:
   dns:
     enabled: true
     records:
-      - hostname: "*.api.sew.local"
+      - hostname: "*.api.gck.local"
         service: my-gateway
         namespace: default
 ```
 
-Both `demo.api.sew.local` and `v2.demo.api.sew.local` resolve to the same Service IP. Exact records always take priority over wildcards.
+Both `demo.api.gck.local` and `v2.demo.api.gck.local` resolve to the same Service IP. Exact records always take priority over wildcards.
 
 ### Refreshing records
 
-If you deploy additional Gateways or Services after `sew create`, re-collect their hostnames with:
+If you deploy additional Gateways or Services after `gck create`, re-collect their hostnames with:
 
 ```bash
-sew refresh dns
+gck refresh dns
 ```
 
 ### DNS options
@@ -125,7 +125,7 @@ sew refresh dns
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `false` | Enable the DNS feature |
-| `domain` | `sew.local` | Domain suffix served by the local DNS server |
+| `domain` | `gck.local` | Domain suffix served by the local DNS server |
 | `port` | `15353` | UDP port the DNS server listens on |
 | `records` | *(none)* | Static hostname-to-Service mappings |
 
@@ -135,7 +135,7 @@ Each cluster writes its own record file. The DNS server merges records from all 
 
 ## Kind port mappings
 
-Port mappings in your `sew.yaml` are merged with those from the context using union semantics, keyed by `(containerPort, protocol)`:
+Port mappings in your `gck.yaml` are merged with those from the context using union semantics, keyed by `(containerPort, protocol)`:
 
 - Ports only in the context are preserved
 - Ports only in your config are added

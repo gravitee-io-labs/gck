@@ -9,26 +9,26 @@ tags: [networking]
 Deploys Ambassador Edge Stack, a Kubernetes-native API gateway built on
 Envoy Proxy, into a local Kind cluster.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from gravitee-io/ee/edge-stack
+gck create --from gravitee-io/ee/edge-stack
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start
@@ -50,12 +50,12 @@ namespace. For a guided walkthrough, see the
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Edge Stack license
-at `$HOME/opt/gravitee/edge-stack/license.jwt` and sew will automatically
+at `$HOME/opt/gravitee/edge-stack/license.jwt` and gck will automatically
 mount it into the cluster as the `ambassador-edge-stack` Secret. If the
 file is missing, the license component is silently skipped
 (`onMissing: ignore`).
 
-To use a different path, override it in your `sew.yaml`:
+To use a different path, override it in your `gck.yaml`:
 
 ```yaml
 components:

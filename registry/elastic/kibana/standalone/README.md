@@ -10,26 +10,26 @@ Deploys Kibana alongside a single-node Elasticsearch cluster into a
 local Kind cluster. Kibana UI is accessible on port 30601 and
 Elasticsearch on port 30920.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from elastic/kibana/standalone
+gck create --from elastic/kibana/standalone
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start

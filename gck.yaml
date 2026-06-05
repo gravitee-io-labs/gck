@@ -1,0 +1,5 @@
+registry: https://gravitee-io-labs.github.io/gck
+kind:
+  name: gck
+  nodes:
+    - role: control-plane

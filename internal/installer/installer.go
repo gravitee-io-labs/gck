@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 // InstallOpts carries optional flags for an install operation.

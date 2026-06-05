@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 // Resolver resolves a context path against a registry into a ResolvedContext.
@@ -15,21 +15,21 @@ type Resolver interface {
 
 // NewResolver builds the appropriate Resolver from the registry URL.
 // A "file://" prefix selects the filesystem resolver; anything else
-// is treated as an HTTP registry with cache rooted under sewHome.
+// is treated as an HTTP registry with cache rooted under gckHome.
 // setOverrides are the --set key=value pairs forwarded to the template
-// engine when rendering context sew.yaml files.
-func NewResolver(registry string, sewHome string, setOverrides map[string]string) Resolver {
+// engine when rendering context gck.yaml files.
+func NewResolver(registry string, gckHome string, setOverrides map[string]string) Resolver {
 	if strings.HasPrefix(registry, "file://") {
 		return &FSResolver{
 			Root:         strings.TrimPrefix(registry, "file://"),
-			SewHome:      sewHome,
+			GckHome:      gckHome,
 			SetOverrides: setOverrides,
 		}
 	}
 	return &HTTPResolver{
 		BaseURL:      registry,
-		CacheRoot:    filepath.Join(sewHome, "cache"),
-		SewHome:      sewHome,
+		CacheRoot:    filepath.Join(gckHome, "cache"),
+		GckHome:      gckHome,
 		HTTPClient:   newAuthenticatedClient(registry),
 		SetOverrides: setOverrides,
 	}

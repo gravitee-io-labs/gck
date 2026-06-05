@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 )
 
 func Validate(components []config.Component) error {

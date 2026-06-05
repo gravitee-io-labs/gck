@@ -19,7 +19,7 @@ To access the Vault API/UI from your host:
 {{ end -}}
 {{ if not (hasFlag "disable-kafka") -}}
 
-Kafka Gateway    *.kafka.sew.local:9092 (TLS)
+Kafka Gateway    *.kafka.gck.local:9092 (TLS)
 
 To connect a Kafka client to the gateway, extract the TLS certificate:
 

@@ -8,7 +8,7 @@ This page is for context **authors** -- the people who create and maintain regis
 
 ## Anatomy of a context
 
-A context lives at `{registry}/{context_path}/` and must contain a `sew.yaml`. At minimum, it declares components to deploy:
+A context lives at `{registry}/{context_path}/` and must contain a `gck.yaml`. At minimum, it declares components to deploy:
 
 ```yaml
 helm:
@@ -126,7 +126,7 @@ components:
       version: "2.0.0"
 ```
 
-Attempting to deploy an abstract context directly with `sew create` produces an error. Concrete variants must compose from it via `from`.
+Attempting to deploy an abstract context directly with `gck create` produces an error. Concrete variants must compose from it via `from`.
 
 ## Default variant resolution
 
@@ -136,7 +136,7 @@ Add a `.default` file next to variant directories to set the default:
 echo "standalone" > registry/mongodb/.default
 ```
 
-When a user specifies `from: [mongodb]`, sew reads `.default` and resolves it to `mongodb/standalone`. Defaults chain across multiple levels.
+When a user specifies `from: [mongodb]`, gck reads `.default` and resolves it to `mongodb/standalone`. Defaults chain across multiple levels.
 
 ## Merge semantics
 
@@ -168,7 +168,7 @@ For **k8s manifest components**, provide a full replacement Service manifest. Ma
 
 ## Template variables
 
-Context authors can parameterize their sew.yaml with Go template expressions. Declare variable defaults in a `vars` block and reference them with `{{ .variableName }}`:
+Context authors can parameterize their gck.yaml with Go template expressions. Declare variable defaults in a `vars` block and reference them with `{{ .variableName }}`:
 
 ```yaml
 vars:
@@ -202,7 +202,7 @@ images:
 Users override defaults at deploy time:
 
 ```bash
-sew create --set imageTag=4.12.0
+gck create --set imageTag=4.12.0
 ```
 
 ### Rules
@@ -227,11 +227,11 @@ Each context is templated independently during resolution. Parent contexts don't
 
 ## Context flags
 
-Context flags let maintainers expose optional toggles without creating separate registry directories for every combination. A flag is defined by placing a `sew--{flag-name}.yaml` patch file alongside the context's `sew.yaml`.
+Context flags let maintainers expose optional toggles without creating separate registry directories for every combination. A flag is defined by placing a `gck--{flag-name}.yaml` patch file alongside the context's `gck.yaml`.
 
 ### File format
 
-Flag files use the same schema as `sew.yaml`, with a `description` field that documents what the flag does:
+Flag files use the same schema as `gck.yaml`, with a `description` field that documents what the flag does:
 
 ```yaml
 description: "Disable the developer portal UI"
@@ -245,15 +245,15 @@ components:
 
 ### Naming convention
 
-Flag file names must follow the pattern `sew--{flag-name}.yaml` where `flag-name` is lowercase kebab-case: `^[a-z0-9]+(-[a-z0-9]+)*$`. Users activate flags with `--flag-name` on the CLI:
+Flag file names must follow the pattern `gck--{flag-name}.yaml` where `flag-name` is lowercase kebab-case: `^[a-z0-9]+(-[a-z0-9]+)*$`. Users activate flags with `--flag-name` on the CLI:
 
 ```bash
-sew create --from gravitee-io/oss/apim --disable-portal --disable-ui
+gck create --from gravitee-io/oss/apim --disable-portal --disable-ui
 ```
 
 ### Inheritance from abstract parents
 
-Flags defined on an abstract context are inherited by all concrete contexts that compose from it via `from`. A child context can override an inherited flag by providing its own `sew--{name}.yaml` with the same name.
+Flags defined on an abstract context are inherited by all concrete contexts that compose from it via `from`. A child context can override an inherited flag by providing its own `gck--{name}.yaml` with the same name.
 
 ### Cumulative application
 
@@ -289,7 +289,7 @@ Use **separate context directories** for fundamentally different backends or top
 - Extract shared config into `abstract: true` base contexts
 - Set `.default` files so users can reference products without spelling out the full variant path
 - Include a `README.md` with front matter (`title`, `description`, `tags`) -- the site generator uses it for the registry browser
-- Add `notes.create` with post-deployment instructions that `sew create` prints after a successful deploy. Templates can use `{{ hasFlag "flag-name" }}` to conditionally show content based on which context flags the user activated:
+- Add `notes.create` with post-deployment instructions that `gck create` prints after a successful deploy. Templates can use `{{ hasFlag "flag-name" }}` to conditionally show content based on which context flags the user activated:
 
 ```
 {{ if not (hasFlag "disable-portal") -}}

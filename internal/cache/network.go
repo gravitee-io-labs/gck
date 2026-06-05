@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )

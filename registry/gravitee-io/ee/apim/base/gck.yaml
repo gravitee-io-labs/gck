@@ -19,7 +19,7 @@ features:
   dns:
     enabled: true
     records:
-      - hostname: "*.kafka.sew.local"
+      - hostname: "*.kafka.gck.local"
         service: apim-gateway
         namespace: gravitee
 components:
@@ -97,7 +97,7 @@ components:
             host: 0.0.0.0
             routingMode: host
             routingHostMode:
-              defaultDomain: kafka.sew.local
+              defaultDomain: kafka.gck.local
               defaultPort: 9092
             ssl:
               keystore:

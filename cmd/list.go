@@ -5,16 +5,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/kind"
-	"github.com/a-cordier/sew/internal/state"
+	"github.com/gravitee-io-labs/gck/internal/kind"
+	"github.com/gravitee-io-labs/gck/internal/state"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
 	Use:         "list",
-	Short:       "List all sew-managed clusters",
-	Annotations: map[string]string{"sew_skip_config": "true"},
+	Short:       "List all gck-managed clusters",
+	Annotations: map[string]string{"gck_skip_config": "true"},
 	RunE:        runList,
 }
 
@@ -32,7 +32,7 @@ type listRow struct {
 }
 
 func runList(_ *cobra.Command, _ []string) error {
-	stateDir := filepath.Join(sewHome, "clusters")
+	stateDir := filepath.Join(gckHome, "clusters")
 
 	names, err := state.List(stateDir)
 	if err != nil {

@@ -45,11 +45,11 @@ func generateSchemaDoc(schemaPath, outputPath string) {
 	buf.WriteString("---\n\n")
 
 	buf.WriteString("This page is generated from the ")
-	buf.WriteString("[sew.yaml JSON Schema](https://github.com/a-cordier/sew/blob/main/schema/sew.schema.yaml). ")
-	buf.WriteString("It documents every field you can use in your `sew.yaml` configuration file.\n\n")
+	buf.WriteString("[gck.yaml JSON Schema](https://github.com/gravitee-io-labs/gck/blob/main/schema/gck.schema.yaml). ")
+	buf.WriteString("It documents every field you can use in your `gck.yaml` configuration file.\n\n")
 
 	buf.WriteString("## Overview\n\n")
-	buf.WriteString("A `sew.yaml` file is a YAML document with the following top-level fields:\n\n")
+	buf.WriteString("A `gck.yaml` file is a YAML document with the following top-level fields:\n\n")
 
 	buf.WriteString("| Field | Type | Description |\n")
 	buf.WriteString("|-------|------|-------------|\n")

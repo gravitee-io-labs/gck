@@ -970,7 +970,7 @@ func TestBuildImageRefs_SkipsEmptyImage(t *testing.T) {
 
 func TestLoad_TemplatesVarsBeforeParsing(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "sew.yaml")
+	path := filepath.Join(dir, "gck.yaml")
 	if err := os.WriteFile(path, []byte(`vars:
   imageTag: "latest"
 
@@ -1002,7 +1002,7 @@ components:
 
 func TestLoad_SetOverridesVars(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "sew.yaml")
+	path := filepath.Join(dir, "gck.yaml")
 	if err := os.WriteFile(path, []byte(`vars:
   imageTag: "latest"
 
@@ -1029,7 +1029,7 @@ components:
 
 func TestLoad_NoTemplatePassthrough(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "sew.yaml")
+	path := filepath.Join(dir, "gck.yaml")
 	if err := os.WriteFile(path, []byte(`kind:
   name: plain-cluster
 `), 0o644); err != nil {
@@ -1046,13 +1046,13 @@ func TestLoad_NoTemplatePassthrough(t *testing.T) {
 }
 
 func TestLoad_EnvFunction(t *testing.T) {
-	t.Setenv("SEW_TEST_LOAD_DIR", "/custom/path")
+	t.Setenv("GCK_TEST_LOAD_DIR", "/custom/path")
 	dir := t.TempDir()
-	path := filepath.Join(dir, "sew.yaml")
+	path := filepath.Join(dir, "gck.yaml")
 	if err := os.WriteFile(path, []byte(`builds:
   - name: app
     image: my-app:latest
-    dir: '{{ env "SEW_TEST_LOAD_DIR" }}/src'
+    dir: '{{ env "GCK_TEST_LOAD_DIR" }}/src'
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}

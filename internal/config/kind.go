@@ -7,7 +7,7 @@ import (
 const (
 	KindDefaultAPIVersion = "kind.x-k8s.io/v1alpha4"
 	KindDefaultKind       = "Cluster"
-	KindDefaultName       = "sew"
+	KindDefaultName       = "gck"
 )
 
 type KindConfig struct {
@@ -85,7 +85,7 @@ func (k *KindConfig) RawYAML() ([]byte, error) {
 }
 
 // MergeWithContext merges context Kind requirements into the config. When
-// sew.yaml does not set a custom cluster name (still the default "sew"), the
+// gck.yaml does not set a custom cluster name (still the default "gck"), the
 // context's kind.name is used.
 //
 // Port mappings use union semantics keyed by (containerPort, protocol): user

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/a-cordier/sew/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +16,7 @@ var infoCmd = &cobra.Command{
 
 Displays the composition chain, component list, available context flags,
 and enabled features. Use this to discover what flags a context supports
-before running "sew create".`,
+before running "gck create".`,
 	RunE: runInfo,
 }
 
@@ -30,7 +30,7 @@ func runInfo(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	if resolved == nil {
-		return fmt.Errorf("no context configured; set registry and from in sew.yaml or use --registry and --from")
+		return fmt.Errorf("no context configured; set registry and from in gck.yaml or use --registry and --from")
 	}
 
 	bold := color.New(color.Bold)
@@ -124,7 +124,7 @@ func printInfoFeatures(bold *color.Color, features config.FeaturesConfig) {
 	if len(cfg.From) > 0 {
 		fmt.Println()
 		bold.Println("Usage")
-		example := fmt.Sprintf("  sew create --from %s", strings.Join(cfg.From, " --from "))
+		example := fmt.Sprintf("  gck create --from %s", strings.Join(cfg.From, " --from "))
 		fmt.Println(example)
 	}
 }

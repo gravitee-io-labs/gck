@@ -76,7 +76,7 @@ components:
                       - name: KAFKA_HEAP_OPTS
                         value: -Xmx256m -Xms256m
                       - name: CLUSTER_ID
-                        value: sew-kafka-standalone-01
+                        value: gck-kafka-standalone-01
                     resources:
                       requests:
                         cpu: 250m

@@ -1,4 +1,4 @@
-package sewtmpl
+package gcktmpl
 
 import (
 	"strings"
@@ -75,8 +75,8 @@ func TestRender_MissingVarErrors(t *testing.T) {
 }
 
 func TestRender_EnvFunction(t *testing.T) {
-	t.Setenv("SEW_TEST_VAR", "hello")
-	raw := []byte(`val: "{{ env "SEW_TEST_VAR" }}"
+	t.Setenv("GCK_TEST_VAR", "hello")
+	raw := []byte(`val: "{{ env "GCK_TEST_VAR" }}"
 `)
 	out, err := Render(raw, nil)
 	if err != nil {
@@ -88,7 +88,7 @@ func TestRender_EnvFunction(t *testing.T) {
 }
 
 func TestRender_EnvFunctionUnsetVar(t *testing.T) {
-	raw := []byte(`val: "{{ env "SEW_UNLIKELY_TO_EXIST_12345" }}"
+	raw := []byte(`val: "{{ env "GCK_UNLIKELY_TO_EXIST_12345" }}"
 `)
 	out, err := Render(raw, nil)
 	if err != nil {
@@ -313,11 +313,11 @@ components: []
 }
 
 func TestRender_CombinedFunctions(t *testing.T) {
-	t.Setenv("SEW_BUILD_TAG", "ci-42")
+	t.Setenv("GCK_BUILD_TAG", "ci-42")
 	raw := []byte(`vars:
   imageTag: ""
 
-image: '{{ .imageTag | default (env "SEW_BUILD_TAG") }}'
+image: '{{ .imageTag | default (env "GCK_BUILD_TAG") }}'
 `)
 	out, err := Render(raw, nil)
 	if err != nil {

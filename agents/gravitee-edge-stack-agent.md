@@ -35,7 +35,7 @@ Key differences:
 | **Secret format** | `fromFile` (whole file) | `entries` with `key: license-key` |
 | **Namespace** | `gravitee` | `ambassador` |
 
-### sew.yaml requirements
+### gck.yaml requirements
 
 The license must be mounted as a Kubernetes Secret with `onMissing: ignore`
 so the context still works (gracefully degraded) when the file is absent.
@@ -66,7 +66,7 @@ helm:
 ### Overriding the license path
 
 If you keep your license at a different location, you can override it
-in your own `sew.yaml` without touching the registry. The `license`
+in your own `gck.yaml` without touching the registry. The `license`
 component is merged by name, so only the `fromFile` field needs to be
 set:
 
@@ -90,12 +90,12 @@ the following content:
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Edge Stack license
-at `$HOME/opt/gravitee/edge-stack/license.jwt` and sew will automatically
+at `$HOME/opt/gravitee/edge-stack/license.jwt` and gck will automatically
 mount it into the cluster as the `ambassador-edge-stack` Secret. If the
 file is missing, the license component is silently skipped
 (`onMissing: ignore`).
 
-To use a different path, override it in your `sew.yaml`:
+To use a different path, override it in your `gck.yaml`:
 
 \```yaml
 components:

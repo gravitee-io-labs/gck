@@ -11,26 +11,26 @@ host access on port 30686 (UI), 30317 (OTLP gRPC), and 30318 (OTLP HTTP).
 Uses in-memory storage for lightweight development — traces are lost on
 restart.
 
-## Install sew
+## Install gck
 
 ```bash
-go install github.com/a-cordier/sew@latest
+go install github.com/gravitee-io-labs/gck@latest
 ```
 
-For other installation methods, see [Installation](https://a-cordier.github.io/sew/docs/getting-started/installation/).
+For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
 ## Usage
 
 ### Create
 
 ```bash
-sew create --from jaeger/standalone
+gck create --from jaeger/standalone
 ```
 
 ### Cleanup
 
 ```bash
-sew delete
+gck delete
 ```
 
 ## Quick Start
