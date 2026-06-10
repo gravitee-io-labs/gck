@@ -1,8 +1,11 @@
 <footer class="footer">
   <div class="footer-inner">
-    <p>
-      <a href="{{ .Site.Params.githubRepo }}" target="_blank" rel="noopener">gck</a>
-      is a <a href="https://gravitee.io" target="_blank" rel="noopener">gravitee.io</a> lab project
+    <p class="footer-brand">
+      <img class="footer-gravitee-logo" src="{{ "gravitee-io/icon.svg" | relURL }}" alt="Gravitee" />
+      <span>
+        <a href="{{ .Site.Params.githubRepo }}" target="_blank" rel="noopener">gck</a>
+        is a <a href="https://gravitee.io" target="_blank" rel="noopener">gravitee.io</a> lab project
+      </span>
     </p>
   </div>
 </footer>

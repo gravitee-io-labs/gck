@@ -1,19 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 48" fill="none">
-  <defs>
-    <linearGradient id="letterGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#00ADD8"/>
-      <stop offset="100%" style="stop-color:#326CE5"/>
-    </linearGradient>
-  </defs>
   <!-- g -->
-  <rect x="2" y="2" width="42" height="44" rx="6" fill="none" stroke="url(#letterGrad)" stroke-width="2"/>
-  <text x="23" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">g</text>
+  <rect x="2" y="2" width="42" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="23" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="currentColor">g</text>
   <!-- c -->
-  <rect x="50" y="2" width="42" height="44" rx="6" fill="none" stroke="url(#letterGrad)" stroke-width="2"/>
-  <text x="71" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">c</text>
+  <rect x="50" y="2" width="42" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="71" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="currentColor">c</text>
   <!-- k -->
-  <rect x="98" y="2" width="42" height="44" rx="6" fill="none" stroke="url(#letterGrad)" stroke-width="2"/>
-  <text x="119" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="url(#letterGrad)">k</text>
-  <circle cx="47" cy="24" r="1.5" fill="#326CE5"/>
-  <circle cx="95" cy="24" r="1.5" fill="#326CE5"/>
+  <rect x="98" y="2" width="42" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="119" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" fill="currentColor">k</text>
+  <circle cx="47" cy="24" r="1.5" fill="currentColor"/>
+  <circle cx="95" cy="24" r="1.5" fill="currentColor"/>
 </svg>

@@ -1,40 +1,40 @@
 /* ═══════════════════════════════════════════════════
-   gck — Modern Docker Hub-inspired theme
+   gck — Gravitee-branded theme
    ═══════════════════════════════════════════════════ */
 
 /* ─── Design tokens (light) ─── */
 
 :root {
-  --hue-brand: 213;
+  --hue-brand: 174;
 
-  --color-blue-start: #00ADD8;
-  --color-blue-end: #326CE5;
-  --color-gradient: linear-gradient(135deg, var(--color-blue-start), var(--color-blue-end));
+  --color-brand-start: #14B8A6;
+  --color-brand-end: #0F766E;
+  --color-gradient: linear-gradient(135deg, var(--color-brand-start), var(--color-brand-end));
 
-  --color-text:        #1a1a2e;
+  --color-text:        #1a1a1a;
   --color-text-muted:  #586069;
   --color-text-faint:  #8b949e;
   --color-bg:          #ffffff;
   --color-bg-subtle:   #f6f8fa;
-  --color-bg-inset:    #eef1f5;
+  --color-bg-inset:    #f0fdfa;
   --color-bg-overlay:  rgba(255,255,255,.92);
   --color-border:      #d0d7de;
   --color-border-muted:#e8ebef;
-  --color-link:        #326CE5;
-  --color-link-hover:  #1a4fbd;
-  --color-accent:      #00ADD8;
+  --color-link:        #0F766E;
+  --color-link-hover:  #115E59;
+  --color-accent:      #14B8A6;
 
   --color-card-bg:     #ffffff;
-  --color-card-hover:  #f8fbff;
-  --color-card-shadow: rgba(50,108,229,.06);
-  --color-card-shadow-hover: rgba(50,108,229,.14);
+  --color-card-hover:  #f0fdfa;
+  --color-card-shadow: rgba(13,148,136,.06);
+  --color-card-shadow-hover: rgba(13,148,136,.14);
 
-  --color-tag-bg:      #edf2fc;
-  --color-tag-text:    #3b6fd4;
-  --color-tag-border:  #c8d8f4;
+  --color-tag-bg:      #ccfbf1;
+  --color-tag-text:    #0F766E;
+  --color-tag-border:  #99f6e4;
 
   --color-search-bg:   #f6f8fa;
-  --color-search-focus-ring: rgba(0,173,216,.18);
+  --color-search-focus-ring: rgba(20,184,166,.18);
 
   --color-code-bg:     #f3f5f8;
   --color-pre-bg:      #1e2029;
@@ -55,7 +55,7 @@
   --nav-height:  60px;
   --sidebar-w:   260px;
 
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
 
   --transition-fast: .15s ease;
@@ -76,21 +76,21 @@
   --color-bg-overlay:  rgba(13,17,23,.92);
   --color-border:      #30363d;
   --color-border-muted:#21262d;
-  --color-link:        #58a6ff;
-  --color-link-hover:  #79c0ff;
-  --color-accent:      #3bc9db;
+  --color-link:        #5EEAD4;
+  --color-link-hover:  #99F6E4;
+  --color-accent:      #14B8A6;
 
   --color-card-bg:     #161b22;
   --color-card-hover:  #1c2433;
   --color-card-shadow: rgba(0,0,0,.25);
-  --color-card-shadow-hover: rgba(50,108,229,.20);
+  --color-card-shadow-hover: rgba(20,184,166,.20);
 
-  --color-tag-bg:      #1a2744;
-  --color-tag-text:    #79b8ff;
-  --color-tag-border:  #264380;
+  --color-tag-bg:      #042F2E;
+  --color-tag-text:    #5EEAD4;
+  --color-tag-border:  #134E4A;
 
   --color-search-bg:   #161b22;
-  --color-search-focus-ring: rgba(88,166,255,.20);
+  --color-search-focus-ring: rgba(94,234,212,.20);
 
   --color-code-bg:     #1c2128;
   --color-pre-bg:      #161b22;
@@ -108,21 +108,21 @@
     --color-bg-overlay:  rgba(13,17,23,.92);
     --color-border:      #30363d;
     --color-border-muted:#21262d;
-    --color-link:        #58a6ff;
-    --color-link-hover:  #79c0ff;
-    --color-accent:      #3bc9db;
+    --color-link:        #5EEAD4;
+    --color-link-hover:  #99F6E4;
+    --color-accent:      #14B8A6;
 
     --color-card-bg:     #161b22;
     --color-card-hover:  #1c2433;
     --color-card-shadow: rgba(0,0,0,.25);
-    --color-card-shadow-hover: rgba(50,108,229,.20);
+    --color-card-shadow-hover: rgba(20,184,166,.20);
 
-    --color-tag-bg:      #1a2744;
-    --color-tag-text:    #79b8ff;
-    --color-tag-border:  #264380;
+    --color-tag-bg:      #042F2E;
+    --color-tag-text:    #5EEAD4;
+    --color-tag-border:  #134E4A;
 
     --color-search-bg:   #161b22;
-    --color-search-focus-ring: rgba(88,166,255,.20);
+    --color-search-focus-ring: rgba(94,234,212,.20);
 
     --color-code-bg:     #1c2128;
     --color-pre-bg:      #161b22;
@@ -269,6 +269,16 @@ pre.mermaid .cluster path {
   width: auto;
 }
 
+[data-theme="dark"] .nav-logo img {
+  filter: brightness(0) invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .nav-logo img {
+    filter: brightness(0) invert(1);
+  }
+}
+
 .nav-links {
   display: flex;
   list-style: none;
@@ -373,7 +383,7 @@ pre.mermaid .cluster path {
    ═══════════════════════════════════════════════════ */
 
 .hero {
-  background: var(--color-gradient);
+  background: #1A1A1A;
   color: #fff;
   padding: 6rem 1.5rem 5.5rem;
   text-align: center;
@@ -386,8 +396,8 @@ pre.mermaid .cluster path {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(0,173,216,.20) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(50,108,229,.15) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(20,184,166,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(15,118,110,.08) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -441,11 +451,14 @@ pre.mermaid .cluster path {
 }
 
 .hero-tagline {
-  font-size: 1.1rem;
-  opacity: 0.85;
+  font-size: 1.35rem;
   margin-bottom: 2.5rem;
   line-height: 1.6;
-  font-weight: 400;
+  font-weight: 600;
+  background: var(--color-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-actions {
@@ -487,14 +500,14 @@ pre.mermaid .cluster path {
 }
 
 .btn-primary {
-  background: #fff;
-  color: var(--color-blue-end);
+  background: var(--color-gradient);
+  color: #fff;
   box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
   box-shadow: var(--shadow-md);
-  color: var(--color-blue-end);
+  opacity: 0.9;
 }
 
 .btn-secondary {
@@ -749,7 +762,7 @@ pre.mermaid .cluster path {
 
 .term-cursor {
   animation: blink 1s step-end infinite;
-  color: #58a6ff;
+  color: #5EEAD4;
   font-weight: normal;
 }
 
@@ -2036,6 +2049,18 @@ h4:hover .heading-anchor {
   text-align: center;
   font-size: 0.84rem;
   color: var(--color-text-faint);
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.footer-gravitee-logo {
+  height: 1.2em;
+  width: auto;
 }
 
 .footer-inner a {
