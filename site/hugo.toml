@@ -3,8 +3,8 @@ languageCode = "en-us"
 title = "gck"
 
 [params]
-  description = "Gravitee Cluster Kit"
-  tagline = "gck provisions ready-made stacks on local Kubernetes clusters in one command. From dev to CI, compose what you need from a registry and deploy it."
+  description = "The Gravitee Cluster Kit"
+  tagline = "Full Kubernetes environments, composed and deployed in one command. From first prototype to CI pipeline."
   githubRepo = "https://github.com/gravitee-io-labs/gck"
   pinnedGroups = ["gravitee-io"]
 
