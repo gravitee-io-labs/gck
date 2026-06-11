@@ -5,10 +5,10 @@
 /* ─── Design tokens (light) ─── */
 
 :root {
-  --hue-brand: 174;
+  --hue-brand: 215;
 
-  --color-brand-start: #14B8A6;
-  --color-brand-end: #0F766E;
+  --color-brand-start: #64748B;
+  --color-brand-end: #475569;
   --color-gradient: linear-gradient(135deg, var(--color-brand-start), var(--color-brand-end));
 
   --color-text:        #1a1a1a;
@@ -16,25 +16,25 @@
   --color-text-faint:  #8b949e;
   --color-bg:          #ffffff;
   --color-bg-subtle:   #f6f8fa;
-  --color-bg-inset:    #f0fdfa;
+  --color-bg-inset:    #f8fafc;
   --color-bg-overlay:  rgba(255,255,255,.92);
   --color-border:      #d0d7de;
   --color-border-muted:#e8ebef;
-  --color-link:        #0F766E;
-  --color-link-hover:  #115E59;
-  --color-accent:      #14B8A6;
+  --color-link:        #475569;
+  --color-link-hover:  #334155;
+  --color-accent:      #64748B;
 
   --color-card-bg:     #ffffff;
-  --color-card-hover:  #f0fdfa;
-  --color-card-shadow: rgba(13,148,136,.06);
-  --color-card-shadow-hover: rgba(13,148,136,.14);
+  --color-card-hover:  #f8fafc;
+  --color-card-shadow: rgba(100,116,139,.06);
+  --color-card-shadow-hover: rgba(100,116,139,.14);
 
-  --color-tag-bg:      #ccfbf1;
-  --color-tag-text:    #0F766E;
-  --color-tag-border:  #99f6e4;
+  --color-tag-bg:      #f1f5f9;
+  --color-tag-text:    #475569;
+  --color-tag-border:  #e2e8f0;
 
   --color-search-bg:   #f6f8fa;
-  --color-search-focus-ring: rgba(20,184,166,.18);
+  --color-search-focus-ring: rgba(100,116,139,.18);
 
   --color-code-bg:     #f3f5f8;
   --color-pre-bg:      #1e2029;
@@ -76,21 +76,21 @@
   --color-bg-overlay:  rgba(13,17,23,.92);
   --color-border:      #30363d;
   --color-border-muted:#21262d;
-  --color-link:        #5EEAD4;
-  --color-link-hover:  #99F6E4;
-  --color-accent:      #14B8A6;
+  --color-link:        #94a3b8;
+  --color-link-hover:  #cbd5e1;
+  --color-accent:      #94a3b8;
 
   --color-card-bg:     #161b22;
   --color-card-hover:  #1c2433;
   --color-card-shadow: rgba(0,0,0,.25);
-  --color-card-shadow-hover: rgba(20,184,166,.20);
+  --color-card-shadow-hover: rgba(100,116,139,.20);
 
-  --color-tag-bg:      #042F2E;
-  --color-tag-text:    #5EEAD4;
-  --color-tag-border:  #134E4A;
+  --color-tag-bg:      #1e293b;
+  --color-tag-text:    #94a3b8;
+  --color-tag-border:  #334155;
 
   --color-search-bg:   #161b22;
-  --color-search-focus-ring: rgba(94,234,212,.20);
+  --color-search-focus-ring: rgba(148,163,184,.20);
 
   --color-code-bg:     #1c2128;
   --color-pre-bg:      #161b22;
@@ -108,21 +108,21 @@
     --color-bg-overlay:  rgba(13,17,23,.92);
     --color-border:      #30363d;
     --color-border-muted:#21262d;
-    --color-link:        #5EEAD4;
-    --color-link-hover:  #99F6E4;
-    --color-accent:      #14B8A6;
+    --color-link:        #94a3b8;
+    --color-link-hover:  #cbd5e1;
+    --color-accent:      #94a3b8;
 
     --color-card-bg:     #161b22;
     --color-card-hover:  #1c2433;
     --color-card-shadow: rgba(0,0,0,.25);
-    --color-card-shadow-hover: rgba(20,184,166,.20);
+    --color-card-shadow-hover: rgba(100,116,139,.20);
 
-    --color-tag-bg:      #042F2E;
-    --color-tag-text:    #5EEAD4;
-    --color-tag-border:  #134E4A;
+    --color-tag-bg:      #1e293b;
+    --color-tag-text:    #94a3b8;
+    --color-tag-border:  #334155;
 
     --color-search-bg:   #161b22;
-    --color-search-focus-ring: rgba(94,234,212,.20);
+    --color-search-focus-ring: rgba(148,163,184,.20);
 
     --color-code-bg:     #1c2128;
     --color-pre-bg:      #161b22;
@@ -396,8 +396,8 @@ pre.mermaid .cluster path {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(20,184,166,.10) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(15,118,110,.08) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(100,116,139,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(71,85,105,.08) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -762,7 +762,7 @@ pre.mermaid .cluster path {
 
 .term-cursor {
   animation: blink 1s step-end infinite;
-  color: #5EEAD4;
+  color: #94a3b8;
   font-weight: normal;
 }
 
@@ -1292,7 +1292,7 @@ h4:hover .heading-anchor {
   background: var(--color-link);
   color: #fff;
   border-color: var(--color-link);
-  box-shadow: 0 1px 4px rgba(50,108,229,.25);
+  box-shadow: 0 1px 4px rgba(71,85,105,.25);
 }
 
 /* Meta bar (result count + clear) */
@@ -2237,7 +2237,7 @@ h4:hover .heading-anchor {
 /* ─── Selection ─── */
 
 ::selection {
-  background: rgba(0,173,216,.22);
+  background: rgba(100,116,139,.22);
   color: inherit;
 }
 
