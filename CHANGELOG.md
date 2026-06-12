@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/gravitee-io-labs/gck/compare/v1.0.0...v1.0.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* resolve flag template vars from parent context and replace invalid TLS keys ([40d0a9e](https://github.com/gravitee-io-labs/gck/commit/40d0a9e929db71b07ff4f974abda733db036f115))
+
 ## [1.0.0](https://github.com/gravitee-io-labs/gck/compare/v0.18.2...v1.0.0) (2026-06-11)
 
 
