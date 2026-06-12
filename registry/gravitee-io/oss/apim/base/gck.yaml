@@ -12,14 +12,11 @@ vars:
   imageTag:
     default: "latest"
     description: "Docker image tag for all APIM components"
-  imageVariant:
-    default: "-debian"
-    description: "Image variant suffix for APIM JVM components (gateway, management-api)"
 images:
   preload:
     refs:
-      - "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}{{ .imageVariant }}"
-      - "{{ .imagePrefix }}/apim-management-api:{{ .imageTag }}{{ .imageVariant }}"
+      - "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}-debian"
+      - "{{ .imagePrefix }}/apim-management-api:{{ .imageTag }}-debian"
       - "{{ .imagePrefix }}/apim-management-ui:{{ .imageTag }}"
       - "{{ .imagePrefix }}/apim-portal-ui:{{ .imageTag }}"
       - alpine:latest
@@ -104,7 +101,7 @@ components:
         gateway:
           image:
             repository: "{{ .imagePrefix }}/apim-gateway"
-            tag: "{{ .imageTag }}{{ .imageVariant }}"
+            tag: "{{ .imageTag }}-debian"
           ingress:
             enabled: false
           ingressController:
@@ -143,7 +140,7 @@ components:
         api:
           image:
             repository: "{{ .imagePrefix }}/apim-management-api"
-            tag: "{{ .imageTag }}{{ .imageVariant }}"
+            tag: "{{ .imageTag }}-debian"
           ingress:
             enabled: false
           service:

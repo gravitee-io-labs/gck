@@ -14,14 +14,11 @@ vars:
   imageTag:
     default: "latest"
     description: "Docker image tag for the APIM gateway"
-  imageVariant:
-    default: "-debian"
-    description: "Image variant suffix for the APIM gateway"
 images:
   preload:
     mode: replace
     refs:
-      - "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}{{ .imageVariant }}"
+      - "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}-debian"
       - "{{ .imagePrefix }}/kubernetes-operator:latest"
 kind:
   name: "{{ .clusterName }}"
