@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/gravitee-io-labs/gck/compare/v1.0.1...v1.0.2) (2026-06-12)
+
+
+### Bug Fixes
+
+* revert image suffix for apim ([be02a36](https://github.com/gravitee-io-labs/gck/commit/be02a360bba58f5fa80b556ad1425fed7e6f4e52))
+
 ## [1.0.1](https://github.com/gravitee-io-labs/gck/compare/v1.0.0...v1.0.1) (2026-06-12)
 
 
