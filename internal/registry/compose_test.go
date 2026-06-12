@@ -1617,3 +1617,79 @@ components: []
 		t.Fatalf("expected gp-flag and mid-flag, got %v", names)
 	}
 }
+
+func TestFSResolver_EffectiveVarsPropagated(t *testing.T) {
+	root := t.TempDir()
+	gckHome := t.TempDir()
+
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
+vars:
+  imageTag: "latest"
+  imagePrefix: "graviteeio"
+components:
+  - name: app
+    helm:
+      chart: app/chart
+`)
+
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
+from:
+  - parent
+vars:
+  childVar: "hello"
+components:
+  - name: child-comp
+    helm:
+      chart: child/chart
+`)
+
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
+	resolved, err := resolver.Resolve(context.Background(), "child")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resolved.EffectiveVars == nil {
+		t.Fatal("expected EffectiveVars to be set")
+	}
+	if resolved.EffectiveVars["imageTag"] != "latest" {
+		t.Fatalf("expected imageTag=latest from parent, got %q", resolved.EffectiveVars["imageTag"])
+	}
+	if resolved.EffectiveVars["imagePrefix"] != "graviteeio" {
+		t.Fatalf("expected imagePrefix=graviteeio from parent, got %q", resolved.EffectiveVars["imagePrefix"])
+	}
+	if resolved.EffectiveVars["childVar"] != "hello" {
+		t.Fatalf("expected childVar=hello, got %q", resolved.EffectiveVars["childVar"])
+	}
+}
+
+func TestFSResolver_EffectiveVarsOverrideByChild(t *testing.T) {
+	root := t.TempDir()
+	gckHome := t.TempDir()
+
+	writeFile(t, filepath.Join(root, "parent", "gck.yaml"), `
+vars:
+  imageTag: "latest"
+components:
+  - name: app
+    helm:
+      chart: "app:{{ .imageTag }}"
+`)
+
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
+from:
+  - parent
+vars:
+  imageTag: "4.5.0"
+`)
+
+	resolver := &FSResolver{Root: root, GckHome: gckHome}
+	resolved, err := resolver.Resolve(context.Background(), "child")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resolved.EffectiveVars["imageTag"] != "4.5.0" {
+		t.Fatalf("expected child imageTag to override parent, got %q", resolved.EffectiveVars["imageTag"])
+	}
+}

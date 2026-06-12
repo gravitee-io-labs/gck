@@ -97,13 +97,14 @@ type ContextFlag struct {
 
 // ResolvedContext is a fully resolved context with all referenced files in Dir.
 type ResolvedContext struct {
-	Repos      []Repo
-	Components []Component
-	Dir        string
-	Kind       KindConfig
-	Features   FeaturesConfig
-	Images     ImagesConfig
-	Notes      ResolvedNotes
-	Abstract   bool
-	Flags      []ContextFlag
+	Repos         []Repo
+	Components    []Component
+	Dir           string
+	Kind          KindConfig
+	Features      FeaturesConfig
+	Images        ImagesConfig
+	Notes         ResolvedNotes
+	Abstract      bool
+	Flags         []ContextFlag
+	EffectiveVars map[string]string
 }

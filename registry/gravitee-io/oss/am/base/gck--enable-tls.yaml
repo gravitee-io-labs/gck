@@ -1,0 +1,14 @@
+description: "Enable TLS on the AM gateway"
+components:
+  - name: am
+    helm:
+      values:
+        secrets:
+          kubernetes:
+            enabled: true
+        gateway:
+          ssl:
+            enabled: true
+            keystore:
+              type: pem
+              secret: secret://kubernetes/tls-server

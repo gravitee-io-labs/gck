@@ -63,6 +63,9 @@ func runUp(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	if resolved != nil {
+		cfg.Images = config.MergeImages(cfg.Images, resolved.Images)
+	}
 	cfg.Kind.MergeWithContext(&resolved.Kind)
 
 	return createCluster(resolved, activeFlags)

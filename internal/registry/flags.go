@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
 
@@ -80,8 +81,10 @@ func MergeFlags(base, child []config.ContextFlag) []config.ContextFlag {
 // ApplyFlags loads each active flag's patch file and merges it into the
 // resolved context using the same merge semantics as context composition.
 // Active flags are validated against the available flags on the context.
-// setOverrides are forwarded to the template engine when rendering flag
-// patch files.
+// The resolved context's EffectiveVars are used as the base variable set
+// when rendering flag patches, so flags can reference vars declared by
+// the parent context (e.g. {{ .imageTag }}). setOverrides are merged on
+// top.
 func ApplyFlags(resolved *config.ResolvedContext, activeFlags []string, setOverrides map[string]string) error {
 	if len(activeFlags) == 0 {
 		return nil
@@ -102,7 +105,7 @@ func ApplyFlags(resolved *config.ResolvedContext, activeFlags []string, setOverr
 			return fmt.Errorf("unknown context flag --%s (available: %s)", name, strings.Join(known, ", "))
 		}
 
-		patch, err := loadFlagConfig(flag, setOverrides)
+		patch, err := loadFlagConfig(flag, resolved.EffectiveVars, setOverrides)
 		if err != nil {
 			return fmt.Errorf("loading flag --%s: %w", name, err)
 		}
@@ -161,8 +164,45 @@ func ValidateFlagDescription(data []byte) error {
 }
 
 // loadFlagConfig loads and parses a flag's gck--{name}.yaml file into a
-// Config struct ready for merging.
-func loadFlagConfig(flag config.ContextFlag, setOverrides map[string]string) (*config.Config, error) {
+// Config struct ready for merging. It renders the flag patch using the
+// parent context's effective vars as the base, with the flag's own var
+// defs and --set overrides merged on top.
+func loadFlagConfig(flag config.ContextFlag, contextVars map[string]string, setOverrides map[string]string) (*config.Config, error) {
 	path := filepath.Join(flag.Dir, flagFilePrefix+flag.Name+".yaml")
-	return config.Load(path, setOverrides)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading flag file %s: %w", path, err)
+	}
+
+	flagVars, err := gcktmpl.ExtractVarDefs(data)
+	if err != nil {
+		return nil, fmt.Errorf("extracting vars from flag %s: %w", path, err)
+	}
+
+	vars := make(map[string]string, len(contextVars)+len(flagVars)+len(setOverrides))
+	for k, v := range contextVars {
+		vars[k] = v
+	}
+	for _, d := range flagVars {
+		vars[d.Name] = d.Default
+	}
+	for k, v := range setOverrides {
+		vars[k] = v
+	}
+
+	rendered, err := gcktmpl.RenderWithVars(data, vars)
+	if err != nil {
+		return nil, fmt.Errorf("templating flag file %s: %w", path, err)
+	}
+
+	var cfg config.Config
+	if err := yaml.Unmarshal(rendered, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing flag file %s: %w", path, err)
+	}
+
+	cfg.Vars = yaml.Node{}
+	cfg.Kind.ApplyDefaults()
+	cfg.Dir = filepath.Dir(path)
+	return &cfg, nil
 }
