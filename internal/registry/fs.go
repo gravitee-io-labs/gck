@@ -114,7 +114,12 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	}
 
 	if len(ctxCfg.From) > 0 {
-		return r.resolveFromWithVars(ctx, ctxCfg, dir, selfRegistry, parentOverrides, set)
+		resolved, err := r.resolveFromWithVars(ctx, ctxCfg, dir, selfRegistry, parentOverrides, set)
+		if err != nil {
+			return nil, err
+		}
+		resolved.EffectiveVars = mergeVarMaps(resolved.EffectiveVars, effectiveVars)
+		return resolved, nil
 	}
 
 	flags, err := DiscoverFlags(dir)
@@ -123,15 +128,16 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	}
 
 	return &config.ResolvedContext{
-		Repos:      ctxCfg.Helm.Repos,
-		Components: ctxCfg.Components,
-		Dir:        dir,
-		Kind:       ctxCfg.Kind,
-		Features:   ctxCfg.Features,
-		Images:     ctxCfg.Images,
-		Notes:      readNotes(dir),
-		Abstract:   ctxCfg.Abstract,
-		Flags:      flags,
+		Repos:         ctxCfg.Helm.Repos,
+		Components:    ctxCfg.Components,
+		Dir:           dir,
+		Kind:          ctxCfg.Kind,
+		Features:      ctxCfg.Features,
+		Images:        ctxCfg.Images,
+		Notes:         readNotes(dir),
+		Abstract:      ctxCfg.Abstract,
+		Flags:         flags,
+		EffectiveVars: effectiveVars,
 	}, nil
 }
 

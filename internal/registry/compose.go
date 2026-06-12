@@ -54,6 +54,22 @@ func MergeInto(acc, src *config.ResolvedContext) {
 	acc.Images = config.MergeImages(acc.Images, src.Images)
 	acc.Notes = mergeNotes(acc.Notes, src.Notes)
 	acc.Flags = MergeFlags(acc.Flags, src.Flags)
+	acc.EffectiveVars = mergeVarMaps(acc.EffectiveVars, src.EffectiveVars)
+}
+
+// mergeVarMaps merges two variable maps, with override values taking priority.
+func mergeVarMaps(base, override map[string]string) map[string]string {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+	result := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		result[k] = v
+	}
+	for k, v := range override {
+		result[k] = v
+	}
+	return result
 }
 
 // mergeNotes merges child notes on top of base notes.

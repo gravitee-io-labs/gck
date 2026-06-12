@@ -582,3 +582,189 @@ components:
 		t.Fatalf("expected flag value file resolved to %q, got %q", expected, comp.Helm.ValueFiles[1])
 	}
 }
+
+func TestApplyFlags_ResolvesContextVars(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
+description: "Disable the developer portal UI"
+components:
+  - name: apim
+    helm:
+      values:
+        portal:
+          enabled: false
+images:
+  preload:
+    skip:
+      - "graviteeio/apim-portal-ui:{{ .imageTag }}"
+`)
+
+	resolved := &config.ResolvedContext{
+		Components: []config.Component{
+			{
+				Name: "apim",
+				Helm: &config.HelmSpec{
+					Chart: "graviteeio/apim",
+					Values: map[string]interface{}{
+						"portal": map[string]interface{}{"enabled": true},
+					},
+				},
+			},
+		},
+		Images: config.ImagesConfig{
+			Preload: &config.PreloadConfig{
+				Refs: []string{
+					"graviteeio/apim-gateway:latest-debian",
+					"graviteeio/apim-portal-ui:latest",
+				},
+			},
+		},
+		Flags: []config.ContextFlag{
+			{Name: "disable-portal", Dir: dir},
+		},
+		EffectiveVars: map[string]string{
+			"imageTag":    "latest",
+			"imagePrefix": "graviteeio",
+		},
+	}
+
+	err := ApplyFlags(resolved, []string{"disable-portal"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	portal, _ := resolved.Components[0].Helm.Values["portal"].(map[string]interface{})
+	if portal["enabled"] != false {
+		t.Fatalf("expected portal.enabled=false, got %v", portal["enabled"])
+	}
+
+	if resolved.Images.Preload == nil {
+		t.Fatal("expected preload config")
+	}
+	skipSet := make(map[string]bool)
+	for _, s := range resolved.Images.Preload.Skip {
+		skipSet[s] = true
+	}
+	if !skipSet["graviteeio/apim-portal-ui:latest"] {
+		t.Fatalf("expected portal image in skip list, got %v", resolved.Images.Preload.Skip)
+	}
+}
+
+func TestApplyFlags_FlagOwnVarsOverrideContext(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "gck--enable-monitoring.yaml"), `
+description: "Enable monitoring"
+vars:
+  monitoringImage: "prom/prometheus:v2.50"
+images:
+  preload:
+    refs:
+      - "{{ .monitoringImage }}"
+components:
+  - name: prometheus
+    helm:
+      chart: prometheus/prometheus
+`)
+
+	resolved := &config.ResolvedContext{
+		Components: []config.Component{
+			{Name: "app", Helm: &config.HelmSpec{Chart: "app/chart"}},
+		},
+		Flags: []config.ContextFlag{
+			{Name: "enable-monitoring", Dir: dir},
+		},
+		EffectiveVars: map[string]string{
+			"imageTag": "latest",
+		},
+	}
+
+	err := ApplyFlags(resolved, []string{"enable-monitoring"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(resolved.Components) != 2 {
+		t.Fatalf("expected 2 components, got %d", len(resolved.Components))
+	}
+	if resolved.Images.Preload == nil || len(resolved.Images.Preload.Refs) == 0 {
+		t.Fatal("expected preload refs from flag")
+	}
+	if resolved.Images.Preload.Refs[0] != "prom/prometheus:v2.50" {
+		t.Fatalf("expected monitoring image in refs, got %v", resolved.Images.Preload.Refs)
+	}
+}
+
+func TestApplyFlags_SetOverridesWinOverContextVars(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
+description: "Disable portal"
+components:
+  - name: apim
+    helm:
+      values:
+        portal:
+          enabled: false
+images:
+  preload:
+    skip:
+      - "graviteeio/apim-portal-ui:{{ .imageTag }}"
+`)
+
+	resolved := &config.ResolvedContext{
+		Components: []config.Component{
+			{
+				Name: "apim",
+				Helm: &config.HelmSpec{Chart: "graviteeio/apim"},
+			},
+		},
+		Flags: []config.ContextFlag{
+			{Name: "disable-portal", Dir: dir},
+		},
+		EffectiveVars: map[string]string{
+			"imageTag": "latest",
+		},
+	}
+
+	err := ApplyFlags(resolved, []string{"disable-portal"}, map[string]string{
+		"imageTag": "4.5.0",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resolved.Images.Preload == nil {
+		t.Fatal("expected preload config")
+	}
+	skipSet := make(map[string]bool)
+	for _, s := range resolved.Images.Preload.Skip {
+		skipSet[s] = true
+	}
+	if !skipSet["graviteeio/apim-portal-ui:4.5.0"] {
+		t.Fatalf("expected --set imageTag to win, got skip=%v", resolved.Images.Preload.Skip)
+	}
+}
+
+func TestApplyFlags_FailsWithoutContextVars(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
+description: "Disable portal"
+images:
+  preload:
+    skip:
+      - "graviteeio/apim-portal-ui:{{ .imageTag }}"
+`)
+
+	resolved := &config.ResolvedContext{
+		Flags: []config.ContextFlag{
+			{Name: "disable-portal", Dir: dir},
+		},
+	}
+
+	err := ApplyFlags(resolved, []string{"disable-portal"}, nil)
+	if err == nil {
+		t.Fatal("expected error when context vars are missing")
+	}
+	if !strings.Contains(err.Error(), "imageTag") {
+		t.Fatalf("expected error about imageTag, got: %v", err)
+	}
+}

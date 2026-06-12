@@ -158,19 +158,25 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 	}
 
 	if len(parsed.From) > 0 {
-		return r.resolveFromWithVars(ctx, parsed, cacheDir, parentOverrides, set)
+		resolved, err := r.resolveFromWithVars(ctx, parsed, cacheDir, parentOverrides, set)
+		if err != nil {
+			return nil, err
+		}
+		resolved.EffectiveVars = mergeVarMaps(resolved.EffectiveVars, effectiveVars)
+		return resolved, nil
 	}
 
 	return &config.ResolvedContext{
-		Repos:      parsed.Helm.Repos,
-		Components: parsed.Components,
-		Dir:        cacheDir,
-		Kind:       parsed.Kind,
-		Features:   parsed.Features,
-		Images:     parsed.Images,
-		Notes:      readNotes(cacheDir),
-		Abstract:   parsed.Abstract,
-		Flags:      flags,
+		Repos:         parsed.Helm.Repos,
+		Components:    parsed.Components,
+		Dir:           cacheDir,
+		Kind:          parsed.Kind,
+		Features:      parsed.Features,
+		Images:        parsed.Images,
+		Notes:         readNotes(cacheDir),
+		Abstract:      parsed.Abstract,
+		Flags:         flags,
+		EffectiveVars: effectiveVars,
 	}, nil
 }
 
