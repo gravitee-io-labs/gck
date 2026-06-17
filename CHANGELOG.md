@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/gravitee-io-labs/gck/compare/v1.0.2...v1.1.0) (2026-06-17)
+
+
+### Features
+
+* add gamma context ([efdaf3f](https://github.com/gravitee-io-labs/gck/commit/efdaf3f4323d22defea2fef7e5ba73b2981ca451))
+
 ## [1.0.2](https://github.com/gravitee-io-labs/gck/compare/v1.0.1...v1.0.2) (2026-06-12)
 
 
