@@ -1,0 +1,231 @@
+from:
+  - gravitee-io/oss/am/mongodb
+  - elastic/elasticsearch/standalone
+vars:
+  clusterName:
+    default: "gravitee"
+    description: "Name of the Kind cluster"
+  imagePrefix:
+    default: "graviteeio"
+    description: "Docker image prefix for all Gamma and APIM components"
+  imageTag:
+    default: "latest"
+    description: "Docker image tag for all Gamma and APIM components"
+  helmVersion:
+    default: ""
+    description: "Helm chart version constraint"
+  elastic:
+    elasticsearch:
+      standalone:
+        imageTag:
+          default: "9.3.1"
+        imageRepository:
+          default: "docker.elastic.co/elasticsearch/elasticsearch"
+images:
+  preload:
+    refs:
+      - "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}-debian"
+      - "{{ .imagePrefix }}/apim-management-api:{{ .imageTag }}-debian"
+      - "{{ .imagePrefix }}/apim-management-ui:{{ .imageTag }}"
+      - "{{ .imagePrefix }}/apim-portal-ui:{{ .imageTag }}"
+      - "{{ .imagePrefix }}/gamma-ui:{{ .imageTag }}"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30080
+          hostPort: 30080
+        - containerPort: 30081
+          hostPort: 30081
+        - containerPort: 30082
+          hostPort: 30082
+        - containerPort: 30083
+          hostPort: 30083
+        - containerPort: 30084
+          hostPort: 30084
+        - containerPort: 30085
+          hostPort: 30085
+components:
+  - name: license
+    type: k8s
+    namespace: gravitee
+    k8s:
+      secrets:
+        - name: gravitee-license
+          fromFile: '{{ env "HOME" }}/opt/gravitee/license.key'
+          onMissing: ignore
+  - name: elasticsearch
+    namespace: gravitee
+    helm:
+      values:
+        service:
+          type: ClusterIP
+          nodePort: null
+  - name: gamma
+    type: helm
+    namespace: gravitee
+    conditions:
+      ready: true
+    timeout: 15m
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: gamma
+    requires:
+      - component: tls-server
+      - component: am
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app.kubernetes.io/instance: am
+        timeout: 15m
+      - component: elasticsearch
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: elasticsearch-master
+        timeout: 15m
+    helm:
+      chart: oci://graviteeio.azurecr.io/helm/apim
+      version: "{{ .helmVersion }}"
+      values:
+        license:
+          name: gravitee-license
+        secrets:
+          kubernetes:
+            enabled: true
+        gamma:
+          enabled: true
+        gammaUi:
+          enabled: true
+          image:
+            repository: "{{ .imagePrefix }}/gamma-ui"
+            tag: "{{ .imageTag }}"
+          app:
+            gammaBaseURL: http://localhost:30083/gamma
+          ingress:
+            enabled: false
+          env:
+            - name: GAMMA_API_URL
+              value: "http://localhost:30083/gamma/"
+            - name: GAMMA_BASE_HREF
+              value: "/"
+          service:
+            type: NodePort
+            nodePort: 30085
+        es:
+          endpoints:
+            - http://elasticsearch-master:9200
+        mongo:
+          uri: mongodb://mongodb:27017/apim?connectTimeoutMS=30000
+        ui:
+          image:
+            repository: "{{ .imagePrefix }}/apim-management-ui"
+            tag: "{{ .imageTag }}"
+          ingress:
+            enabled: false
+          service:
+            type: NodePort
+            nodePort: 30080
+          baseURL: http://localhost:30083/management
+          env:
+            - name: CONSOLE_BASE_HREF
+              value: /
+        portal:
+          image:
+            repository: "{{ .imagePrefix }}/apim-portal-ui"
+            tag: "{{ .imageTag }}"
+          enabled: true
+          ingress:
+            enabled: false
+          service:
+            type: NodePort
+            nodePort: 30081
+          baseURL: http://localhost:30083/portal
+        gateway:
+          image:
+            repository: "{{ .imagePrefix }}/apim-gateway"
+            tag: "{{ .imageTag }}-debian"
+          ingress:
+            enabled: false
+          ingressController:
+            enabled: true
+          servers:
+            - type: http
+              port: 8082
+              service:
+                type: NodePort
+                nodePort: 30082
+                externalPort: 82
+              ingress:
+                enabled: false
+            - type: http
+              port: 8084
+              service:
+                type: NodePort
+                nodePort: 30084
+                externalPort: 84
+              ingress:
+                enabled: false
+              ssl:
+                keystore:
+                  type: pem
+                  secret: secret://kubernetes/tls-server
+                clientAuth: request
+          service:
+            type: NodePort
+          services:
+            sync:
+              kubernetes:
+                enabled: true
+          reporters:
+            elasticsearch:
+              enabled: true
+          extraVolumes: |
+            - name: graviteeio-license
+              secret:
+                secretName: gravitee-license
+          extraVolumeMounts: |
+            - name: graviteeio-license
+              mountPath: /opt/graviteeio-gateway/license
+              readOnly: true
+        api:
+          image:
+            repository: "{{ .imagePrefix }}/apim-management-api"
+            tag: "{{ .imageTag }}-debian"
+          ingress:
+            enabled: false
+          service:
+            type: NodePort
+            nodePort: 30083
+          gamma:
+            enabled: true
+          env:
+            - name: MANAGEMENT_MONGODB_TRANSACTIONAL
+              value: "false"
+            - name: gravitee_gamma_enabled
+              value: "true"
+          extraVolumes: |
+            - name: graviteeio-license
+              secret:
+                secretName: gravitee-license
+          extraVolumeMounts: |
+            - name: graviteeio-license
+              mountPath: /opt/graviteeio-management-api/license
+              readOnly: true
+        installation:
+          api:
+            url: http://localhost:30083
+            proxyPath:
+              management: /management
+              portal: /portal
+              gamma: /gamma
+          standalone:
+            console:
+              url: http://localhost:30080
+            portal:
+              url: http://localhost:30081
+            gamma-console:
+              url: http://localhost:30085

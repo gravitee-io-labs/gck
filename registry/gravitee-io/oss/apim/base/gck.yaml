@@ -59,6 +59,7 @@ components:
     namespace: gravitee
     conditions:
       ready: true
+    timeout: 15m
     selector:
       matchLabels:
         app.kubernetes.io/instance: apim

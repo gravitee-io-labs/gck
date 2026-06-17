@@ -178,7 +178,6 @@ func (h *HelmInstaller) Install(ctx context.Context, comp config.Component, dir 
 		if opts.DryRun {
 			instClient.DryRunOption = "server"
 		}
-		instClient.ChartPathOptions = action.ChartPathOptions{}
 		if comp.Helm.Version != "" {
 			instClient.ChartPathOptions.Version = comp.Helm.Version
 		}
