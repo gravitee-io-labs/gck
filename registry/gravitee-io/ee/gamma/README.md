@@ -40,6 +40,12 @@ The APIM Console is available at [http://localhost:30080](http://localhost:30080
 with the same credentials, and the AM Console at
 [http://localhost:30090](http://localhost:30090) (`admin` / `adminadmin`).
 
+To connect Gamma to Access Management:
+
+1. Open the AM Console at [http://localhost:30090](http://localhost:30090) and create a service account token.
+2. Head to the platform module in the Gamma Console at [http://localhost:30085](http://localhost:30085).
+3. Use `http://am-management-api:83` as the AM URL and paste the token.
+
 To get started with Gravitee API Management, follow the
 [APIM quick start guide](https://documentation.gravitee.io/apim/getting-started/quickstart-guide).
 
