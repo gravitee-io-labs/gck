@@ -9,11 +9,17 @@ vars:
     default: "graviteeio"
     description: "Docker image prefix for all Gamma and APIM components"
   imageTag:
-    default: "latest"
+    default: "4.12.0-milestone.4"
     description: "Docker image tag for all Gamma and APIM components"
   helmVersion:
-    default: ""
+    default: "4.12.0-milestone.4"
     description: "Helm chart version constraint"
+  gravitee-io:
+    oss:
+      am:
+        base:
+          imageTag:
+            default: "4.12.0-alpha.6"
   elastic:
     elasticsearch:
       standalone:
@@ -88,7 +94,7 @@ components:
             app: elasticsearch-master
         timeout: 15m
     helm:
-      chart: oci://graviteeio.azurecr.io/helm/apim
+      chart: graviteeio/apim
       version: "{{ .helmVersion }}"
       values:
         license:

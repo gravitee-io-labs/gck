@@ -11,3 +11,9 @@ Management API   http://localhost:30083
 AM Console       http://localhost:30090
 AM Gateway       http://localhost:30092
 AM API           http://localhost:30093
+
+If you want to configure AM connection from Gamma:
+
+  - Create a service account token in AM Console
+  - Head to the platform module of Gamma: http://localhost:30085
+  - Use `http://am-management-api:83` as your AM URL
