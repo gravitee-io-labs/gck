@@ -1,5 +1,5 @@
 ---
-title: "Sew Registry"
+title: "gck Registry"
 weight: 1
 type: docs
 ---

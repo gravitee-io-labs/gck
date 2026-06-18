@@ -6,7 +6,7 @@ type: docs
 
 These guides walk you through the main features of gck, from discovering contexts in the registry to setting up production-like networking on your local machine.
 
-- **[Sew Registry]({{< ref "/docs/guides/gck-registry" >}})** -- Find and use application stacks from the registry
+- **[gck Registry]({{< ref "/docs/guides/gck-registry" >}})** -- Find and use application stacks from the registry
 - **[Composing Contexts]({{< ref "/docs/guides/composing-contexts" >}})** -- Layer contexts to build exactly the stack you need
 - **[Networking]({{< ref "/docs/guides/networking" >}})** -- Load balancers, Gateway API, and local DNS
 - **[Container Images]({{< ref "/docs/guides/container-images" >}})** -- Mirror proxies and image preloading
