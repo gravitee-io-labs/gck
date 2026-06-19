@@ -8,8 +8,13 @@ type: docs
 
 ```bash
 brew tap gravitee-io-labs/gck https://github.com/gravitee-io-labs/gck
+brew trust gravitee-io-labs/gck
 brew install gck
 ```
+
+> Homebrew 6.0+ requires third-party taps to be explicitly trusted before
+> their formulas can be installed. The `brew trust` step above authorizes
+> Homebrew to load the gck formula.
 
 ## Linux packages
 
