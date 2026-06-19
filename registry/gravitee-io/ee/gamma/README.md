@@ -58,6 +58,7 @@ To get started with Gravitee API Management, follow the
 | APIM Portal        | http://localhost:30081 |
 | APIM Gateway       | http://localhost:30082 |
 | Management API     | http://localhost:30083 |
+| Edge Gateway       | http://localhost:30086 |
 | AM Console         | http://localhost:30090 |
 | AM Gateway         | http://localhost:30092 |
 | AM Management API  | http://localhost:30093 |

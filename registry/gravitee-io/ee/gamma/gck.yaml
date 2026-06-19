@@ -52,6 +52,8 @@ kind:
           hostPort: 30084
         - containerPort: 30085
           hostPort: 30085
+        - containerPort: 30086
+          hostPort: 30086
 components:
   - name: license
     type: k8s
@@ -61,6 +63,25 @@ components:
         - name: gravitee-license
           fromFile: '{{ env "HOME" }}/opt/gravitee/license.key'
           onMissing: ignore
+  - name: edge-gateway
+    type: k8s
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: edge-gateway
+          spec:
+            type: NodePort
+            ports:
+              - port: 18093
+                targetPort: 18093
+                nodePort: 30086
+                name: edge
+            selector:
+              app.kubernetes.io/instance: gamma
+              app.kubernetes.io/component: gateway
   - name: elasticsearch
     namespace: gravitee
     helm:
@@ -182,10 +203,21 @@ components:
                 clientAuth: request
           service:
             type: NodePort
+          edge:
+            enabled: true
+            server:
+              port: 18093
           services:
             sync:
               kubernetes:
                 enabled: true
+            edge:
+              enabled: true
+              service:
+                externalPort: 18093
+                internalPort: 18093
+              ingress:
+                enabled: false
           reporters:
             elasticsearch:
               enabled: true
