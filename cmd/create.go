@@ -242,6 +242,7 @@ func saveClusterState(cfg *config.Config, resolved *config.ResolvedContext, acti
 		Registry:  cfg.Registry,
 		From:      cfg.From,
 		Flags:     activeFlags,
+		Set:       setOverrides,
 		Features:  cfg.Features,
 		Images:    cfg.Images,
 	}
