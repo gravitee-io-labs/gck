@@ -86,6 +86,36 @@ func TestSaveAndLoadWithContextInfo(t *testing.T) {
 	}
 }
 
+func TestSaveAndLoadSetAndFlags(t *testing.T) {
+	dir := t.TempDir()
+
+	cs := &ClusterState{
+		Name:      "gio-apim",
+		CreatedAt: time.Date(2026, 3, 18, 14, 0, 0, 0, time.UTC),
+		Flags:     []string{"disable-es", "disable-portal"},
+		Set:       map[string]string{"imagePrefix": "graviteeio.azurecr.io", "imageTag": "4.11.x-latest"},
+	}
+
+	if err := Save(dir, cs); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := Load(dir, "gio-apim")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if len(loaded.Flags) != 2 || loaded.Flags[0] != "disable-es" || loaded.Flags[1] != "disable-portal" {
+		t.Errorf("Flags = %v, want [disable-es disable-portal]", loaded.Flags)
+	}
+	if loaded.Set["imagePrefix"] != "graviteeio.azurecr.io" {
+		t.Errorf("Set[imagePrefix] = %q, want graviteeio.azurecr.io", loaded.Set["imagePrefix"])
+	}
+	if loaded.Set["imageTag"] != "4.11.x-latest" {
+		t.Errorf("Set[imageTag] = %q, want 4.11.x-latest", loaded.Set["imageTag"])
+	}
+}
+
 func TestSaveAndLoadWithoutContextInfo(t *testing.T) {
 	dir := t.TempDir()
 

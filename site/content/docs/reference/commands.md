@@ -114,9 +114,23 @@ gck patch --set imageTag=4.11.0 --set helmVersion=4.11.0
 gck patch upgrade.yaml --set imageTag=4.11.0
 ```
 
+### Inherited context
+
+`gck patch` reuses the context the cluster was created with, so you only pass what changes. The `from` contexts, `--registry`, the context flags (e.g. `--disable-es`), and the `--set` overrides captured at `gck create` are read back from the saved cluster state (`~/.gck/clusters/<name>.yaml`) and applied automatically. Patch-time inputs take priority: `--from` / `--registry` override the stored values, per-key `--set` overrides win, and context flags passed to `patch` are added to the inherited ones.
+
+This keeps an upgrade small -- it only needs the deltas:
+
+```bash
+gck create --from gravitee-io/oss/apim/mongodb --disable-es \
+  --set imagePrefix=ghcr.io/acme --set imageTag=4.11 --set helmVersion=4.11.0
+gck patch --name gravitee --set imageTag=4.12 --set helmVersion=4.12.0
+```
+
+The patch above keeps `--disable-es`, `imagePrefix`, and the `from` context from create. A cluster created by an older gck (no saved state) falls back to the previous behaviour, where flags and `--set` must be repeated on every `patch`.
+
 ### How it works
 
-1. **Resolve context** -- gck loads the config chain and resolves the registry context, exactly as `gck create` does. When `--set` is provided, template variables are overridden during resolution.
+1. **Inherit + resolve context** -- gck reads the saved state for the target cluster and reuses the create-time `from`, `--registry`, context flags and `--set` overrides (patch-time inputs win), then resolves the registry context exactly as `gck create` does.
 2. **Verify cluster** -- gck checks that the target Kind cluster is running.
 3. **Load patch file** (when provided) -- the patch file is loaded (same format as `gck.yaml`).
 4. **Merge** -- patch components (if any) are merged on top of the resolved context using the standard [merge rules]({{< ref "/docs/guides/composing-contexts#merge-rules" >}}).

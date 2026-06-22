@@ -11,17 +11,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ClusterState holds the information needed to tear down a cluster without
-// re-resolving the original config or registry.
+// ClusterState holds the information captured at create time so a cluster can be
+// torn down (delete) or upgraded (patch) without re-resolving the original config
+// or registry. Set records the --set overrides so patch can reuse them.
 type ClusterState struct {
-	Name      string               `yaml:"name"`
-	CreatedAt time.Time            `yaml:"createdAt"`
-	Registry  string               `yaml:"registry,omitempty"`
-	From      []string             `yaml:"from,omitempty"`
-	Flags     []string             `yaml:"flags,omitempty"`
+	Name      string                `yaml:"name"`
+	CreatedAt time.Time             `yaml:"createdAt"`
+	Registry  string                `yaml:"registry,omitempty"`
+	From      []string              `yaml:"from,omitempty"`
+	Flags     []string              `yaml:"flags,omitempty"`
+	Set       map[string]string     `yaml:"set,omitempty"`
 	Features  config.FeaturesConfig `yaml:"features,omitempty"`
 	Images    config.ImagesConfig   `yaml:"images,omitempty"`
-	Notes     DeleteNotes          `yaml:"notes,omitempty"`
+	Notes     DeleteNotes           `yaml:"notes,omitempty"`
 }
 
 type DeleteNotes struct {

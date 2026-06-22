@@ -14,6 +14,7 @@ import (
 	"github.com/gravitee-io-labs/gck/internal/kind"
 	"github.com/gravitee-io-labs/gck/internal/logger"
 	"github.com/gravitee-io-labs/gck/internal/registry"
+	"github.com/gravitee-io-labs/gck/internal/state"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -61,6 +62,16 @@ func runPatch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("patch requires either a patch file or --set overrides (or both)")
 	}
 
+	// Inherit the cluster's create-time context (from, registry, --set vars and
+	// flags) so a patch only needs to express the deltas. Patch-time inputs win,
+	// and a cluster with no saved state (e.g. created by an older gck) behaves as
+	// before.
+	inheritName := patchClusterName
+	if inheritName == "" {
+		inheritName = cfg.Kind.Name
+	}
+	inherited := inheritClusterState(inheritName)
+
 	resolved, err := resolveContextConfig()
 	if err != nil {
 		return err
@@ -69,7 +80,7 @@ func runPatch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no registry context configured; patch requires a resolved context (set registry and from in gck.yaml or via flags)")
 	}
 
-	if _, err := applyContextFlags(cmd, resolved); err != nil {
+	if err := applyPatchFlags(cmd, resolved, inherited); err != nil {
 		return err
 	}
 
@@ -170,4 +181,76 @@ func runPatch(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// inheritClusterState loads the saved state for clusterName and folds its
+// create-time inputs into the global cfg/setOverrides so a patch reuses them.
+// Patch-time inputs keep priority: explicit --from / --registry (or a from set
+// in the config) are left untouched, and per-key patch --set overrides win over
+// the stored ones. Returns the loaded state, or nil when the cluster has no
+// state file (e.g. created by an older gck) so patch falls back to its previous
+// behaviour.
+func inheritClusterState(clusterName string) *state.ClusterState {
+	if clusterName == "" {
+		return nil
+	}
+	st, err := state.Load(filepath.Join(gckHome, "clusters"), clusterName)
+	if err != nil {
+		return nil
+	}
+	if len(cfg.From) == 0 && len(st.From) > 0 {
+		cfg.From = st.From
+	}
+	if cfg.Registry == "" && st.Registry != "" {
+		cfg.Registry = st.Registry
+	}
+	setOverrides = mergeSet(st.Set, setOverrides)
+	return st
+}
+
+// mergeSet overlays overrides on top of inherited --set values, with overrides
+// winning per key.
+func mergeSet(inherited, overrides map[string]string) map[string]string {
+	merged := make(map[string]string, len(inherited)+len(overrides))
+	for k, v := range inherited {
+		merged[k] = v
+	}
+	for k, v := range overrides {
+		merged[k] = v
+	}
+	return merged
+}
+
+// applyPatchFlags applies context flags to the resolved context, combining the
+// flags inherited from the cluster's create-time state with any passed on the
+// patch command line (deduplicated). Patch-time flags are additive.
+func applyPatchFlags(cmd *cobra.Command, resolved *config.ResolvedContext, inherited *state.ClusterState) error {
+	if resolved == nil || len(resolved.Flags) == 0 {
+		return nil
+	}
+	active, err := extractActiveFlags(os.Args, cmd.InheritedFlags(), cmd.LocalFlags(), resolved.Flags)
+	if err != nil {
+		return err
+	}
+	var inheritedFlags []string
+	if inherited != nil {
+		inheritedFlags = inherited.Flags
+	}
+	return registry.ApplyFlags(resolved, unionFlags(inheritedFlags, active), setOverrides)
+}
+
+// unionFlags concatenates two flag-name lists, preserving order and dropping
+// duplicates.
+func unionFlags(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, list := range [][]string{a, b} {
+		for _, f := range list {
+			if !seen[f] {
+				seen[f] = true
+				out = append(out, f)
+			}
+		}
+	}
+	return out
 }
