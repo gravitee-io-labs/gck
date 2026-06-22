@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/gravitee-io-labs/gck/compare/v1.1.0...v1.1.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **patch:** reuse the cluster's create-time context on upgrade ([72fa94f](https://github.com/gravitee-io-labs/gck/commit/72fa94f18790c937e8e165cea891ed40af0dac6f))
+
 ## [1.1.0](https://github.com/gravitee-io-labs/gck/compare/v1.0.2...v1.1.0) (2026-06-17)
 
 
