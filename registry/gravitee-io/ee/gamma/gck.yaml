@@ -9,10 +9,10 @@ vars:
     default: "graviteeio"
     description: "Docker image prefix for all Gamma and APIM components"
   imageTag:
-    default: "4.12.0-milestone.4"
+    default: "4.12.0-milestone.5"
     description: "Docker image tag for all Gamma and APIM components"
   helmVersion:
-    default: "4.12.0-milestone.4"
+    default: "4.12.0-milestone.5"
     description: "Helm chart version constraint"
   gravitee-io:
     oss:
