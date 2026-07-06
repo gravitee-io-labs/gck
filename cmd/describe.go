@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -63,7 +64,7 @@ func runDescribe(_ *cobra.Command, args []string) error {
 
 	printDescribeFeatures(bold, cs.Features)
 	printDescribeLBs(bold, cs.Name)
-	printDescribeDNS(bold, cs.Features)
+	printDescribeDNS(bold, cs.Name, cs.Features)
 	return nil
 }
 
@@ -135,7 +136,7 @@ func printDescribeLBs(bold *color.Color, clusterName string) {
 	fmt.Println()
 }
 
-func printDescribeDNS(bold *color.Color, features config.FeaturesConfig) {
+func printDescribeDNS(bold *color.Color, clusterName string, features config.FeaturesConfig) {
 	bold.Println("DNS")
 
 	dnsEnabled := features.DNS != nil && features.DNS.Enabled
@@ -165,6 +166,16 @@ func printDescribeDNS(bold *color.Color, features config.FeaturesConfig) {
 		color.Blue("  server:   running on 127.0.0.1:%d", port)
 	} else {
 		color.Yellow("  server:   not running")
+	}
+
+	ctx := context.Background()
+	synced, err := dns.CoreDNSSynced(ctx, clusterName)
+	if err != nil {
+		color.Yellow("  cluster:  could not check CoreDNS sync: %v", err)
+	} else if synced {
+		color.Blue("  cluster:  CoreDNS synced for %s", domain)
+	} else {
+		color.Yellow("  cluster:  CoreDNS not synced")
 	}
 
 	dnsDir := filepath.Join(gckHome, "dns")

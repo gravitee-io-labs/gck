@@ -2,18 +2,23 @@ Your cluster "{{ .Kind.Name }}" is ready.
 
 Everything has been deployed in the `gravitee` namespace.
 
-Gamma Console    http://localhost:30085
-APIM Console     http://localhost:30080
-APIM Portal      http://localhost:30081
-APIM Gateway     http://localhost:30082
-APIM Gateway     https://localhost:30084 (TLS)
-Management API   http://localhost:30083
-AM Console       http://localhost:30090
-AM Gateway       http://localhost:30092
-AM API           http://localhost:30093
+If you haven't already, run the one-time DNS setup so *.gck.local
+hostnames resolve on your machine (may require sudo):
+
+  gck setup dns
+
+Gamma Console    http://gamma-console.gravitee.gck.local
+APIM Console     http://apim-console.gravitee.gck.local
+APIM Portal      http://apim-portal.gravitee.gck.local
+APIM Gateway     http://apim-gateway.gravitee.gck.local
+APIM API         http://apim-api.gravitee.gck.local
+Edge Gateway     http://edge.gravitee.gck.local
+AM Console       http://am-console.gravitee.gck.local
+AM Gateway       http://am-gateway.gravitee.gck.local
+AM API           http://am-api.gravitee.gck.local
 
 If you want to configure AM connection from Gamma:
 
   - Create a service account token in AM Console
-  - Head to the platform module of Gamma: http://localhost:30085
-  - Use `http://am-management-api:83` as your AM URL
+  - Head to the platform module of Gamma: http://gamma-console.gravitee.gck.local
+  - Use `http://am-api.gravitee.gck.local` as your AM URL

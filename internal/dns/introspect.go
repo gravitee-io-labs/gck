@@ -78,7 +78,7 @@ func IntrospectCluster(ctx context.Context, clusterName, recordDir string, pollT
 		if err != nil {
 			return fmt.Errorf("creating kubernetes client: %w", err)
 		}
-		svcRecords, err := resolveServiceRecords(ctx, clientset, dnsRecords)
+		svcRecords, err := resolveServiceRecords(ctx, clientset, dnsRecords, pollTimeout)
 		if err != nil {
 			return err
 		}
@@ -178,25 +178,49 @@ func extractGatewayIP(gw *unstructured.Unstructured) string {
 	return ""
 }
 
-// resolveServiceRecords looks up each declared DNS record's service and returns
-// a hostname→IP map for those with a LoadBalancer ingress IP assigned.
-func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dnsRecords []config.DNSRecord) (map[string]string, error) {
-	records := make(map[string]string)
-	for _, r := range dnsRecords {
-		svc, err := client.CoreV1().Services(r.Namespace).Get(ctx, r.Service, metav1.GetOptions{})
-		if err != nil {
-			klog.Warningf("DNS record %q: service %s/%s not found: %v", r.Hostname, r.Namespace, r.Service, err)
-			continue
+// resolveServiceRecords polls each declared DNS record's LoadBalancer service
+// until all have ingress IPs or the timeout expires. This handles the race
+// where CPK hasn't assigned LB IPs yet when DNS setup runs right after
+// component install.
+func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dnsRecords []config.DNSRecord, timeout time.Duration) (map[string]string, error) {
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(defaultPollInterval)
+	defer ticker.Stop()
+
+	for {
+		records := make(map[string]string)
+		pending := 0
+		for _, r := range dnsRecords {
+			svc, err := client.CoreV1().Services(r.Namespace).Get(ctx, r.Service, metav1.GetOptions{})
+			if err != nil {
+				klog.V(2).Infof("DNS record %q: service %s/%s not found yet: %v", r.Hostname, r.Namespace, r.Service, err)
+				pending++
+				continue
+			}
+			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+				klog.V(2).Infof("DNS record %q: service %s/%s has no LoadBalancer IP yet", r.Hostname, r.Namespace, r.Service)
+				pending++
+				continue
+			}
+			ip := svc.Status.LoadBalancer.Ingress[0].IP
+			records[strings.ToLower(r.Hostname)] = ip
+			klog.V(2).Infof("DNS record %s → %s (service %s/%s)", r.Hostname, ip, r.Namespace, r.Service)
 		}
-		if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-			klog.Warningf("DNS record %q: service %s/%s has no LoadBalancer IP yet", r.Hostname, r.Namespace, r.Service)
-			continue
+
+		if pending == 0 {
+			return records, nil
 		}
-		ip := svc.Status.LoadBalancer.Ingress[0].IP
-		records[strings.ToLower(r.Hostname)] = ip
-		klog.V(2).Infof("DNS record %s → %s (service %s/%s)", r.Hostname, ip, r.Namespace, r.Service)
+
+		klog.V(2).Infof("%d/%d LoadBalancer service(s) still pending", pending, len(dnsRecords))
+		select {
+		case <-ctx.Done():
+			return records, ctx.Err()
+		case <-deadline:
+			klog.Warningf("timed out waiting for LoadBalancer IPs; returning %d/%d records", len(records), len(dnsRecords))
+			return records, nil
+		case <-ticker.C:
+		}
 	}
-	return records, nil
 }
 
 // buildRecords lists all HTTPRoutes and maps their hostnames to Gateway IPs

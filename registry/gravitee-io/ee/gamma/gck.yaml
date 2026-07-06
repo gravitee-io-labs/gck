@@ -9,17 +9,29 @@ vars:
     default: "graviteeio"
     description: "Docker image prefix for all Gamma and APIM components"
   imageTag:
-    default: "4.12.0-milestone.5"
+    default: "latest"
     description: "Docker image tag for all Gamma and APIM components"
   helmVersion:
-    default: "4.12.0-milestone.5"
+    default: ""
     description: "Helm chart version constraint"
+  apiUrl:
+    default: "http://apim-api.gravitee.gck.local"
+    description: "Management API base URL used by all UIs"
+  consoleUrl:
+    default: "http://apim-console.gravitee.gck.local"
+    description: "APIM Console URL"
+  portalUrl:
+    default: "http://apim-portal.gravitee.gck.local"
+    description: "APIM Portal URL"
+  gammaConsoleUrl:
+    default: "http://gamma-console.gravitee.gck.local"
+    description: "Gamma Console URL"
   gravitee-io:
     oss:
       am:
         base:
           imageTag:
-            default: "4.12.0-alpha.6"
+            default: "latest"
   elastic:
     elasticsearch:
       standalone:
@@ -27,6 +39,11 @@ vars:
           default: "9.3.1"
         imageRepository:
           default: "docker.elastic.co/elasticsearch/elasticsearch"
+features:
+  gateway:
+    enabled: true
+  dns:
+    enabled: true
 images:
   preload:
     refs:
@@ -82,6 +99,148 @@ components:
             selector:
               app.kubernetes.io/instance: gamma
               app.kubernetes.io/component: gateway
+  - name: gateway-routes
+    type: k8s
+    namespace: gravitee
+    requires:
+      - component: am
+      - component: gamma
+    k8s:
+      manifests:
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: gamma-console
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - gamma-console.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: gamma-apim-gamma
+                    port: 8005
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: apim-console
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - apim-console.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: gamma-apim-ui
+                    port: 8002
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: apim-portal
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - apim-portal.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: gamma-apim-portal
+                    port: 8003
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: apim-api
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - apim-api.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: gamma-apim-api
+                    port: 83
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: apim-gateway
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - apim-gateway.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: gamma-apim-gateway
+                    port: 82
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: edge-gateway
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - edge.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: edge-gateway
+                    port: 18093
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: am-gateway
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - am-gateway.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: am-gateway
+                    port: 82
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: am-console
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - am-console.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: am-management-ui
+                    port: 8002
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: HTTPRoute
+          metadata:
+            name: am-api
+          spec:
+            parentRefs:
+              - name: gck-gateway
+                namespace: default
+            hostnames:
+              - am-api.gravitee.gck.local
+            rules:
+              - backendRefs:
+                  - name: am-management-api
+                    port: 83
+  - name: am
+    helm:
+      values:
+        ui:
+          baseURL: http://am-api.gravitee.gck.local/management
+        api:
+          gateway:
+            url: http://am-gateway.gravitee.gck.local
   - name: elasticsearch
     namespace: gravitee
     helm:
@@ -131,12 +290,12 @@ components:
             repository: "{{ .imagePrefix }}/gamma-ui"
             tag: "{{ .imageTag }}"
           app:
-            gammaBaseURL: http://localhost:30083/gamma
+            gammaBaseURL: "{{ .apiUrl }}/gamma"
           ingress:
             enabled: false
           env:
             - name: GAMMA_API_URL
-              value: "http://localhost:30083/gamma/"
+              value: "{{ .apiUrl }}/gamma/"
             - name: GAMMA_BASE_HREF
               value: "/"
           service:
@@ -156,7 +315,7 @@ components:
           service:
             type: NodePort
             nodePort: 30080
-          baseURL: http://localhost:30083/management
+          baseURL: "{{ .apiUrl }}/management"
           env:
             - name: CONSOLE_BASE_HREF
               value: /
@@ -170,7 +329,7 @@ components:
           service:
             type: NodePort
             nodePort: 30081
-          baseURL: http://localhost:30083/portal
+          baseURL: "{{ .apiUrl }}/portal"
         gateway:
           image:
             repository: "{{ .imagePrefix }}/apim-gateway"
@@ -245,6 +404,8 @@ components:
               value: "false"
             - name: gravitee_gamma_enabled
               value: "true"
+            - name: portal.entrypoint
+              value: "http://apim-gateway.gravitee.gck.local/"
           extraVolumes: |
             - name: graviteeio-license
               secret:
@@ -255,15 +416,15 @@ components:
               readOnly: true
         installation:
           api:
-            url: http://localhost:30083
+            url: "{{ .apiUrl }}"
             proxyPath:
               management: /management
               portal: /portal
               gamma: /gamma
           standalone:
             console:
-              url: http://localhost:30080
+              url: "{{ .consoleUrl }}"
             portal:
-              url: http://localhost:30081
+              url: "{{ .portalUrl }}"
             gamma-console:
-              url: http://localhost:30085
+              url: "{{ .gammaConsoleUrl }}"

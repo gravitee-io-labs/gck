@@ -50,8 +50,9 @@ func runDNSRefresh(_ *cobra.Command, _ []string) error {
 		dnsRecords = cfg.Features.DNS.Records
 	}
 
+	introspectGateway := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
 	ctx := context.Background()
-	if err := dns.IntrospectCluster(ctx, clusterName, dnsDir, refreshPollTimeout, true, dnsRecords); err != nil {
+	if err := dns.IntrospectCluster(ctx, clusterName, dnsDir, refreshPollTimeout, introspectGateway, dnsRecords); err != nil {
 		return fmt.Errorf("introspecting cluster %q: %w", clusterName, err)
 	}
 
@@ -59,6 +60,16 @@ func runDNSRefresh(_ *cobra.Command, _ []string) error {
 
 	if err := ensureDNSServerRunning(cfg); err != nil {
 		logger.Warn("failed to start DNS server: %v", err)
+	}
+
+	domain := config.DNSDefaultDomain
+	if cfg.Features.DNS != nil && cfg.Features.DNS.Domain != "" {
+		domain = cfg.Features.DNS.Domain
+	}
+	if err := dns.SyncCoreDNS(ctx, clusterName, domain, dnsRecords, introspectGateway); err != nil {
+		logger.Warn("failed to sync in-cluster DNS: %v", err)
+	} else {
+		logger.Success("In-cluster DNS synced for cluster %q", clusterName)
 	}
 
 	return nil

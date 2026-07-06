@@ -332,6 +332,13 @@ func setupDNSRecords(ctx context.Context, cfg *config.Config) error {
 		logger.Warn("failed to start DNS server: %v", err)
 	}
 
+	gwEnabled := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
+	if err := logger.WithSpinner("Syncing DNS records to cluster CoreDNS", func() error {
+		return dns.SyncCoreDNS(ctx, cfg.Kind.Name, cfg.Features.DNS.Domain, dnsRecords, gwEnabled)
+	}); err != nil {
+		logger.Warn("failed to sync in-cluster DNS: %v", err)
+	}
+
 	if !dns.ResolverConfigured(cfg.Features.DNS.Domain, cfg.Features.DNS.Port) {
 		fmt.Println()
 		color.Yellow("  DNS server is running but OS-level routing is not configured.")

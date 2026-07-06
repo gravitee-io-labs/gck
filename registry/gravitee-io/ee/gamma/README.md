@@ -17,6 +17,16 @@ go install github.com/gravitee-io-labs/gck@latest
 
 For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
 
+This context uses DNS for service routing. After creating the cluster, run the
+one-time OS setup so `*.gck.local` hostnames resolve on your machine (may require
+`sudo`):
+
+```bash
+gck setup dns
+```
+
+See the [Networking guide](https://gravitee-io-labs.github.io/gck/docs/guides/networking/#local-dns) for details.
+
 ## Usage
 
 ### Create
@@ -33,35 +43,35 @@ gck delete
 
 ## Quick Start
 
-Sign in to the Gamma Console at [http://localhost:30085](http://localhost:30085)
+Sign in to the Gamma Console at [http://gamma-console.gravitee.gck.local](http://gamma-console.gravitee.gck.local)
 with the default admin account (`admin` / `admin`).
 
-The APIM Console is available at [http://localhost:30080](http://localhost:30080)
+The APIM Console is available at [http://apim-console.gravitee.gck.local](http://apim-console.gravitee.gck.local)
 with the same credentials, and the AM Console at
-[http://localhost:30090](http://localhost:30090) (`admin` / `adminadmin`).
+[http://am-console.gravitee.gck.local](http://am-console.gravitee.gck.local) (`admin` / `adminadmin`).
 
 To connect Gamma to Access Management:
 
-1. Open the AM Console at [http://localhost:30090](http://localhost:30090) and create a service account token.
-2. Head to the platform module in the Gamma Console at [http://localhost:30085](http://localhost:30085).
-3. Use `http://am-management-api:83` as the AM URL and paste the token.
+1. Open the AM Console at [http://am-console.gravitee.gck.local](http://am-console.gravitee.gck.local) and create a service account token.
+2. Head to the platform module in the Gamma Console at [http://gamma-console.gravitee.gck.local](http://gamma-console.gravitee.gck.local).
+3. Use `http://am-api.gravitee.gck.local` as the AM URL and paste the token.
 
 To get started with Gravitee API Management, follow the
 [APIM quick start guide](https://documentation.gravitee.io/apim/getting-started/quickstart-guide).
 
 ## Endpoints
 
-| Service            | URL                   |
-|--------------------|-----------------------|
-| Gamma Console      | http://localhost:30085 |
-| APIM Console       | http://localhost:30080 |
-| APIM Portal        | http://localhost:30081 |
-| APIM Gateway       | http://localhost:30082 |
-| Management API     | http://localhost:30083 |
-| Edge Gateway       | http://localhost:30086 |
-| AM Console         | http://localhost:30090 |
-| AM Gateway         | http://localhost:30092 |
-| AM Management API  | http://localhost:30093 |
+| Service            | URL                                      |
+|--------------------|------------------------------------------|
+| Gamma Console      | http://gamma-console.gravitee.gck.local       |
+| APIM Console       | http://apim-console.gravitee.gck.local   |
+| APIM Portal        | http://apim-portal.gravitee.gck.local    |
+| APIM Gateway       | http://apim-gateway.gravitee.gck.local   |
+| APIM Management API| http://apim-api.gravitee.gck.local       |
+| Edge Gateway       | http://edge.gravitee.gck.local           |
+| AM Console         | http://am-console.gravitee.gck.local     |
+| AM Gateway         | http://am-gateway.gravitee.gck.local     |
+| AM Management API  | http://am-api.gravitee.gck.local         |
 
 ## License
 

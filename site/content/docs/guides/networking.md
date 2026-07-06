@@ -112,6 +112,14 @@ features:
 
 Both `demo.api.gck.local` and `v2.demo.api.gck.local` resolve to the same Service IP. Exact records always take priority over wildcards.
 
+### In-cluster DNS resolution
+
+When DNS is enabled, gck also patches the in-cluster CoreDNS configuration so that pods can resolve `*.gck.local` hostnames. This is essential for flows where both a browser (on the host) and a backend service (in a pod) must use the same hostname -- for example, OAuth/OIDC redirect flows where the authorization server's hostname appears in redirect URIs and token endpoints.
+
+The in-cluster records point to **ClusterIPs** (not the LoadBalancer IPs used by the host DNS server), so pod-to-service traffic stays inside the cluster with no hairpin routing.
+
+This happens automatically during `gck create` and `gck refresh dns`. You can verify the sync status with `gck describe`.
+
 ### Refreshing records
 
 If you deploy additional Gateways or Services after `gck create`, re-collect their hostnames with:
@@ -119,6 +127,8 @@ If you deploy additional Gateways or Services after `gck create`, re-collect the
 ```bash
 gck refresh dns
 ```
+
+This updates both the host DNS server records and the in-cluster CoreDNS configuration.
 
 ### DNS options
 

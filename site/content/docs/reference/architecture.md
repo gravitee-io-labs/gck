@@ -47,7 +47,7 @@ flowchart TD
 
 **LB proxies** -- Docker containers (envoy) created by the cloud provider controller. Each one maps a Kubernetes Service of type LoadBalancer to a routable IP on the host.
 
-**DNS server** -- Resolves `*.gck.local` hostnames to cluster service IPs. It discovers records from Gateway resources and static config, and hot-reloads when records are updated by `gck refresh dns`. Runs on the user machine so that the OS resolver can reach it.
+**DNS server** -- Resolves `*.gck.local` hostnames to cluster service IPs. It discovers records from Gateway resources and static config, and hot-reloads when records are updated by `gck refresh dns`. Runs on the user machine so that the OS resolver can reach it. In addition, gck patches the in-cluster CoreDNS configuration with the same hostnames (mapped to ClusterIPs instead of LB IPs) so that pods can resolve `*.gck.local` names too -- enabling flows like OAuth/OIDC where both a browser and a backend pod must use the same hostname.
 
 ## Config resolution
 

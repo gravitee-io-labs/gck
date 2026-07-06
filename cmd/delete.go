@@ -83,6 +83,11 @@ func runDown(_ *cobra.Command, args []string) error {
 		logger.Success("Removed DNS records for cluster %q", target.Name)
 	}
 
+	ctx := context.Background()
+	if err := dns.CleanupCoreDNS(ctx, target.Name); err != nil {
+		klog.Warningf("failed to restore CoreDNS config: %v", err)
+	}
+
 	if err := logger.WithSpinner("Cleaning up load balancer containers", func() error {
 		return cloudprovider.CleanupLBs(target.Name)
 	}); err != nil {
