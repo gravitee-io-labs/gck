@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/gravitee-io-labs/gck/compare/v1.1.1...v1.2.0) (2026-07-06)
+
+
+### Features
+
+* sync in cluster and host dns ([a2abbd5](https://github.com/gravitee-io-labs/gck/commit/a2abbd57c920158dac4e6c633bb9aefbf3be0d89))
+
 ## [1.1.1](https://github.com/gravitee-io-labs/gck/compare/v1.1.0...v1.1.1) (2026-06-22)
 
 
