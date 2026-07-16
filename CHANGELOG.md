@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/gravitee-io-labs/gck/compare/v1.2.0...v1.2.1) (2026-07-16)
+
+
+### Bug Fixes
+
+* guard from panic when creating without config ([50e7cac](https://github.com/gravitee-io-labs/gck/commit/50e7cacbb84e111e8c939af06a862a39e4a562b6))
+
 ## [1.2.0](https://github.com/gravitee-io-labs/gck/compare/v1.1.1...v1.2.0) (2026-07-06)
 
 
