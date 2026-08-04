@@ -1,0 +1,112 @@
+abstract: true
+vars:
+  imageRepository:
+    default: "otel/opentelemetry-collector"
+    description: "OpenTelemetry Collector Docker image repository"
+  imageTag:
+    default: "0.157.0"
+    description: "OpenTelemetry Collector Docker image tag"
+  namespace:
+    default: "gravitee"
+    description: "Namespace the collector is deployed into (defaults to gravitee so composed Gravitee gateways can reach it as http://otel-collector:4317)"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+components:
+  - name: otel-collector
+    type: k8s
+    namespace: "{{ .namespace }}"
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: otel-collector
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: otel-collector-config
+            labels:
+              app: otel-collector
+          data:
+            config.yaml: |
+              receivers:
+                otlp:
+                  protocols:
+                    grpc:
+                      endpoint: 0.0.0.0:4317
+                    http:
+                      endpoint: 0.0.0.0:4318
+              exporters:
+                debug:
+                  verbosity: detailed
+              service:
+                pipelines:
+                  traces:
+                    receivers: [otlp]
+                    exporters: [debug]
+                  metrics:
+                    receivers: [otlp]
+                    exporters: [debug]
+                  logs:
+                    receivers: [otlp]
+                    exporters: [debug]
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: otel-collector
+            labels:
+              app: otel-collector
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: otel-collector
+            template:
+              metadata:
+                labels:
+                  app: otel-collector
+              spec:
+                containers:
+                  - name: otel-collector
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    args:
+                      - "--config=/etc/otel/config.yaml"
+                    ports:
+                      - containerPort: 4317
+                        name: otlp-grpc
+                      - containerPort: 4318
+                        name: otlp-http
+                    volumeMounts:
+                      - name: config
+                        mountPath: /etc/otel
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 128Mi
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                volumes:
+                  - name: config
+                    configMap:
+                      name: otel-collector-config
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: otel-collector
+            labels:
+              app: otel-collector
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 4317
+                targetPort: 4317
+                name: otlp-grpc
+              - port: 4318
+                targetPort: 4318
+                name: otlp-http
+            selector:
+              app: otel-collector
