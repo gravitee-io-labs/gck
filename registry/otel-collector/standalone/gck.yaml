@@ -1,0 +1,41 @@
+from:
+  - otel-collector/base
+vars:
+  clusterName:
+    default: "otel-collector"
+    description: "Name of the Kind cluster"
+  namespace:
+    default: "default"
+    description: "Namespace the collector is deployed into"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30317
+          hostPort: 30317
+        - containerPort: 30318
+          hostPort: 30318
+components:
+  - name: otel-collector
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: otel-collector
+            labels:
+              app: otel-collector
+          spec:
+            type: NodePort
+            ports:
+              - port: 4317
+                targetPort: 4317
+                nodePort: 30317
+                name: otlp-grpc
+              - port: 4318
+                targetPort: 4318
+                nodePort: 30318
+                name: otlp-http
+            selector:
+              app: otel-collector

@@ -54,6 +54,23 @@ components:
 
 Contexts in `from` are merged left-to-right: later entries override earlier ones on conflicts. Your local fields override last.
 
+## Adding an OpenTelemetry collector to a Gravitee stack
+
+The `otel-collector/base` context is a reusable observability layer: it deploys an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) into the `gravitee` namespace that receives OTLP telemetry and prints it to its logs via the `debug` exporter. Compose it onto any APIM or AM context, and turn on the gateway's exporter with the inherited `--enable-otel-collector` flag:
+
+```bash
+gck create \
+  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from otel-collector/base \
+  --enable-otel-collector
+```
+
+The gateway then exports OTLP traces to `http://otel-collector:4317`, which you can follow with `kubectl logs -f deploy/otel-collector -n gravitee`.
+
+> Compose `otel-collector/base` (the abstract layer), not `otel-collector/standalone`. Because `kind.name` from the last context in `from` wins, appending the standalone variant — which declares its own cluster — would rename the cluster. The abstract base declares no cluster of its own, so the Gravitee context keeps naming the cluster while the collector layers on top. Use `otel-collector/standalone` only when you want a collector on its own dedicated cluster.
+
+The `--enable-otel-collector` flag only wires the gateway's exporter; the collector itself comes from the `otel-collector/base` entry in `from`. Pass both together.
+
 ## Abstract contexts
 
 When several variants share a common foundation, extract the shared parts into an **abstract** context. Mark it with `abstract: true` -- it can't be deployed on its own, only composed into concrete contexts:

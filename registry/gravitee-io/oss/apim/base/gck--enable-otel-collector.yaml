@@ -1,0 +1,11 @@
+description: "Export gateway OpenTelemetry traces to a composed otel-collector"
+components:
+  - name: apim
+    helm:
+      values:
+        gateway:
+          env:
+            - name: gravitee_services_opentelemetry_enabled
+              value: "true"
+            - name: gravitee_services_opentelemetry_exporter_otlp_endpoint
+              value: "http://otel-collector:4317"

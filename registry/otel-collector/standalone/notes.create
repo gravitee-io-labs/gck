@@ -1,0 +1,18 @@
+Your cluster "{{ .Kind.Name }}" is ready.
+
+The OpenTelemetry Collector is receiving OTLP telemetry and printing it to its
+logs via the debug exporter.
+
+OTLP endpoints:
+  gRPC  localhost:30317
+  HTTP  http://localhost:30318
+
+Send a test trace:
+
+  curl -X POST http://localhost:30318/v1/traces \
+    -H 'Content-Type: application/json' \
+    -d '{"resourceSpans":[]}'
+
+Watch received telemetry:
+
+  kubectl logs -f deploy/otel-collector
