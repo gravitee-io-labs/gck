@@ -46,7 +46,4 @@ echo "hello" | kcat -b 127.0.0.1:30092 -P -t test-topic
 kcat -b 127.0.0.1:30092 -C -t test-topic -e
 ```
 
-| Parameter | Value     |
-|-----------|-----------|
-| Bootstrap | 127.0.0.1:30092 |
-| Protocol  | PLAINTEXT |
+The listener is PLAINTEXT — no TLS, no authentication.

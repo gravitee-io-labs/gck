@@ -1,6 +1,8 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Elasticsearch is available at http://localhost:30920 (security disabled).
-
-  curl http://localhost:30920
+---
+title: Elasticsearch
+endpoints:
+  - name: Elasticsearch
+    url: http://localhost:30920
+    note: security disabled
+---
   curl http://localhost:30920/_cluster/health?pretty

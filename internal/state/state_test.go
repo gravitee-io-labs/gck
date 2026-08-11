@@ -3,10 +3,12 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/notes"
 )
 
 func TestSaveAndLoad(t *testing.T) {
@@ -23,7 +25,9 @@ func TestSaveAndLoad(t *testing.T) {
 				Upstreams: []string{"docker.io"},
 			},
 		},
-		Notes: DeleteNotes{Delete: "remember to clean up"},
+		Notes: DeleteNotes{Delete: []notes.Layer{
+			{Source: "mongodb/standalone", Raw: "remember to clean up"},
+		}},
 	}
 
 	if err := Save(dir, cs); err != nil {
@@ -51,8 +55,8 @@ func TestSaveAndLoad(t *testing.T) {
 	if loaded.Images.Mirrors == nil || len(loaded.Images.Mirrors.Upstreams) != 1 {
 		t.Error("Images.Mirrors.Upstreams should have one entry")
 	}
-	if loaded.Notes.Delete != cs.Notes.Delete {
-		t.Errorf("Notes.Delete = %q, want %q", loaded.Notes.Delete, cs.Notes.Delete)
+	if !reflect.DeepEqual(loaded.Notes.Delete, cs.Notes.Delete) {
+		t.Errorf("Notes.Delete = %v, want %v", loaded.Notes.Delete, cs.Notes.Delete)
 	}
 }
 
@@ -222,12 +226,14 @@ func TestRemoveNonexistent(t *testing.T) {
 func TestSaveOverwrites(t *testing.T) {
 	dir := t.TempDir()
 
-	cs := &ClusterState{Name: "cluster", CreatedAt: time.Now(), Notes: DeleteNotes{Delete: "v1"}}
+	cs := &ClusterState{Name: "cluster", CreatedAt: time.Now(), Notes: DeleteNotes{
+		Delete: []notes.Layer{{Source: "ctx", Raw: "v1"}},
+	}}
 	if err := Save(dir, cs); err != nil {
 		t.Fatalf("Save v1: %v", err)
 	}
 
-	cs.Notes.Delete = "v2"
+	cs.Notes.Delete = []notes.Layer{{Source: "ctx", Raw: "v2"}}
 	if err := Save(dir, cs); err != nil {
 		t.Fatalf("Save v2: %v", err)
 	}
@@ -236,7 +242,7 @@ func TestSaveOverwrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if loaded.Notes.Delete != "v2" {
-		t.Errorf("Notes.Delete = %q, want %q", loaded.Notes.Delete, "v2")
+	if len(loaded.Notes.Delete) != 1 || loaded.Notes.Delete[0].Raw != "v2" {
+		t.Errorf("Notes.Delete = %v, want a single %q layer", loaded.Notes.Delete, "v2")
 	}
 }

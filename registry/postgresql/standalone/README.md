@@ -39,10 +39,8 @@ Connect from your host:
 PGPASSWORD=postgres psql -h localhost -p 30432 -U postgres -d gravitee
 ```
 
-| Parameter | Value      |
-|-----------|------------|
-| Host      | localhost  |
-| Port      | 30432      |
-| Database  | gravitee   |
-| User      | postgres   |
-| Password  | postgres   |
+| Parameter | Value    |
+|-----------|----------|
+| Database  | gravitee |
+| User      | postgres |
+| Password  | postgres |

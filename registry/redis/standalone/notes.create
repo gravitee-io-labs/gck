@@ -1,5 +1,7 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Redis is available at localhost:30379.
-
+---
+title: Redis
+endpoints:
+  - name: Redis
+    url: localhost:30379
+---
   redis-cli -h localhost -p 30379

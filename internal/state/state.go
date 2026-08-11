@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/notes"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,8 +27,10 @@ type ClusterState struct {
 	Notes     DeleteNotes           `yaml:"notes,omitempty"`
 }
 
+// DeleteNotes carries the notes.delete layers captured at create time so
+// `gck delete` can print them without re-resolving the registry.
 type DeleteNotes struct {
-	Delete string `yaml:"delete,omitempty"`
+	Delete []notes.Layer `yaml:"delete,omitempty"`
 }
 
 // Save writes the cluster state to <dir>/<name>.yaml, creating the directory

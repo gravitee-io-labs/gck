@@ -1,26 +1,21 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Everything has been deployed in the `gravitee` namespace.
-
-{{ if not (hasFlag "disable-ui") -}}
-APIM Console     http://localhost:30080
-{{ end -}}
-{{ if and (not (hasFlag "disable-portal")) (not (hasFlag "disable-ui")) -}}
-APIM Portal      http://localhost:30081
-{{ end -}}
-APIM Gateway     http://localhost:30082
-Management API   http://localhost:30083
-{{ if hasFlag "enable-hc-vault" -}}
-
-Vault is deployed in dev mode (root token: root).
-To access the Vault API/UI from your host:
-
-  kubectl port-forward svc/vault -n gravitee 8200:8200
-{{ end -}}
+---
+# Titled "Kafka" so this replaces the kafka/standalone instructions rather
+# than contradicting them: the EE stack fronts the broker with the APIM
+# gateway instead of exposing its host port.
+title: Kafka
+endpoints:
+  - name: Kafka
+    when: false
+  - name: Kafka Gateway
+    url: '*.kafka.gck.local:9092'
+    note: TLS
+    when: '{{ not (hasFlag "disable-kafka") }}'
+  - name: Alert Engine
+    url: ws://alert-engine:8072
+    note: in-cluster only
+    when: '{{ hasFlag "enable-alert-engine" }}'
+---
 {{ if not (hasFlag "disable-kafka") -}}
-
-Kafka Gateway    *.kafka.gck.local:9092 (TLS)
-
 To connect a Kafka client to the gateway, extract the TLS certificate:
 
   kubectl get secret kafka-tls -n gravitee -o jsonpath='{.data.tls\.crt}' | base64 -d > kafka-tls.crt
@@ -31,8 +26,4 @@ Then use these client properties:
   ssl.truststore.type=PEM
   ssl.truststore.location=/path/to/kafka-tls.crt
   ssl.endpoint.identification.algorithm=
-{{ end -}}
-{{ if hasFlag "enable-alert-engine" -}}
-
-Alert Engine is running inside the cluster (ws://alert-engine:8072).
 {{ end -}}

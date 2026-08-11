@@ -139,7 +139,7 @@ registry/
 | `gck.yaml` | Component definitions, Helm repos, Kind config, features, images |
 | `gck--{flag}.yaml` | Context flag patch file (optional, see [Context flags](#context-flags)) |
 | `README.md` | Human-readable documentation with Hugo YAML frontmatter |
-| `notes.create` | Go `text/template` rendered after `gck create` (connection info) |
+| `notes.create` | Endpoints and instructions merged into what `gck create` prints (see [notes.create](#notescreate)) |
 | `.default` | Points to the default child variant (one variant name per file) |
 
 ### `.default` files
@@ -173,7 +173,7 @@ order: **Install gck**, **Usage**, **Quick Start**, and optionally
 
 The **Install gck** section tells newcomers how to get started:
 
-```markdown
+````markdown
 ## Install gck
 
 ```bash
@@ -181,7 +181,7 @@ go install github.com/gravitee-io-labs/gck@latest
 ```
 
 For other installation methods, see [Installation](https://gravitee-io-labs.github.io/gck/docs/getting-started/installation/).
-```
+````
 
 If the context uses DNS (directly or via a parent with
 `features.dns.enabled: true`), append the DNS setup instructions to the
@@ -193,7 +193,7 @@ require `sudo`, and link to the
 The **Usage** section must include both the `gck create` command under a
 `### Create` subtitle and a `### Cleanup` block showing `gck delete`:
 
-```markdown
+````markdown
 ## Usage
 
 ### Create
@@ -207,7 +207,7 @@ gck create --from <context-path>
 ```bash
 gck delete
 ```
-```
+````
 
 Concrete context READMEs must be **self-contained**. A reader who has
 never used gck should be able to go from zero to a running cluster using
@@ -251,28 +251,101 @@ directory) to display a product logo on registry cards and detail pages.
 
 ### notes.create
 
-Write a `notes.create` template that tells the user what is ready and how
-to connect. Use Go template syntax with the available context data:
+`notes.create` is what the user sees when `gck create` finishes. It has two
+parts: YAML front matter listing the endpoints this context exposes, and a
+free-form body below it.
 
 ```
-Your cluster "{{ .Kind.Name }}" is ready.
+---
+title: PostgreSQL
+endpoints:
+  - name: PostgreSQL
+    url: localhost:30432
+---
+Database   gravitee
+User       postgres
+Password   postgres
 
-Service A   http://localhost:30080
-Service B   http://localhost:30081
+  PGPASSWORD=postgres psql -h localhost -p 30432 -U postgres -d gravitee
 ```
 
-When a context defines [context flags](#context-flags), use `hasFlag` to
-conditionally show endpoints that are disabled by a flag:
+Notes are **merged across every composed context**, not overridden. Composing
+three contexts produces one endpoints table with every row in it, followed by
+each context's body under its own title. This is why a context declares only
+what it owns:
 
-```
-{{ if not (hasFlag "disable-portal") -}}
-Portal       http://localhost:30081
-{{ end -}}
+- Write the note where the port is mapped, **including in an abstract base**.
+  `gravitee-io/oss/apim/base` declares the APIM rows once; `apim/jdbc/postgres`
+  has no `notes.create` at all and still prints them, alongside PostgreSQL's and
+  Elasticsearch's.
+- Do not repeat a parent's endpoints, and do not open with "Your cluster is
+  ready" -- gck prints that line itself.
+
+Declaring in an abstract base pays twice. Besides feeding the terminal output of
+`gck create`, the front matter is the source for the **Endpoints** table on every
+concrete variant's registry page: the site generator walks the same `from` chain
+and attributes each row to the context that declared it, in a `From` column. A
+`when`-guarded row is listed too, marked with the flag that reveals it -- the
+generator works that out by re-resolving the table with each flag left out, so
+you never declare the flag name twice.
+Abstract contexts get no page of their own, so the base is where one declaration
+reaches the most readers. Never hand-write an endpoints table in a README -- the
+registry page generates it, the same way it generates the Context
+flags and Variables tables.
+
+#### Endpoint fields
+
+| Field | Purpose |
+|---|---|
+| `name` | Label shown in the table, and the **merge key** |
+| `url` | Address, with or without a scheme (`localhost:30432`, `http://localhost:30080`) |
+| `note` | Optional trailing hint (`dev mode`, `security disabled`) |
+| `when` | Optional template expression; the row appears only when it renders truthy |
+
+`name` is how rows merge, so it must stay unambiguous in any stack the context
+can appear in. APIM and AM both used to call their management API "Management
+API"; composing them collapsed the two into one row, which is why they are now
+"APIM API" and "AM API".
+
+A later context replaces an inherited row by declaring the same `name` --
+`gravitee-io/ee/gamma` restates `AM Console` with a hostname instead of a host
+port. Setting `when: false` on the replacement hides the row instead, which is
+how `gravitee-io/oss/apim/dbless` suppresses the console and portal it does not
+deploy. Prose bodies work the same way, keyed by `title`.
+
+#### Conditional endpoints
+
+`when` and the body are both rendered as Go templates with `hasFlag`, which
+returns `true` when the user passed the named [context flag](#context-flags):
+
+```yaml
+endpoints:
+  - name: APIM Console
+    url: http://localhost:30080
+    when: '{{ not (hasFlag "disable-ui") }}'
 ```
 
-`hasFlag` returns `true` when the user passed the named flag on the CLI
-(e.g. `--disable-portal`). It always returns `false` during `gck delete`
-(which has no flag context).
+`hasFlag` always returns `false` during `gck delete`, which has no flag context.
+
+#### Keeping notes in sync with the config
+
+The endpoints table is declared, not derived, so `task test` enforces that it
+matches the config in both directions:
+
+- every `localhost` endpoint must correspond to a `hostPort` the composition
+  actually maps, so a note cannot outlive the port it documents;
+- every `hostPort` a context maps itself -- in its `gck.yaml` or in one of its
+  `gck--{flag}.yaml` patches -- must be documented somewhere in its composition.
+  Adding a port and forgetting the note fails the build.
+
+The second rule applies only to contexts that document a `localhost` endpoint
+of their own. A context that deliberately routes through hostnames or a load
+balancer instead maps ports without presenting them as `localhost` URLs and is
+left alone.
+
+When you add or move a port, do both: update `gck.yaml` (or the `gck--{flag}.yaml`
+patch) and update the `notes.create` front matter. The README needs no change --
+its endpoints table is generated.
 
 ### Port allocation
 
@@ -284,8 +357,11 @@ composing multiple products or running them side by side:
 | APIM                  | 30080--30085    |
 | AM                    | 30090--30093    |
 | Consul                | 30500           |
+| Grafana               | 30300           |
 | Keycloak              | 30880           |
+| OTLP (collector, Tempo, Jaeger) | 30317 (gRPC) / 30318 (HTTP) |
 | Prometheus            | 30909           |
+| Tempo (query API)     | 30200           |
 | Standalone databases  | 30000 + standard port (e.g. PostgreSQL 30432, MySQL 30306, MongoDB 30017, MSSQL 31433) |
 
 When adding a new product, pick the next available range and document it

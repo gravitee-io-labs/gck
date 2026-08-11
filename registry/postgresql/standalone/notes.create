@@ -1,9 +1,11 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-PostgreSQL is available at localhost:30432.
-
-  Database   gravitee
-  User       postgres
-  Password   postgres
+---
+title: PostgreSQL
+endpoints:
+  - name: PostgreSQL
+    url: localhost:30432
+---
+Database   gravitee
+User       postgres
+Password   postgres
 
   PGPASSWORD=postgres psql -h localhost -p 30432 -U postgres -d gravitee

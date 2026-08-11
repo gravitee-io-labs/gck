@@ -1,0 +1,136 @@
+abstract: true
+vars:
+  imageRepository:
+    default: "grafana/tempo"
+    description: "Grafana Tempo Docker image repository"
+  imageTag:
+    default: "2.10.7"
+    description: "Grafana Tempo Docker image tag (pinned to 2.x: Tempo 3.0 removed the ingester module and restructured storage config)"
+  namespace:
+    default: "observability"
+    description: "Namespace Tempo is deployed into, shared with the collector so it is reachable as tempo:4317"
+  blockRetention:
+    default: "1h"
+    description: "How long compacted trace blocks are kept before deletion"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+components:
+  - name: tempo
+    type: k8s
+    namespace: "{{ .namespace }}"
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: tempo
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: tempo-config
+            labels:
+              app: tempo
+          data:
+            tempo.yaml: |
+              stream_over_http_enabled: true
+              server:
+                http_listen_port: 3200
+                log_level: info
+              distributor:
+                receivers:
+                  otlp:
+                    protocols:
+                      grpc:
+                        endpoint: 0.0.0.0:4317
+                      http:
+                        endpoint: 0.0.0.0:4318
+              ingester:
+                max_block_duration: 5m
+              compactor:
+                compaction:
+                  block_retention: {{ .blockRetention }}
+              storage:
+                trace:
+                  backend: local
+                  wal:
+                    path: /var/tempo/wal
+                  local:
+                    path: /var/tempo/blocks
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: tempo
+            labels:
+              app: tempo
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: tempo
+            template:
+              metadata:
+                labels:
+                  app: tempo
+              spec:
+                securityContext:
+                  runAsUser: 10001
+                  fsGroup: 10001
+                containers:
+                  - name: tempo
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    args:
+                      - "-config.file=/etc/tempo/tempo.yaml"
+                    ports:
+                      - containerPort: 3200
+                        name: http
+                      - containerPort: 4317
+                        name: otlp-grpc
+                      - containerPort: 4318
+                        name: otlp-http
+                    readinessProbe:
+                      httpGet:
+                        path: /ready
+                        port: 3200
+                      initialDelaySeconds: 10
+                      periodSeconds: 5
+                    volumeMounts:
+                      - name: config
+                        mountPath: /etc/tempo
+                      - name: data
+                        mountPath: /var/tempo
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 256Mi
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                volumes:
+                  - name: config
+                    configMap:
+                      name: tempo-config
+                  - name: data
+                    emptyDir: {}
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: tempo
+            labels:
+              app: tempo
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 3200
+                targetPort: 3200
+                name: http
+              - port: 4317
+                targetPort: 4317
+                name: otlp-grpc
+              - port: 4318
+                targetPort: 4318
+                name: otlp-http
+            selector:
+              app: tempo

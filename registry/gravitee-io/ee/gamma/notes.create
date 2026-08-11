@@ -1,23 +1,33 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Everything has been deployed in the `gravitee` namespace.
-
-If you haven't already, run the one-time DNS setup so *.gck.local
-hostnames resolve on your machine (may require sudo):
+---
+title: Gamma
+endpoints:
+  - name: Gamma Console
+    url: http://gamma-console.gravitee.gck.local
+  - name: APIM Console
+    url: http://apim-console.gravitee.gck.local
+  - name: APIM Portal
+    url: http://apim-portal.gravitee.gck.local
+  - name: APIM Gateway
+    url: http://apim-gateway.gravitee.gck.local
+  - name: APIM API
+    url: http://apim-api.gravitee.gck.local
+  - name: Edge Gateway
+    url: http://edge.gravitee.gck.local
+  # Gamma routes AM through hostnames rather than the host ports declared
+  # by am/base.
+  - name: AM Console
+    url: http://am-console.gravitee.gck.local
+  - name: AM Gateway
+    url: http://am-gateway.gravitee.gck.local
+  - name: AM API
+    url: http://am-api.gravitee.gck.local
+---
+If you haven't already, run the one-time DNS setup so *.gck.local hostnames
+resolve on your machine (may require sudo):
 
   gck setup dns
 
-Gamma Console    http://gamma-console.gravitee.gck.local
-APIM Console     http://apim-console.gravitee.gck.local
-APIM Portal      http://apim-portal.gravitee.gck.local
-APIM Gateway     http://apim-gateway.gravitee.gck.local
-APIM API         http://apim-api.gravitee.gck.local
-Edge Gateway     http://edge.gravitee.gck.local
-AM Console       http://am-console.gravitee.gck.local
-AM Gateway       http://am-gateway.gravitee.gck.local
-AM API           http://am-api.gravitee.gck.local
-
-If you want to configure AM connection from Gamma:
+To configure the AM connection from Gamma:
 
   - Create a service account token in AM Console
   - Head to the platform module of Gamma: http://gamma-console.gravitee.gck.local

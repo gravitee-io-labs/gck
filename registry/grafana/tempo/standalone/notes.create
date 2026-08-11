@@ -1,0 +1,24 @@
+---
+# Titled to match grafana/tempo/base so it replaces that block: this variant
+# runs Tempo in the default namespace rather than observability.
+title: Tempo
+endpoints:
+  - name: Tempo Query API
+    url: http://localhost:30200
+  - name: OTLP gRPC
+    url: localhost:30317
+  - name: OTLP HTTP
+    url: http://localhost:30318
+---
+Tempo runs in the `default` namespace and stores traces on local disk. They live
+in an emptyDir and are dropped after 1h.
+
+Send a test trace:
+
+  curl -X POST http://localhost:30318/v1/traces \
+    -H 'Content-Type: application/json' \
+    -d '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"demo"}}]},"scopeSpans":[{"spans":[{"traceId":"5b8efff798038103d269b633813fc60c","spanId":"eee19b7ec3c1b174","name":"GET /demo","kind":2,"startTimeUnixNano":"1700000000000000000","endTimeUnixNano":"1700000000050000000"}]}]}]}'
+
+Read it back (allow a few seconds for the block to be written):
+
+  curl http://localhost:30200/api/traces/5b8efff798038103d269b633813fc60c

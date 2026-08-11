@@ -1,0 +1,23 @@
+---
+# Titled "Grafana" so it replaces the grafana/base block: this variant runs the
+# whole layer in the default namespace rather than observability.
+title: Grafana
+endpoints:
+  - name: OTLP gRPC
+    url: localhost:30317
+  - name: OTLP HTTP
+    url: http://localhost:30318
+---
+Grafana, Tempo and the collector all run in the `default` namespace.
+
+Browse anonymously, or sign in as admin / admin. The Tempo datasource is already
+provisioned, and the collector forwards traces to Tempo. Open Explore to search
+them:
+
+  open http://localhost:30300/explore
+
+Send a test trace:
+
+  curl -X POST http://localhost:30318/v1/traces \
+    -H 'Content-Type: application/json' \
+    -d '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"demo"}}]},"scopeSpans":[{"spans":[{"traceId":"5b8efff798038103d269b633813fc60c","spanId":"eee19b7ec3c1b174","name":"GET /demo","kind":2,"startTimeUnixNano":"1700000000000000000","endTimeUnixNano":"1700000000050000000"}]}]}]}'

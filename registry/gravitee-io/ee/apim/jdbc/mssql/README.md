@@ -80,16 +80,6 @@ self-signed certificate covers `*.kafka.gck.local` but broker metadata
 addresses use two-level subdomains (e.g. `broker-0-acr.kafka.gck.local`)
 that don't match the single-level wildcard.
 
-## Endpoints
-
-| Service        | URL                             |
-|----------------|---------------------------------|
-| APIM Console   | http://localhost:30080           |
-| APIM Portal    | http://localhost:30081           |
-| APIM Gateway   | http://localhost:30082           |
-| Management API | http://localhost:30083           |
-| Kafka Gateway  | `*.kafka.gck.local:9092` (TLS)  |
-
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Gravitee license

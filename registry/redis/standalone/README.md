@@ -39,8 +39,4 @@ Connect from your host:
 redis-cli -h localhost -p 30379
 ```
 
-| Parameter | Value     |
-|-----------|-----------|
-| Host      | localhost |
-| Port      | 30379     |
-| Auth      | none      |
+No authentication is configured.

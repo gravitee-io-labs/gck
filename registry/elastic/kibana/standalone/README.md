@@ -40,8 +40,4 @@ Open the Kibana UI from your host:
 open http://localhost:30601
 ```
 
-| Parameter     | Value                   |
-|---------------|-------------------------|
-| Kibana UI     | http://localhost:30601   |
-| Elasticsearch | http://localhost:30920   |
-| Security      | disabled                |
+Security is disabled on both Kibana and Elasticsearch, so no credentials are needed.

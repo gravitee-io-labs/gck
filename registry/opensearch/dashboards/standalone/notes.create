@@ -1,6 +1,7 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-OpenSearch Dashboards is available at http://localhost:30601 (security disabled).
-OpenSearch is available at http://localhost:30921.
-
-  open http://localhost:30601
+---
+title: OpenSearch Dashboards
+endpoints:
+  - name: OpenSearch Dashboards
+    url: http://localhost:30601
+    note: security disabled
+---

@@ -44,9 +44,3 @@ kubectl apply -f my-api.yaml -n gravitee
 For a guided introduction, see the Gravitee
 [APIM quick start guide](https://documentation.gravitee.io/apim/getting-started/quickstart-guide)
 and the [GKO documentation](https://documentation.gravitee.io/gko).
-
-## Endpoints
-
-| Service      | URL                   |
-|--------------|-----------------------|
-| APIM Gateway | http://localhost:30082 |

@@ -1,12 +1,18 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Everything has been deployed in the `gravitee` namespace.
-
-APIM Gateway     http://localhost:30082
-{{ if hasFlag "enable-hc-vault" -}}
-
-Vault is deployed in dev mode (root token: root).
-To access the Vault API/UI from your host:
-
-  kubectl port-forward svc/vault -n gravitee 8200:8200
-{{ end -}}
+---
+title: APIM (DB-less)
+endpoints:
+  # DB-less runs the gateway alone -- the console, portal and management
+  # API inherited from apim/base are switched off.
+  - name: APIM Console
+    when: false
+  - name: APIM Portal
+    when: false
+  - name: APIM API
+    when: false
+  # The gateway is reduced to a single plaintext server, so the base's TLS
+  # port has nothing listening behind it.
+  - name: APIM Gateway (TLS)
+    when: false
+---
+The gateway is configured from Kubernetes resources only. Create Gravitee CRDs
+with GKO to publish APIs.

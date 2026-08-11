@@ -53,18 +53,14 @@ Watch received telemetry in the collector's logs:
 kubectl logs -f deploy/otel-collector
 ```
 
-| Parameter | Value                  |
-|-----------|------------------------|
-| OTLP gRPC | localhost:30317        |
-| OTLP HTTP | http://localhost:30318 |
-| Exporter  | debug (stdout)         |
+The only exporter is `debug`, which prints received telemetry to the collector's stdout.
 
 ## Composing with a Gravitee stack
 
 The collector layer is also available as an abstract context, `otel-collector/base`,
-that deploys the collector into the `gravitee` namespace without its own cluster.
-Compose it alongside any APIM or AM context and pass `--enable-otel-collector` to
-point the gateway's OpenTelemetry exporter at it:
+that deploys the collector into the `observability` namespace without its own
+cluster. Compose it alongside any APIM or AM context and pass
+`--enable-otel-collector` to point the gateway's OpenTelemetry exporter at it:
 
 ```bash
 gck create \
@@ -73,9 +69,20 @@ gck create \
   --enable-otel-collector
 ```
 
-The gateway then exports OTLP traces to `http://otel-collector:4317`, and you can
-follow them with:
+The gateway then exports OTLP traces across namespaces to the collector, and you
+can follow them with:
 
 ```bash
-kubectl logs -f deploy/otel-collector -n gravitee
+kubectl logs -f deploy/otel-collector -n observability
+```
+
+To keep the traces instead of just printing them, compose `grafana/base` rather
+than `otel-collector/base` — it brings the collector, Tempo and Grafana together
+and points the collector's trace pipeline at Tempo:
+
+```bash
+gck create \
+  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from grafana/base \
+  --enable-otel-collector
 ```

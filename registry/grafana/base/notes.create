@@ -1,0 +1,18 @@
+---
+title: Grafana
+endpoints:
+  - name: Grafana
+    url: http://localhost:30300
+  - name: Grafana (route)
+    url: http://grafana.gck.local
+    note: after a one-time "gck setup dns"
+    when: '{{ hasFlag "enable-route" }}'
+---
+Grafana, Tempo and the collector share the `observability` namespace, leaving the
+product namespace to the product.
+
+Browse anonymously, or sign in as admin / admin. The Tempo datasource is already
+provisioned, and the collector forwards traces to Tempo. Open Explore to search
+them:
+
+  open http://localhost:30300/explore

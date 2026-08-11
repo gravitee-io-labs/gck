@@ -39,12 +39,3 @@ with the default admin account (`admin` / `admin`).
 
 To create your first API, follow the Gravitee
 [APIM quick start guide](https://documentation.gravitee.io/apim/getting-started/quickstart-guide).
-
-## Endpoints
-
-| Service        | URL                   |
-|----------------|-----------------------|
-| APIM Console   | http://localhost:30080 |
-| APIM Portal    | http://localhost:30081 |
-| APIM Gateway   | http://localhost:30082 |
-| Management API | http://localhost:30083 |

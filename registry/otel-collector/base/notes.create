@@ -1,0 +1,11 @@
+---
+title: OpenTelemetry Collector
+---
+The collector receives OTLP telemetry and prints it via the debug exporter.
+Senders sharing its namespace reach it at `otel-collector:4317`; from another
+namespace use the fully qualified
+`otel-collector.<namespace>.svc.cluster.local:4317`.
+
+Watch what it receives:
+
+  kubectl logs -f deploy/otel-collector

@@ -1,0 +1,7 @@
+---
+title: Tempo
+---
+Tempo stores traces on local disk and is reachable from its own namespace at
+`tempo:4317` (OTLP gRPC) and `tempo:3200` (query API).
+
+Traces live in an emptyDir and are dropped after 1h.

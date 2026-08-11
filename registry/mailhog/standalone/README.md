@@ -43,9 +43,4 @@ open http://localhost:30825
 Configure your application to send emails to `mailhog:1025` (in-cluster)
 or `localhost:31025` (from the host).
 
-| Parameter | Value                   |
-|-----------|-------------------------|
-| Web UI    | http://localhost:30825   |
-| SMTP host | localhost               |
-| SMTP port | 31025                   |
-| Storage   | in-memory               |
+Storage is in-memory, so captured mail is lost when the pod restarts.

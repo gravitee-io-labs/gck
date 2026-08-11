@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/notes"
 )
 
 type contextRef struct {
@@ -52,7 +53,7 @@ func MergeInto(acc, src *config.ResolvedContext) {
 	acc.Features = config.MergeFeatures(acc.Features, src.Features)
 	acc.Kind = mergeKind(acc.Kind, src.Kind)
 	acc.Images = config.MergeImages(acc.Images, src.Images)
-	acc.Notes = mergeNotes(acc.Notes, src.Notes)
+	acc.Notes = appendNotes(acc.Notes, src.Notes)
 	acc.Flags = MergeFlags(acc.Flags, src.Flags)
 	acc.EffectiveVars = mergeVarMaps(acc.EffectiveVars, src.EffectiveVars)
 }
@@ -72,17 +73,14 @@ func mergeVarMaps(base, override map[string]string) map[string]string {
 	return result
 }
 
-// mergeNotes merges child notes on top of base notes.
-// Non-empty child fields win; empty fields inherit from base.
-func mergeNotes(base, child config.ResolvedNotes) config.ResolvedNotes {
-	result := base
-	if child.Create != "" {
-		result.Create = child.Create
+// appendNotes accumulates notes from every layer instead of letting the last
+// one win. Composing two products must not silently drop one product's
+// instructions -- gck merges them into a single set at print time.
+func appendNotes(base, child config.ResolvedNotes) config.ResolvedNotes {
+	return config.ResolvedNotes{
+		Create: notes.Append(base.Create, child.Create),
+		Delete: notes.Append(base.Delete, child.Delete),
 	}
-	if child.Delete != "" {
-		result.Delete = child.Delete
-	}
-	return result
 }
 
 // mergeKind merges child Kind overrides on top of a base KindConfig.

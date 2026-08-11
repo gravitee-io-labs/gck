@@ -1,3 +1,4 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-GKO is deployed in the `gravitee` namespace.
+---
+title: GKO
+---
+The Gravitee Kubernetes Operator is deployed in the `gravitee` namespace.

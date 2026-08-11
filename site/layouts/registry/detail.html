@@ -60,8 +60,40 @@
         {{ end }}
         {{ end }}
 
+        {{ with .Params.endpoints }}
+        <section class="registry-endpoints">
+          <h2>Endpoints</h2>
+          <p class="endpoints-desc">Services this context exposes on your machine after <code>gck create</code>, including the ones it inherits from the contexts it composes. Rows marked with a flag only exist when you pass it.</p>
+          <table class="vars-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>URL</th>
+                <th>Notes</th>
+                <th>From</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range . }}
+              <tr>
+                <td>{{ .name }}</td>
+                <td><code>{{ .url }}</code></td>
+                <td>
+                  {{ with .requires }}
+                    <span class="endpoint-requires">needs {{ range $i, $f := . }}{{ if $i }} + {{ end }}<code>--{{ $f }}</code>{{ end }}</span>
+                  {{ end }}
+                  {{ with .note }}{{ . }}{{ end }}
+                </td>
+                <td>{{ with .origin }}<code>{{ . }}</code>{{ end }}</td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </section>
+        {{ end }}
+
         {{ with .Params.flags }}
-        <section class="registry-flags">
+        <section class="registry-flags" id="context-flags">
           <h2>Context flags</h2>
           <p class="flags-desc">Optional flags you can pass to <code>gck create</code> to customize this context:</p>
           <table class="flags-table">
@@ -139,6 +171,17 @@
           <ul class="component-list">
             {{ range . }}
             <li>{{ . }}</li>
+            {{ end }}
+          </ul>
+        </div>
+        {{ end }}
+
+        {{ with .Params.endpoints }}
+        <div class="sidebar-section">
+          <h3>Endpoints</h3>
+          <ul class="component-list">
+            {{ range . }}
+            <li>{{ .name }}</li>
             {{ end }}
           </ul>
         </div>

@@ -40,7 +40,4 @@ Open the Consul UI from your host:
 open http://localhost:30500
 ```
 
-| Parameter | Value                   |
-|-----------|-------------------------|
-| UI        | http://localhost:30500   |
-| Auth      | none                    |
+No authentication is configured.

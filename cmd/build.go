@@ -76,10 +76,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		if resolved != nil {
-			cfg.Images = config.MergeImages(cfg.Images, resolved.Images)
-			cfg.Kind.MergeWithContext(&resolved.Kind)
-		}
+		mergeResolvedIntoConfig(cfg, resolved)
 		if err := createCluster(resolved, activeFlags); err != nil {
 			return err
 		}

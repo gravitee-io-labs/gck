@@ -1,7 +1,9 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Keycloak is available at http://localhost:30880 (dev mode).
-
-  Admin console  http://localhost:30880
-  Username       admin
-  Password       admin
+---
+title: Keycloak
+endpoints:
+  - name: Keycloak Admin Console
+    url: http://localhost:30880
+    note: dev mode
+---
+Username   admin
+Password   admin

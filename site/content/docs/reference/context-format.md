@@ -289,10 +289,17 @@ Use **separate context directories** for fundamentally different backends or top
 - Extract shared config into `abstract: true` base contexts
 - Set `.default` files so users can reference products without spelling out the full variant path
 - Include a `README.md` with front matter (`title`, `description`, `tags`) -- the site generator uses it for the registry browser
-- Add `notes.create` with post-deployment instructions that `gck create` prints after a successful deploy. Templates can use `{{ hasFlag "flag-name" }}` to conditionally show content based on which context flags the user activated:
+- Add `notes.create` declaring the endpoints this context exposes, plus any instructions `gck create` should print after a successful deploy. Notes are merged across every composed context into a single endpoints table, so declare only what this context owns and let variants inherit the rest. Use `when` to gate a row on a [context flag](#context-flags):
 
+```yaml
+---
+title: APIM
+endpoints:
+  - name: APIM Portal
+    url: http://localhost:30081
+    when: '{{ not (hasFlag "disable-portal") }}'
+---
+Everything has been deployed in the `gravitee` namespace.
 ```
-{{ if not (hasFlag "disable-portal") -}}
-APIM Portal      http://localhost:30081
-{{ end -}}
-```
+
+  See [Contributing -- notes.create]({{< ref "/docs/reference/contributing#notescreate" >}}) for the full format and the checks that keep notes in sync with `gck.yaml`.

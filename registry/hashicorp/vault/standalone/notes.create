@@ -1,8 +1,12 @@
-Your cluster "{{ .Kind.Name }}" is ready.
+---
+title: Vault
+endpoints:
+  - name: Vault
+    url: http://localhost:30820
+    note: dev mode
+---
+Root token   root
 
-Vault is running in dev mode at http://localhost:30820 (root token: root).
-
-  curl http://localhost:30820/v1/sys/health
   export VAULT_ADDR=http://localhost:30820
   export VAULT_TOKEN=root
   vault status

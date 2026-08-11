@@ -40,8 +40,7 @@ Open the Keycloak admin console from your host:
 open http://localhost:30880
 ```
 
-| Parameter | Value                   |
-|-----------|-------------------------|
-| Admin URL | http://localhost:30880   |
-| Username  | admin                   |
-| Password  | admin                   |
+| Parameter | Value |
+|-----------|-------|
+| Username  | admin |
+| Password  | admin |

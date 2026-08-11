@@ -59,20 +59,6 @@ To connect Gamma to Access Management:
 To get started with Gravitee API Management, follow the
 [APIM quick start guide](https://documentation.gravitee.io/apim/getting-started/quickstart-guide).
 
-## Endpoints
-
-| Service            | URL                                      |
-|--------------------|------------------------------------------|
-| Gamma Console      | http://gamma-console.gravitee.gck.local       |
-| APIM Console       | http://apim-console.gravitee.gck.local   |
-| APIM Portal        | http://apim-portal.gravitee.gck.local    |
-| APIM Gateway       | http://apim-gateway.gravitee.gck.local   |
-| APIM Management API| http://apim-api.gravitee.gck.local       |
-| Edge Gateway       | http://edge.gravitee.gck.local           |
-| AM Console         | http://am-console.gravitee.gck.local     |
-| AM Gateway         | http://am-gateway.gravitee.gck.local     |
-| AM Management API  | http://am-api.gravitee.gck.local         |
-
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Gravitee license

@@ -18,6 +18,7 @@ import (
 	"github.com/gravitee-io-labs/gck/internal/dns"
 	"github.com/gravitee-io-labs/gck/internal/kind"
 	"github.com/gravitee-io-labs/gck/internal/logger"
+	"github.com/gravitee-io-labs/gck/internal/notes"
 	"github.com/gravitee-io-labs/gck/internal/state"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -40,7 +41,7 @@ func init() {
 type deleteTarget struct {
 	Name   string
 	Images config.ImagesConfig
-	Notes  string
+	Notes  []notes.Layer
 }
 
 func runDown(_ *cobra.Command, args []string) error {
@@ -131,9 +132,7 @@ func runDown(_ *cobra.Command, args []string) error {
 	fmt.Println()
 	color.Blue("  Total: %s", time.Since(start).Round(time.Millisecond))
 
-	if target.Notes != "" {
-		printNotes(target.Notes, cfg, nil)
-	}
+	printNotes(target.Notes, cfg, nil)
 
 	return nil
 }

@@ -1,8 +1,10 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Kafka is available at 127.0.0.1:30092 (plaintext, no TLS).
-
+---
+title: Kafka
+endpoints:
+  - name: Kafka
+    url: 127.0.0.1:30092
+    note: plaintext, no TLS
+---
 If you have kcat installed you can test the connection with:
 
   kcat -b 127.0.0.1:30092 -L
-

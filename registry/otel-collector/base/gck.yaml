@@ -7,8 +7,11 @@ vars:
     default: "0.157.0"
     description: "OpenTelemetry Collector Docker image tag"
   namespace:
-    default: "gravitee"
-    description: "Namespace the collector is deployed into (defaults to gravitee so composed Gravitee gateways can reach it as http://otel-collector:4317)"
+    default: "observability"
+    description: "Namespace the collector is deployed into, shared with the rest of the observability layer so Tempo and Grafana are reachable by service name"
+  tempoEndpoint:
+    default: ""
+    description: "OTLP gRPC endpoint of a Tempo instance to forward traces to (e.g. tempo:4317). Empty leaves the debug exporter as the only trace sink."
 images:
   preload:
     refs:
@@ -42,11 +45,17 @@ components:
               exporters:
                 debug:
                   verbosity: detailed
+                {{- if .tempoEndpoint }}
+                otlp/tempo:
+                  endpoint: "{{ .tempoEndpoint }}"
+                  tls:
+                    insecure: true
+                {{- end }}
               service:
                 pipelines:
                   traces:
                     receivers: [otlp]
-                    exporters: [debug]
+                    exporters: [debug{{ if .tempoEndpoint }}, otlp/tempo{{ end }}]
                   metrics:
                     receivers: [otlp]
                     exporters: [debug]

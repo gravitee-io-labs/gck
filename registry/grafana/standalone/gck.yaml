@@ -1,0 +1,48 @@
+from:
+  - grafana/base
+vars:
+  clusterName:
+    default: "grafana-standalone"
+    description: "Name of the Kind cluster"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30300
+          hostPort: 30300
+        - containerPort: 30317
+          hostPort: 30317
+        - containerPort: 30318
+          hostPort: 30318
+components:
+  # The whole stack lands in one namespace so the collector reaches tempo:4317
+  # and Grafana reaches http://tempo:3200 by service name.
+  - name: tempo
+    namespace: default
+  # Grafana is already a NodePort on 30300 in grafana/base.
+  - name: grafana
+    namespace: default
+  - name: otel-collector
+    namespace: default
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: otel-collector
+            labels:
+              app: otel-collector
+          spec:
+            type: NodePort
+            ports:
+              - port: 4317
+                targetPort: 4317
+                nodePort: 30317
+                name: otlp-grpc
+              - port: 4318
+                targetPort: 4318
+                nodePort: 30318
+                name: otlp-http
+            selector:
+              app: otel-collector

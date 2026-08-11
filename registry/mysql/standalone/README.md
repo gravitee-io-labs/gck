@@ -39,10 +39,8 @@ Connect from your host:
 mysql -h 127.0.0.1 -P 30306 -u root -pmysql gravitee
 ```
 
-| Parameter | Value      |
-|-----------|------------|
-| Host      | 127.0.0.1  |
-| Port      | 30306      |
-| Database  | gravitee   |
-| User      | root       |
-| Password  | mysql      |
+| Parameter | Value    |
+|-----------|----------|
+| Database  | gravitee |
+| User      | root     |
+| Password  | mysql    |

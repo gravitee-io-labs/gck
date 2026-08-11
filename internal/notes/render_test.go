@@ -5,19 +5,6 @@ import (
 	"testing"
 )
 
-func TestRender_BasicTemplate(t *testing.T) {
-	type data struct {
-		Name string
-	}
-	out, err := Render("Hello {{ .Name }}", data{Name: "world"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if out != "Hello world" {
-		t.Fatalf("expected %q, got %q", "Hello world", out)
-	}
-}
-
 func TestRenderWithFlags_FlagPresent(t *testing.T) {
 	tmpl := `{{ if hasFlag "disable-portal" }}hidden{{ else }}visible{{ end }}`
 	out, err := RenderWithFlags(tmpl, nil, []string{"disable-portal"})

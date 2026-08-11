@@ -1,0 +1,165 @@
+abstract: true
+from:
+  - otel-collector/base
+  - grafana/tempo/base
+vars:
+  imageRepository:
+    default: "grafana/grafana"
+    description: "Grafana Docker image repository"
+  imageTag:
+    default: "13.1.3"
+    description: "Grafana Docker image tag"
+  namespace:
+    default: "observability"
+    description: "Namespace Grafana is deployed into, shared with Tempo so it is queryable at http://tempo:3200"
+  adminPassword:
+    default: "admin"
+    description: "Password for the built-in Grafana admin user"
+  tempoUrl:
+    default: "http://tempo:3200"
+    description: "URL Grafana uses to query the Tempo datasource"
+  hostname:
+    default: "grafana.gck.local"
+    description: "Hostname Grafana is served on when --enable-route is passed"
+  # Point the composed collector's trace pipeline at Tempo. Without this the
+  # collector only prints spans to its own logs via the debug exporter.
+  otel-collector:
+    base:
+      tempoEndpoint:
+        default: "tempo:4317"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+# Declared without a cluster name so this layer keeps composing cleanly: port
+# mappings are merged as a union, so 30300 is added alongside whatever ports
+# the product context already maps.
+kind:
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30300
+          hostPort: 30300
+components:
+  # Tempo must accept OTLP before the collector starts exporting to it,
+  # otherwise the collector spends its first seconds logging connection
+  # refused against tempo:4317.
+  - name: otel-collector
+    requires:
+      - component: tempo
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: tempo
+        timeout: 5m
+  - name: grafana
+    type: k8s
+    namespace: "{{ .namespace }}"
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: grafana
+    requires:
+      - component: tempo
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: tempo
+        timeout: 5m
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: grafana-datasources
+            labels:
+              app: grafana
+          data:
+            datasources.yaml: |
+              apiVersion: 1
+              datasources:
+                - name: Tempo
+                  type: tempo
+                  uid: tempo
+                  access: proxy
+                  url: "{{ .tempoUrl }}"
+                  isDefault: true
+                  jsonData:
+                    streamingEnabled:
+                      search: true
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: grafana
+            labels:
+              app: grafana
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: grafana
+            template:
+              metadata:
+                labels:
+                  app: grafana
+              spec:
+                securityContext:
+                  runAsUser: 472
+                  fsGroup: 472
+                containers:
+                  - name: grafana
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    env:
+                      - name: GF_SECURITY_ADMIN_USER
+                        value: "admin"
+                      - name: GF_SECURITY_ADMIN_PASSWORD
+                        value: "{{ .adminPassword }}"
+                      - name: GF_AUTH_ANONYMOUS_ENABLED
+                        value: "true"
+                      - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+                        value: "Admin"
+                    ports:
+                      - containerPort: 3000
+                        name: http
+                    readinessProbe:
+                      httpGet:
+                        path: /api/health
+                        port: 3000
+                      initialDelaySeconds: 10
+                      periodSeconds: 5
+                    volumeMounts:
+                      - name: datasources
+                        mountPath: /etc/grafana/provisioning/datasources
+                      - name: data
+                        mountPath: /var/lib/grafana
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 128Mi
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                volumes:
+                  - name: datasources
+                    configMap:
+                      name: grafana-datasources
+                  - name: data
+                    emptyDir: {}
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: grafana
+            labels:
+              app: grafana
+          spec:
+            type: NodePort
+            ports:
+              - port: 3000
+                targetPort: 3000
+                nodePort: 30300
+                name: http
+            selector:
+              app: grafana

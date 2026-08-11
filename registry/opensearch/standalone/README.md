@@ -40,7 +40,4 @@ curl http://localhost:30921
 curl http://localhost:30921/_cluster/health?pretty
 ```
 
-| Parameter | Value                    |
-|-----------|--------------------------|
-| URL       | http://localhost:30921    |
-| Security  | disabled                 |
+Security is disabled, so no credentials are needed.

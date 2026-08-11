@@ -7,5 +7,5 @@ components:
           env:
             - name: gravitee_services_opentelemetry_enabled
               value: "true"
-            - name: gravitee_services_opentelemetry_exporter_otlp_endpoint
-              value: "http://otel-collector:4317"
+            - name: gravitee_services_opentelemetry_exporter_endpoint
+              value: "http://otel-collector.observability.svc.cluster.local:4317"

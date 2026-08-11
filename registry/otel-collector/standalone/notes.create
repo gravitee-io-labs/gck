@@ -1,18 +1,20 @@
-Your cluster "{{ .Kind.Name }}" is ready.
+---
+# Titled to match otel-collector/base so it replaces that block: this variant
+# runs the collector in the default namespace rather than observability.
+title: OpenTelemetry Collector
+endpoints:
+  - name: OTLP gRPC
+    url: localhost:30317
+  - name: OTLP HTTP
+    url: http://localhost:30318
+---
+The collector runs in the `default` namespace, so its in-cluster address is
+`otel-collector:4317` and received telemetry is printed via the debug exporter:
 
-The OpenTelemetry Collector is receiving OTLP telemetry and printing it to its
-logs via the debug exporter.
-
-OTLP endpoints:
-  gRPC  localhost:30317
-  HTTP  http://localhost:30318
+  kubectl logs -f deploy/otel-collector
 
 Send a test trace:
 
   curl -X POST http://localhost:30318/v1/traces \
     -H 'Content-Type: application/json' \
     -d '{"resourceSpans":[]}'
-
-Watch received telemetry:
-
-  kubectl logs -f deploy/otel-collector

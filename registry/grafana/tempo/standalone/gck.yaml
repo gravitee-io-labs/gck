@@ -1,0 +1,45 @@
+from:
+  - grafana/tempo/base
+vars:
+  clusterName:
+    default: "tempo-standalone"
+    description: "Name of the Kind cluster"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30200
+          hostPort: 30200
+        - containerPort: 30317
+          hostPort: 30317
+        - containerPort: 30318
+          hostPort: 30318
+components:
+  - name: tempo
+    namespace: default
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: tempo
+            labels:
+              app: tempo
+          spec:
+            type: NodePort
+            ports:
+              - port: 3200
+                targetPort: 3200
+                nodePort: 30200
+                name: http
+              - port: 4317
+                targetPort: 4317
+                nodePort: 30317
+                name: otlp-grpc
+              - port: 4318
+                targetPort: 4318
+                nodePort: 30318
+                name: otlp-http
+            selector:
+              app: tempo

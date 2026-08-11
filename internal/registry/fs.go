@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/notes"
 	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
@@ -114,7 +115,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	}
 
 	if len(ctxCfg.From) > 0 {
-		resolved, err := r.resolveFromWithVars(ctx, ctxCfg, dir, selfRegistry, parentOverrides, set)
+		resolved, err := r.resolveFromWithVars(ctx, ctxCfg, dir, contextPath, selfRegistry, parentOverrides, set)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +135,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 		Kind:          ctxCfg.Kind,
 		Features:      ctxCfg.Features,
 		Images:        ctxCfg.Images,
-		Notes:         readNotes(dir),
+		Notes:         readNotes(dir, contextPath),
 		Abstract:      ctxCfg.Abstract,
 		Flags:         flags,
 		EffectiveVars: effectiveVars,
@@ -142,7 +143,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 }
 
 // resolveFromWithVars resolves all from entries with two-pass var resolution.
-func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, selfRegistryURL string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
+func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, childPath, selfRegistryURL string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
 	registryURL := selfRegistryURL
 	if childCfg.Registry != "" {
 		registryURL = resolveRegistryURL(childCfg.Registry, childDir)
@@ -184,7 +185,7 @@ func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Co
 	acc.Features = config.MergeFeatures(acc.Features, childCfg.Features)
 	acc.Kind = mergeKind(acc.Kind, childCfg.Kind)
 	acc.Images = config.MergeImages(acc.Images, childCfg.Images)
-	acc.Notes = mergeNotes(acc.Notes, readNotes(childDir))
+	acc.Notes = appendNotes(acc.Notes, readNotes(childDir, childPath))
 	acc.Abstract = childCfg.Abstract
 
 	childFlags, err := DiscoverFlags(childDir)
@@ -216,15 +217,18 @@ func mergeOverrideMaps(existing map[string]map[string]string, overrides []gcktmp
 	return result
 }
 
-func readNotes(dir string) config.ResolvedNotes {
-	var notes config.ResolvedNotes
+// readNotes loads the notes files from a context directory. contextPath
+// identifies the layer so composition can deduplicate a context reached
+// through more than one branch.
+func readNotes(dir, contextPath string) config.ResolvedNotes {
+	var resolved config.ResolvedNotes
 	if data, err := os.ReadFile(filepath.Join(dir, "notes.create")); err == nil {
-		notes.Create = string(data)
+		resolved.Create = []notes.Layer{{Source: contextPath, Raw: string(data)}}
 	}
 	if data, err := os.ReadFile(filepath.Join(dir, "notes.delete")); err == nil {
-		notes.Delete = string(data)
+		resolved.Delete = []notes.Layer{{Source: contextPath, Raw: string(data)}}
 	}
-	return notes
+	return resolved
 }
 
 func (r *FSResolver) readContextFile(dir string) ([]byte, error) {

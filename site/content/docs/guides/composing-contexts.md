@@ -56,7 +56,7 @@ Contexts in `from` are merged left-to-right: later entries override earlier ones
 
 ## Adding an OpenTelemetry collector to a Gravitee stack
 
-The `otel-collector/base` context is a reusable observability layer: it deploys an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) into the `gravitee` namespace that receives OTLP telemetry and prints it to its logs via the `debug` exporter. Compose it onto any APIM or AM context, and turn on the gateway's exporter with the inherited `--enable-otel-collector` flag:
+The `otel-collector/base` context is a reusable observability layer: it deploys an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) into the `observability` namespace that receives OTLP telemetry and prints it to its logs via the `debug` exporter. Compose it onto any APIM or AM context, and turn on the gateway's exporter with the inherited `--enable-otel-collector` flag:
 
 ```bash
 gck create \
@@ -65,11 +65,44 @@ gck create \
   --enable-otel-collector
 ```
 
-The gateway then exports OTLP traces to `http://otel-collector:4317`, which you can follow with `kubectl logs -f deploy/otel-collector -n gravitee`.
+The gateway then exports OTLP traces across namespaces to the collector, which you can follow with `kubectl logs -f deploy/otel-collector -n observability`.
 
 > Compose `otel-collector/base` (the abstract layer), not `otel-collector/standalone`. Because `kind.name` from the last context in `from` wins, appending the standalone variant — which declares its own cluster — would rename the cluster. The abstract base declares no cluster of its own, so the Gravitee context keeps naming the cluster while the collector layers on top. Use `otel-collector/standalone` only when you want a collector on its own dedicated cluster.
 
 The `--enable-otel-collector` flag only wires the gateway's exporter; the collector itself comes from the `otel-collector/base` entry in `from`. Pass both together.
+
+## Storing and viewing traces with Grafana
+
+The `debug` exporter only prints spans, so nothing survives past the collector's log buffer. To keep traces and browse them, compose `grafana/base` instead of `otel-collector/base`. It stacks three layers in one entry — the collector, [Grafana Tempo](https://grafana.com/oss/tempo/) as the trace store, and [Grafana](https://grafana.com/oss/grafana/) with the Tempo datasource already provisioned — and points the collector's trace pipeline at Tempo:
+
+```bash
+gck create \
+  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from grafana/base \
+  --enable-otel-collector
+```
+
+Grafana comes up on `http://localhost:30300`. The layer contributes its own host port mapping, and because `kind.nodes[].extraPortMappings` are merged as a union, it lands alongside the APIM ports rather than replacing them -- no port-forward needed.
+
+For a hostname instead, add `--enable-route`, which serves Grafana at `http://grafana.gck.local` through the Gateway API and local DNS:
+
+```bash
+gck create \
+  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from grafana/base \
+  --enable-otel-collector \
+  --enable-route
+```
+
+That flag turns on the `gateway` and `dns` features, so a cloud-provider-kind load balancer and the local DNS server come up with the cluster. Run `gck setup dns` once beforehand, and expect a password prompt on macOS for the load balancer's packet tunnel.
+
+> Traces only appear for APIs that have tracing switched on. The `--enable-otel-collector` flag turns it on at the gateway level, but each v4 API also needs `analytics.tracing.enabled` — set it under **Reporter Settings** in the console and redeploy the API. A request that matches no API (a bare `curl` against the gateway returning 404) never produces a span, so an empty Tempo is not by itself a sign that the pipeline is broken.
+
+The whole observability layer lands in an `observability` namespace, leaving the product namespace to the product. That is why the gateway's exporter targets a fully qualified `otel-collector.observability.svc.cluster.local:4317` — a bare service name only resolves inside the caller's own namespace. Within the layer, the collector and Grafana reach Tempo by short name, because all three share a namespace.
+
+Each layer is also available on its own: `grafana/tempo/base` is Tempo with no Grafana, and both have `standalone` variants that bring their own Kind cluster.
+
+> The collector keeps its `debug` exporter alongside the Tempo one, so `kubectl logs -f deploy/otel-collector -n observability` remains the fastest way to check whether spans are arriving at all — useful for telling "the gateway is not exporting" apart from "Tempo is not storing".
 
 ## Abstract contexts
 
@@ -373,6 +406,68 @@ When composing contexts or applying local overrides, gck merges fields following
 | `conditions` | Your value wins if `ready` is true |
 | `selector` | Your value wins if set |
 | `timeout` | Your value wins if non-empty |
+| `notes.create` | Merged, not overridden -- see [Post-deployment notes](#post-deployment-notes) |
+
+### Post-deployment notes
+
+Most fields above are last-wins. Notes are the exception: every context in the composition contributes, so composing two products cannot silently drop one product's instructions.
+
+Each context's `notes.create` declares the endpoints it exposes in YAML front matter, with free-form prose below. On `gck create`, gck prints the cluster-ready line, then folds every layer into **one endpoints table**, then each layer's prose under its own title, in composition order:
+
+```bash
+gck create \
+  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from grafana/base \
+  --enable-otel-collector
+```
+
+```
+  Cluster "gravitee-apim" is ready.
+
+  Endpoints
+
+    PostgreSQL          localhost:30432
+    Elasticsearch       http://localhost:30920  security disabled
+    APIM Console        http://localhost:30080
+    APIM Portal         http://localhost:30081
+    APIM Gateway        http://localhost:30082
+    APIM Gateway (TLS)  https://localhost:30084
+    APIM API            http://localhost:30083
+    Grafana             http://localhost:30300
+
+  PostgreSQL
+
+    Database   gravitee
+    User       postgres
+    Password   postgres
+
+      PGPASSWORD=postgres psql -h localhost -p 30432 -U postgres -d gravitee
+
+  APIM
+
+    Everything has been deployed in the `gravitee` namespace.
+
+  OpenTelemetry Collector
+
+    The collector receives OTLP telemetry in the `observability` namespace and
+    prints it via the debug exporter.
+
+    Watch what it receives:
+
+      kubectl logs -f deploy/otel-collector -n observability
+
+  Grafana
+
+    Browse anonymously, or sign in as admin / admin.
+```
+
+Rows merge by `name` and prose blocks by `title`. The first context to declare one fixes its position; a later context that declares the same one replaces it -- which is how a context that changes an inherited service corrects its address rather than contradicting it. Declaring `when: false` on the replacement hides it instead, for a service a later layer stops exposing.
+
+Because inherited rows are kept, a variant usually needs no `notes.create` of its own: `gravitee-io/oss/apim/jdbc/postgres` has none, and still prints all of the above.
+
+The same declarations feed the documentation. Each context's registry page renders an **Endpoints** table built from the resolved composition, with a `From` column naming the context each row came from -- so an endpoint declared on an abstract base like `grafana/base` appears on every concrete variant that composes it, even though abstract contexts get no page of their own.
+
+> Notes are declared rather than derived from the config, so gck's test suite checks the two against each other: a documented `localhost` endpoint must match a mapped host port, and a context that documents localhost endpoints must document every host port it maps. See [Contributing -- notes.create]({{< ref "/docs/reference/contributing#notescreate" >}}) if you are authoring a context.
 
 ### Values deep merge
 

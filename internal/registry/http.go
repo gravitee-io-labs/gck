@@ -158,7 +158,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 	}
 
 	if len(parsed.From) > 0 {
-		resolved, err := r.resolveFromWithVars(ctx, parsed, cacheDir, parentOverrides, set)
+		resolved, err := r.resolveFromWithVars(ctx, parsed, cacheDir, contextPath, parentOverrides, set)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 		Kind:          parsed.Kind,
 		Features:      parsed.Features,
 		Images:        parsed.Images,
-		Notes:         readNotes(cacheDir),
+		Notes:         readNotes(cacheDir, contextPath),
 		Abstract:      parsed.Abstract,
 		Flags:         flags,
 		EffectiveVars: effectiveVars,
@@ -181,7 +181,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 }
 
 // resolveFromWithVars resolves all from entries with two-pass var resolution.
-func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
+func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, childPath string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
 	registryURL := r.BaseURL
 	if childCfg.Registry != "" {
 		registryURL = resolveRegistryURL(childCfg.Registry, childDir)
@@ -223,7 +223,7 @@ func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.
 	acc.Features = config.MergeFeatures(acc.Features, childCfg.Features)
 	acc.Kind = mergeKind(acc.Kind, childCfg.Kind)
 	acc.Images = config.MergeImages(acc.Images, childCfg.Images)
-	acc.Notes = mergeNotes(acc.Notes, readNotes(childDir))
+	acc.Notes = appendNotes(acc.Notes, readNotes(childDir, childPath))
 	acc.Abstract = childCfg.Abstract
 
 	childFlags, err := DiscoverFlags(childDir)

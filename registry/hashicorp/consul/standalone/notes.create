@@ -1,5 +1,6 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Consul is available at http://localhost:30500.
-
-  open http://localhost:30500
+---
+title: Consul
+endpoints:
+  - name: Consul
+    url: http://localhost:30500
+---

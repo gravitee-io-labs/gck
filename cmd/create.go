@@ -63,12 +63,26 @@ func runUp(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if resolved != nil {
-		cfg.Images = config.MergeImages(cfg.Images, resolved.Images)
-		cfg.Kind.MergeWithContext(&resolved.Kind)
-	}
+	mergeResolvedIntoConfig(cfg, resolved)
 
 	return createCluster(resolved, activeFlags)
+}
+
+// mergeResolvedIntoConfig folds the resolved context's images, Kind
+// requirements and features into the effective config.
+//
+// It runs after applyContextFlags because a context flag can change all three
+// -- adding preload refs, mapping a host port, or enabling a feature (e.g. a
+// route flag turning on gateway and dns so the Gateway API CRDs get installed).
+// The context's own values were already merged during resolution; this second
+// pass is what carries the flag patches through.
+func mergeResolvedIntoConfig(c *config.Config, resolved *config.ResolvedContext) {
+	if c == nil || resolved == nil {
+		return
+	}
+	c.Images = config.MergeImages(c.Images, resolved.Images)
+	c.Kind.MergeWithContext(&resolved.Kind)
+	c.Features = config.MergeFeatures(c.Features, resolved.Features)
 }
 
 // createCluster runs the full cluster creation flow: preload, mirrors,
@@ -228,6 +242,8 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 	fmt.Println()
 	color.Blue("  Total: %s", time.Since(start).Round(time.Millisecond))
 
+	fmt.Println()
+	color.Green("  Cluster %q is ready.", cfg.Kind.Name)
 	if resolved != nil {
 		printNotes(resolved.Notes.Create, cfg, activeFlags)
 	}
@@ -541,13 +557,19 @@ func ensureDNSServerRunning(cfg *config.Config) error {
 	return startDNSServer(domain, port, dir)
 }
 
-func printNotes(templateContent string, cfg *config.Config, activeFlags []string) {
-	if templateContent == "" {
+// printNotes folds the notes contributed by every composed context into a
+// single set of instructions: one merged endpoints table, then each layer's
+// prose under its own title.
+func printNotes(layers []notes.Layer, cfg *config.Config, activeFlags []string) {
+	if len(layers) == 0 {
 		return
 	}
-	rendered, err := notes.RenderWithFlags(templateContent, cfg, activeFlags)
+	rendered, err := notes.Compose(layers, cfg, activeFlags)
 	if err != nil {
 		logger.Warn("failed to render notes: %v", err)
+		return
+	}
+	if rendered == "" {
 		return
 	}
 	fmt.Println()

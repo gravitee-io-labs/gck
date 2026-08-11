@@ -1,5 +1,5 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-GKO is deployed in the `gravitee` namespace with Gateway API support enabled.
-
-Create Gateway and HTTPRoute resources to start routing traffic.
+---
+title: Gateway API
+---
+GKO is running with Gateway API support enabled. Create Gateway and HTTPRoute
+resources to start routing traffic.

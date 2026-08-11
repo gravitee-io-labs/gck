@@ -1,0 +1,12 @@
+---
+title: AM
+endpoints:
+  - name: AM Console
+    url: http://localhost:30090
+    when: '{{ not (hasFlag "disable-ui") }}'
+  - name: AM Gateway
+    url: http://localhost:30092
+  - name: AM API
+    url: http://localhost:30093
+---
+Everything has been deployed in the `gravitee` namespace.

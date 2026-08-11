@@ -52,8 +52,7 @@ The Vault UI is available at [http://localhost:30820](http://localhost:30820) (t
 
 For a guided introduction, see the [Vault Getting Started tutorials](https://developer.hashicorp.com/vault/tutorials/getting-started).
 
-| Parameter   | Value                     |
-|-------------|---------------------------|
-| URL         | http://localhost:30820     |
-| Root token  | root                      |
-| Mode        | dev (in-memory)           |
+| Parameter  | Value           |
+|------------|-----------------|
+| Root token | root            |
+| Mode       | dev (in-memory) |

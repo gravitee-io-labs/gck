@@ -40,10 +40,8 @@ Connect from your host using `sqlcmd`:
 sqlcmd -S localhost,31433 -U SA -P 'Password1!' -C
 ```
 
-| Parameter | Value       |
-|-----------|-------------|
-| Host      | localhost   |
-| Port      | 31433       |
-| Database  | gravitee    |
-| User      | SA          |
-| Password  | Password1!  |
+| Parameter | Value      |
+|-----------|------------|
+| Database  | gravitee   |
+| User      | SA         |
+| Password  | Password1! |

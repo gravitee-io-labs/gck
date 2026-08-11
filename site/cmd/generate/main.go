@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gravitee-io-labs/gck/internal/notes"
 	gcktmpl "github.com/gravitee-io-labs/gck/internal/template"
 	"gopkg.in/yaml.v3"
 )
@@ -46,6 +47,16 @@ type varInfo struct {
 	Origin      string `yaml:"origin,omitempty"`
 }
 
+type endpointInfo struct {
+	Name   string `yaml:"name"`
+	URL    string `yaml:"url"`
+	Note   string `yaml:"note,omitempty"`
+	Origin string `yaml:"origin,omitempty"`
+	// Requires lists the context flags that must all be passed for this
+	// endpoint to exist. Empty means a plain "gck create" exposes it.
+	Requires []string `yaml:"requires,omitempty"`
+}
+
 type componentPage struct {
 	Title       string     `yaml:"title"`
 	Layout      string     `yaml:"layout"`
@@ -55,10 +66,11 @@ type componentPage struct {
 	Tags        []string   `yaml:"tags,omitempty"`
 	From        []string   `yaml:"from,omitempty"`
 	Components  []string   `yaml:"components,omitempty"`
-	Flags       []flagInfo `yaml:"flags,omitempty"`
-	Vars        []varInfo  `yaml:"vars,omitempty"`
-	Icon string `yaml:"icon,omitempty"`
-	Type        string     `yaml:"type"`
+	Flags       []flagInfo     `yaml:"flags,omitempty"`
+	Vars        []varInfo      `yaml:"vars,omitempty"`
+	Endpoints   []endpointInfo `yaml:"endpoints,omitempty"`
+	Icon        string         `yaml:"icon,omitempty"`
+	Type        string         `yaml:"type"`
 }
 
 type sectionPage struct {
@@ -140,6 +152,7 @@ func main() {
 			Components:  resolveComponents(relDir, configs),
 			Flags:       resolveFlags(relDir, configs, registryDir),
 			Vars:        resolveVars(relDir, configs, registryDir),
+			Endpoints:   resolveEndpoints(relDir, configs, registryDir),
 			Icon:        resolveIcon(registryDir, relDir),
 			Type:        "registry",
 		}
@@ -218,6 +231,110 @@ func resolveComponents(relDir string, configs map[string]*gckConfig) []string {
 	}
 	walk(relDir)
 	return result
+}
+
+// resolveEndpoints walks the from chain for relDir, collecting each level's
+// notes.create, and folds them with the same merge the CLI uses so a row
+// declared on an abstract base surfaces on every concrete context that
+// composes it -- attributed, via Origin, to the context that declared it.
+//
+// Rows a plain "gck create" exposes come first. Rows that only exist behind a
+// context flag follow, each carrying the flags that reveal it -- see
+// requiredFlags.
+func resolveEndpoints(relDir string, configs map[string]*gckConfig, registryDir string) []endpointInfo {
+	visited := map[string]bool{}
+	var layers []notes.Layer
+	var walk func(string)
+	walk = func(dir string) {
+		config, ok := configs[dir]
+		if !ok || visited[dir] {
+			return
+		}
+		visited[dir] = true
+		for _, parent := range config.From {
+			walk(parent)
+		}
+		data, err := os.ReadFile(filepath.Join(registryDir, dir, "notes.create"))
+		if err != nil {
+			return
+		}
+		layers = append(layers, notes.Layer{Source: dir, Raw: string(data)})
+	}
+	walk(relDir)
+
+	toInfo := func(ep notes.Endpoint, requires []string) endpointInfo {
+		return endpointInfo{
+			Name:     ep.Name,
+			URL:      ep.URL,
+			Note:     ep.Note,
+			Origin:   ep.Origin,
+			Requires: requires,
+		}
+	}
+
+	var result []endpointInfo
+	shown := map[string]bool{}
+	for _, ep := range visibleWith(relDir, layers, nil) {
+		shown[ep.Name] = true
+		result = append(result, toInfo(ep, nil))
+	}
+
+	// Anything the full flag set reveals but the default view does not is
+	// gated; work out which flags each of those rows actually needs.
+	var flagNames []string
+	for _, f := range resolveFlags(relDir, configs, registryDir) {
+		flagNames = append(flagNames, f.Name)
+	}
+	if len(flagNames) == 0 {
+		return result
+	}
+	for _, ep := range visibleWith(relDir, layers, flagNames) {
+		if shown[ep.Name] {
+			continue
+		}
+		shown[ep.Name] = true
+		result = append(result, toInfo(ep, requiredFlags(relDir, layers, flagNames, ep.Name)))
+	}
+	return result
+}
+
+// visibleWith merges the layers with the given flags active and returns the
+// rows whose guards pass.
+func visibleWith(relDir string, layers []notes.Layer, flags []string) []notes.Endpoint {
+	merged, err := notes.Merge(layers, nil, flags)
+	if err != nil {
+		fatalf("merge notes for %s: %v", relDir, err)
+	}
+	return merged.VisibleEndpoints()
+}
+
+// requiredFlags determines which of the active flags a gated endpoint actually
+// depends on, by leaving each one out in turn: if dropping a flag hides the
+// row, the row needs it. This reads the guard's behaviour rather than parsing
+// its expression, so an `and` of two flags reports both.
+func requiredFlags(relDir string, layers []notes.Layer, allFlags []string, name string) []string {
+	var required []string
+	for _, candidate := range allFlags {
+		without := make([]string, 0, len(allFlags)-1)
+		for _, f := range allFlags {
+			if f != candidate {
+				without = append(without, f)
+			}
+		}
+		if !containsEndpoint(visibleWith(relDir, layers, without), name) {
+			required = append(required, candidate)
+		}
+	}
+	return required
+}
+
+func containsEndpoint(eps []notes.Endpoint, name string) bool {
+	for _, ep := range eps {
+		if ep.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveIcon(registryDir, relDir string) string {

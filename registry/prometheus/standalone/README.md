@@ -40,7 +40,4 @@ Open the Prometheus UI from your host:
 open http://localhost:30909
 ```
 
-| Parameter | Value                   |
-|-----------|-------------------------|
-| UI        | http://localhost:30909   |
-| Retention | 2h / 256MB              |
+Retention is capped at 2h / 256MB.

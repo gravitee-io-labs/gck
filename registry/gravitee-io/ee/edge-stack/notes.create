@@ -1,6 +1,9 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
+---
+title: Edge Stack
+endpoints:
+  - name: Edge Stack HTTP
+    url: http://localhost:30080
+  - name: Edge Stack HTTPS
+    url: https://localhost:30443
+---
 Everything has been deployed in the `ambassador` namespace.
-
-HTTP     http://localhost:30080
-HTTPS    https://localhost:30443

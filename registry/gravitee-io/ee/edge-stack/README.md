@@ -40,13 +40,6 @@ To configure routing, create `Mapping` resources in the `ambassador`
 namespace. For a guided walkthrough, see the
 [Edge Stack getting started tutorial](https://www.getambassador.io/docs/edge-stack/latest/tutorials/getting-started).
 
-## Endpoints
-
-| Service | URL                     |
-|---------|-------------------------|
-| HTTP    | http://localhost:30080   |
-| HTTPS   | https://localhost:30443  |
-
 ## License
 
 This is an Enterprise Edition (EE) context. Place your Edge Stack license

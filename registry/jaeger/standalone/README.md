@@ -49,9 +49,4 @@ curl -X POST http://localhost:30318/v1/traces \
   -d '{"resourceSpans":[]}'
 ```
 
-| Parameter  | Value                  |
-|------------|------------------------|
-| UI         | http://localhost:30686  |
-| OTLP gRPC  | localhost:30317        |
-| OTLP HTTP  | http://localhost:30318 |
-| Storage    | in-memory              |
+Storage is in-memory, so traces are lost when the pod restarts.

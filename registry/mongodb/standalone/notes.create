@@ -1,7 +1,10 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-MongoDB is available at localhost:30017 (no authentication).
-
+---
+title: MongoDB
+endpoints:
+  - name: MongoDB
+    url: localhost:30017
+    note: no authentication
+---
 If you have mongosh installed you can test the connection with:
 
   mongosh mongodb://localhost:30017

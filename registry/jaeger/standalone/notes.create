@@ -1,9 +1,11 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-Jaeger UI is available at http://localhost:30686 (in-memory storage).
-
-  open http://localhost:30686
-
-OTLP endpoints:
-  gRPC  localhost:30317
-  HTTP  http://localhost:30318
+---
+title: Jaeger
+endpoints:
+  - name: Jaeger UI
+    url: http://localhost:30686
+    note: in-memory storage
+  - name: OTLP gRPC
+    url: localhost:30317
+  - name: OTLP HTTP
+    url: http://localhost:30318
+---

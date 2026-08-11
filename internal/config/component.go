@@ -1,5 +1,7 @@
 package config
 
+import "github.com/gravitee-io-labs/gck/internal/notes"
+
 type GatewayChannel string
 
 const (
@@ -82,9 +84,12 @@ func (c *Component) EffectiveType() string {
 	return c.Type
 }
 
+// ResolvedNotes collects the notes contributed by every context in a
+// composition. Unlike most fields, notes are not last-wins: each layer keeps
+// its entry so `gck create` can merge them into a single set of instructions.
 type ResolvedNotes struct {
-	Create string
-	Delete string
+	Create []notes.Layer
+	Delete []notes.Layer
 }
 
 // ContextFlag represents an optional toggle defined by a gck--{name}.yaml

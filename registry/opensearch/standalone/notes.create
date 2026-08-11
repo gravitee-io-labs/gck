@@ -1,6 +1,8 @@
-Your cluster "{{ .Kind.Name }}" is ready.
-
-OpenSearch is available at http://localhost:30921 (security disabled).
-
-  curl http://localhost:30921
+---
+title: OpenSearch
+endpoints:
+  - name: OpenSearch
+    url: http://localhost:30921
+    note: security disabled
+---
   curl http://localhost:30921/_cluster/health?pretty

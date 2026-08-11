@@ -40,8 +40,4 @@ Open the Dashboards UI from your host:
 open http://localhost:30601
 ```
 
-| Parameter  | Value                   |
-|------------|-------------------------|
-| Dashboards | http://localhost:30601   |
-| OpenSearch | http://localhost:30921   |
-| Security   | disabled                |
+Security is disabled on both Dashboards and OpenSearch, so no credentials are needed.

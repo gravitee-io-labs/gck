@@ -1825,23 +1825,33 @@ h4:hover .heading-anchor {
   opacity: 0.6;
 }
 
-/* Variables */
+/* Variables and endpoints */
 
-.registry-vars {
+.registry-vars,
+.registry-endpoints {
   margin-top: 3rem;
   border-top: 1px solid var(--color-border-muted);
   padding-top: 2.25rem;
 }
 
-.registry-vars h2 {
+.registry-vars h2,
+.registry-endpoints h2 {
   font-size: 1.1rem;
   margin-bottom: 0.75rem;
 }
 
-.vars-desc {
+.vars-desc,
+.endpoints-desc {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   margin-bottom: 1rem;
+}
+
+.endpoint-requires {
+  display: inline-block;
+  margin-right: 0.4rem;
+  color: var(--color-text-faint);
+  white-space: nowrap;
 }
 
 .vars-table {

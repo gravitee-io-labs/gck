@@ -229,3 +229,62 @@ func TestSelectBuilds_EmptyBuilds(t *testing.T) {
 		t.Fatalf("expected 0 builds, got %d", len(result))
 	}
 }
+
+func TestMergeResolvedIntoConfig_FlagEnabledFeatures(t *testing.T) {
+	// A context flag that enables gateway/dns (e.g. --enable-route) sets the
+	// feature on the resolved context. Without this merge the flag is parsed
+	// and then silently dropped, and the Gateway API CRDs never get installed.
+	c := &config.Config{}
+	resolved := &config.ResolvedContext{
+		Features: config.FeaturesConfig{
+			Gateway: &config.GatewayConfig{Enabled: true},
+			DNS:     &config.DNSConfig{Enabled: true},
+		},
+	}
+
+	mergeResolvedIntoConfig(c, resolved)
+
+	if c.Features.Gateway == nil || !c.Features.Gateway.Enabled {
+		t.Error("gateway feature from flag was dropped")
+	}
+	if c.Features.DNS == nil || !c.Features.DNS.Enabled {
+		t.Error("dns feature from flag was dropped")
+	}
+}
+
+func TestMergeResolvedIntoConfig_UserConfigFeaturesPreserved(t *testing.T) {
+	// A feature the resolved context says nothing about must survive.
+	c := &config.Config{
+		Features: config.FeaturesConfig{
+			LB: &config.LBConfig{Enabled: true},
+		},
+	}
+	resolved := &config.ResolvedContext{
+		Features: config.FeaturesConfig{
+			Gateway: &config.GatewayConfig{Enabled: true},
+		},
+	}
+
+	mergeResolvedIntoConfig(c, resolved)
+
+	if c.Features.LB == nil || !c.Features.LB.Enabled {
+		t.Error("lb feature from user config was lost")
+	}
+	if c.Features.Gateway == nil || !c.Features.Gateway.Enabled {
+		t.Error("gateway feature from context was lost")
+	}
+}
+
+func TestMergeResolvedIntoConfig_NilResolved(t *testing.T) {
+	c := &config.Config{
+		Features: config.FeaturesConfig{
+			DNS: &config.DNSConfig{Enabled: true},
+		},
+	}
+
+	mergeResolvedIntoConfig(c, nil)
+
+	if c.Features.DNS == nil || !c.Features.DNS.Enabled {
+		t.Error("nil resolved context must leave config untouched")
+	}
+}

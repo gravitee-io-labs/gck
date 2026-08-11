@@ -39,8 +39,4 @@ Connect from your host:
 mongosh mongodb://localhost:30017
 ```
 
-| Parameter | Value     |
-|-----------|-----------|
-| Host      | localhost |
-| Port      | 30017     |
-| Auth      | none      |
+No authentication is configured.

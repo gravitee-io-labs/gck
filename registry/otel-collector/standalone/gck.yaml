@@ -4,9 +4,6 @@ vars:
   clusterName:
     default: "otel-collector"
     description: "Name of the Kind cluster"
-  namespace:
-    default: "default"
-    description: "Namespace the collector is deployed into"
 kind:
   name: "{{ .clusterName }}"
   nodes:
@@ -18,6 +15,7 @@ kind:
           hostPort: 30318
 components:
   - name: otel-collector
+    namespace: default
     k8s:
       manifests:
         - apiVersion: v1
