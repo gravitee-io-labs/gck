@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/gravitee-io-labs/gck/compare/v1.2.1...v1.3.0) (2026-08-11)
+
+
+### Features
+
+* add grafana and otel contexts ([ab01865](https://github.com/gravitee-io-labs/gck/commit/ab0186504d3d7fd98f866aed68d4784433df86b6))
+* add otel collector context ([2df80cf](https://github.com/gravitee-io-labs/gck/commit/2df80cf5a463dfe02a9a6dc22491199cbfa936f4))
+
 ## [1.2.1](https://github.com/gravitee-io-labs/gck/compare/v1.2.0...v1.2.1) (2026-07-16)
 
 
