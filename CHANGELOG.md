@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/gravitee-io-labs/gck/compare/v1.3.0...v1.3.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* support setup dns on linux ([cc4fecb](https://github.com/gravitee-io-labs/gck/commit/cc4fecbe5aa5a0a4c5e0ddf689987929a02f9c8f))
+
 ## [1.3.0](https://github.com/gravitee-io-labs/gck/compare/v1.2.1...v1.3.0) (2026-08-11)
 
 
