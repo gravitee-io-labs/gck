@@ -1,0 +1,333 @@
+vars:
+  clusterName:
+    default: "mcp-test-server"
+    description: "Name of the Kind cluster"
+  imageRepository:
+    default: "python"
+    description: "Python Docker image repository used to run the servers"
+  imageTag:
+    default: "3.14-slim"
+    description: "Python Docker image tag"
+  fastmcpVersion:
+    default: "2.14.7"
+    description: "FastMCP version the servers are built on, installed at startup"
+  authToken:
+    default: "gravitee-e2e"
+    description: "Static bearer token required by the authenticated server (beta)"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30800
+          hostPort: 30800
+        - containerPort: 30801
+          hostPort: 30801
+components:
+  - name: mcp-test-server
+    type: k8s
+    k8s:
+      manifests:
+        # One script, two personalities: MCP_SERVER_NAME, MCP_TOOLS and
+        # MCP_AUTH_TOKEN decide each instance's name, tool roster and
+        # whether callers must present a static bearer token.
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: mcp-test-server
+            labels:
+              app.kubernetes.io/part-of: mcp-test-server
+          data:
+            server.py: |
+              # MCP test server for e2e-testing MCP proxies and gateways.
+              # Serves Streamable HTTP on 0.0.0.0:8000/mcp, plus GET /health
+              # and an /admin API to enable or disable tools at runtime.
+              import os
+
+              from starlette.requests import Request
+              from starlette.responses import JSONResponse
+
+              from fastmcp import FastMCP
+
+              SERVER_NAME = os.environ.get("MCP_SERVER_NAME", "mcp-test-server")
+              AUTH_TOKEN = os.environ.get("MCP_AUTH_TOKEN", "")
+              PORT = int(os.environ.get("PORT", "8000"))
+
+              auth = None
+              if AUTH_TOKEN:
+                  from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+
+                  auth = StaticTokenVerifier(
+                      tokens={AUTH_TOKEN: {"client_id": "gravitee-e2e", "scopes": []}}
+                  )
+
+              mcp = FastMCP(SERVER_NAME, auth=auth)
+
+
+              # Every tool is deterministic: same input, same output.
+
+              def echo(message: str) -> str:
+                  """Echo the message back unchanged."""
+                  return message
+
+
+              def add(a: float, b: float) -> float:
+                  """Add two numbers."""
+                  return a + b
+
+
+              def multiply(a: float, b: float) -> float:
+                  """Multiply two numbers."""
+                  return a * b
+
+
+              def to_upper(text: str) -> str:
+                  """Uppercase the text."""
+                  return text.upper()
+
+
+              def concat(left: str, right: str) -> str:
+                  """Concatenate two strings."""
+                  return left + right
+
+
+              def word_count(text: str) -> int:
+                  """Count the words in the text."""
+                  return len(text.split())
+
+
+              def reverse(text: str) -> str:
+                  """Reverse the text."""
+                  return text[::-1]
+
+
+              ALL_TOOLS = dict(
+                  echo=echo,
+                  add=add,
+                  multiply=multiply,
+                  to_upper=to_upper,
+                  concat=concat,
+                  word_count=word_count,
+                  reverse=reverse,
+              )
+
+              roster = os.environ.get("MCP_TOOLS", ",".join(ALL_TOOLS))
+              registered = dict()
+              for name in [n.strip() for n in roster.split(",") if n.strip()]:
+                  registered[name] = mcp.tool(ALL_TOOLS[name])
+
+
+              def hidden_tool() -> str:
+                  """A tool that only exists once enabled through the admin API."""
+                  return "now you see me"
+
+
+              # Dormant until POST /admin/tools/hidden_tool/enable: lets a test
+              # observe an upstream tool appearing after registration.
+              registered["hidden_tool"] = mcp.tool(hidden_tool, enabled=False)
+
+
+              @mcp.resource("data://config")
+              def config() -> dict:
+                  """Static server configuration."""
+                  return {"server": SERVER_NAME, "authenticated": bool(AUTH_TOKEN)}
+
+
+              @mcp.resource("users://{user_id}/profile")
+              def user_profile(user_id: str) -> dict:
+                  """Profile of the given user."""
+                  return {"id": user_id, "name": f"User {user_id}", "status": "active"}
+
+
+              @mcp.prompt
+              def summarize(text: str) -> str:
+                  """Build a prompt asking for a short summary."""
+                  return f"Summarize the following text in one sentence:\n\n{text}"
+
+
+              @mcp.prompt
+              def analyze_data(topic: str) -> str:
+                  """Build a prompt asking for an analysis of a topic."""
+                  return f"Analyze the data about {topic} and list three key findings."
+
+
+              @mcp.custom_route("/health", methods=["GET"])
+              async def health(request: Request) -> JSONResponse:
+                  return JSONResponse({"status": "healthy", "server": SERVER_NAME})
+
+
+              @mcp.custom_route("/admin/tools/{name}/enable", methods=["POST"])
+              async def enable_tool(request: Request) -> JSONResponse:
+                  return _toggle(request.path_params["name"], enabled=True)
+
+
+              @mcp.custom_route("/admin/tools/{name}/disable", methods=["POST"])
+              async def disable_tool(request: Request) -> JSONResponse:
+                  return _toggle(request.path_params["name"], enabled=False)
+
+
+              def _toggle(name: str, enabled: bool) -> JSONResponse:
+                  tool = registered.get(name)
+                  if tool is None:
+                      return JSONResponse({"error": f"unknown tool: {name}"}, status_code=404)
+                  if enabled:
+                      tool.enable()
+                  else:
+                      tool.disable()
+                  return JSONResponse({"tool": name, "enabled": enabled})
+
+
+              if __name__ == "__main__":
+                  mcp.run(transport="http", host="0.0.0.0", port=PORT)
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mcp-server-alpha
+            labels:
+              app: mcp-server-alpha
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mcp-server-alpha
+            template:
+              metadata:
+                labels:
+                  app: mcp-server-alpha
+              spec:
+                containers:
+                  - name: mcp-server
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    command: ["sh", "-c"]
+                    args:
+                      - pip install --no-cache-dir --quiet fastmcp=={{ .fastmcpVersion }} && exec python /app/server.py
+                    env:
+                      - name: MCP_SERVER_NAME
+                        value: mcp-server-alpha
+                      - name: MCP_TOOLS
+                        value: echo,add,multiply,to_upper
+                    ports:
+                      - containerPort: 8000
+                        name: http
+                    startupProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                      periodSeconds: 2
+                      failureThreshold: 90
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    volumeMounts:
+                      - name: server
+                        mountPath: /app
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 128Mi
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                volumes:
+                  - name: server
+                    configMap:
+                      name: mcp-test-server
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mcp-server-alpha
+            labels:
+              app: mcp-server-alpha
+          spec:
+            type: NodePort
+            ports:
+              - port: 8000
+                targetPort: 8000
+                nodePort: 30800
+                name: http
+            selector:
+              app: mcp-server-alpha
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mcp-server-beta
+            labels:
+              app: mcp-server-beta
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mcp-server-beta
+            template:
+              metadata:
+                labels:
+                  app: mcp-server-beta
+              spec:
+                containers:
+                  - name: mcp-server
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    command: ["sh", "-c"]
+                    args:
+                      - pip install --no-cache-dir --quiet fastmcp=={{ .fastmcpVersion }} && exec python /app/server.py
+                    env:
+                      - name: MCP_SERVER_NAME
+                        value: mcp-server-beta
+                      - name: MCP_TOOLS
+                        value: concat,word_count,reverse
+                      - name: MCP_AUTH_TOKEN
+                        value: "{{ .authToken }}"
+                    ports:
+                      - containerPort: 8000
+                        name: http
+                    startupProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                      periodSeconds: 2
+                      failureThreshold: 90
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    volumeMounts:
+                      - name: server
+                        mountPath: /app
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 128Mi
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                volumes:
+                  - name: server
+                    configMap:
+                      name: mcp-test-server
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mcp-server-beta
+            labels:
+              app: mcp-server-beta
+          spec:
+            type: NodePort
+            ports:
+              - port: 8000
+                targetPort: 8000
+                nodePort: 30801
+                name: http
+            selector:
+              app: mcp-server-beta

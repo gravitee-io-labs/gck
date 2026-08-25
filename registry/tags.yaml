@@ -1,3 +1,5 @@
+- name: ai
+  description: LLM, MCP, A2A
 - name: database
   description: Persistent data stores
 - name: messaging

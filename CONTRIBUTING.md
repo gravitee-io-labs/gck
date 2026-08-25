@@ -229,6 +229,7 @@ each concrete variant's README.
 | `observability` | Logging, metrics, tracing |
 | `search` | Search and indexing engines |
 | `security` | Secrets management, auth, certificates |
+| `sink` | Test endpoints for email, webhooks, and other outputs |
 | `ai` | LLM, MCP, A2A |
 
 - `gck validate --tags registry/tags.yaml` enforces this vocabulary;
@@ -359,6 +360,7 @@ composing multiple products or running them side by side:
 | Consul                | 30500           |
 | Grafana               | 30300           |
 | Keycloak              | 30880           |
+| MCP test server       | 30800--30801    |
 | OTLP (collector, Tempo, Jaeger) | 30317 (gRPC) / 30318 (HTTP) |
 | Prometheus            | 30909           |
 | Tempo (query API)     | 30200           |
