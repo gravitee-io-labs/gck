@@ -1,0 +1,16 @@
+---
+title: Fast Time Server
+endpoints:
+  - name: Fast Time Server
+    url: http://localhost:30801
+    note: MCP at /
+---
+Tools     get_system_time, convert_time
+Auth      disabled; recreate with --set authToken=<token> to require a bearer
+
+Health    GET /health
+
+  curl -s http://localhost:30801/ \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gck","version":"1.0"}}}'

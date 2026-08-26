@@ -1,19 +1,14 @@
 ---
-title: MCP Test Server
+title: FastMCP Test Server
 endpoints:
-  - name: MCP Server Alpha
+  - name: FastMCP
     url: http://localhost:30800/mcp
-    note: no auth
-  - name: MCP Server Beta
-    url: http://localhost:30801/mcp
-    note: bearer auth
 ---
-Alpha tools   echo, add, multiply, to_upper
-Beta tools    concat, word_count, reverse
-Beta token    gravitee-e2e
+Tools     echo, add, multiply, to_upper, concat, word_count, reverse
+Auth      disabled; recreate with --set authToken=<token> to require a bearer
 
-Health        GET  /health
-Admin         POST /admin/tools/hidden_tool/enable
+Health    GET  /health
+Admin     POST /admin/tools/hidden_tool/enable
 
   curl -s http://localhost:30800/mcp \
     -H 'Content-Type: application/json' \

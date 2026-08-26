@@ -359,8 +359,9 @@ composing multiple products or running them side by side:
 | AM                    | 30090--30093    |
 | Consul                | 30500           |
 | Grafana               | 30300           |
+| FastMCP test server   | 30800           |
+| fast-time-server      | 30801           |
 | Keycloak              | 30880           |
-| MCP test server       | 30800--30801    |
 | OTLP (collector, Tempo, Jaeger) | 30317 (gRPC) / 30318 (HTTP) |
 | Prometheus            | 30909           |
 | Tempo (query API)     | 30200           |

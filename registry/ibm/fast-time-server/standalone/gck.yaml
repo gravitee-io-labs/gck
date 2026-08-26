@@ -1,0 +1,91 @@
+vars:
+  clusterName:
+    default: "fast-time-server"
+    description: "Name of the Kind cluster"
+  imageRepository:
+    default: "ghcr.io/ibm/fast-time-server"
+    description: "fast-time-server Docker image repository"
+  # Upstream publishes no current version tag: 0.8.0 is amd64-only, and only
+  # "latest" carries the multi-arch (amd64 + arm64) build. Pin a version tag
+  # here as soon as upstream ships one.
+  imageTag:
+    default: "latest"
+    description: "fast-time-server Docker image tag"
+  authToken:
+    default: ""
+    description: "Static bearer token callers must present; empty disables authentication"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30801
+          hostPort: 30801
+components:
+  - name: fast-time-server
+    type: k8s
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: fast-time-server
+            labels:
+              app: fast-time-server
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: fast-time-server
+            template:
+              metadata:
+                labels:
+                  app: fast-time-server
+              spec:
+                containers:
+                  - name: fast-time-server
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    args:
+                      - -transport=http
+                      - -listen=0.0.0.0
+                      - -port=8080
+                      # An empty token disables authentication in the binary,
+                      # so the flag is safe to pass unconditionally.
+                      - -auth-token={{ .authToken }}
+                    ports:
+                      - containerPort: 8080
+                        name: http
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8080
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8080
+                    resources:
+                      requests:
+                        cpu: 50m
+                        memory: 32Mi
+                      limits:
+                        cpu: 200m
+                        memory: 64Mi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: fast-time-server
+            labels:
+              app: fast-time-server
+          spec:
+            type: NodePort
+            ports:
+              - port: 8080
+                targetPort: 8080
+                nodePort: 30801
+                name: http
+            selector:
+              app: fast-time-server

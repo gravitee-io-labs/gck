@@ -1,19 +1,22 @@
 vars:
   clusterName:
-    default: "mcp-test-server"
+    default: "fastmcp-standalone"
     description: "Name of the Kind cluster"
   imageRepository:
     default: "python"
-    description: "Python Docker image repository used to run the servers"
+    description: "Python Docker image repository used to run the server"
   imageTag:
     default: "3.14-slim"
     description: "Python Docker image tag"
   fastmcpVersion:
     default: "2.14.7"
-    description: "FastMCP version the servers are built on, installed at startup"
+    description: "FastMCP version the server is built on, installed at startup"
   authToken:
-    default: "gravitee-e2e"
-    description: "Static bearer token required by the authenticated server (beta)"
+    default: ""
+    description: "Static bearer token callers must present; empty disables authentication"
+  tools:
+    default: ""
+    description: "Comma-separated roster of tools to expose; empty exposes every tool"
 images:
   preload:
     refs:
@@ -25,22 +28,17 @@ kind:
       extraPortMappings:
         - containerPort: 30800
           hostPort: 30800
-        - containerPort: 30801
-          hostPort: 30801
 components:
-  - name: mcp-test-server
+  - name: fastmcp
     type: k8s
     k8s:
       manifests:
-        # One script, two personalities: MCP_SERVER_NAME, MCP_TOOLS and
-        # MCP_AUTH_TOKEN decide each instance's name, tool roster and
-        # whether callers must present a static bearer token.
         - apiVersion: v1
           kind: ConfigMap
           metadata:
-            name: mcp-test-server
+            name: fastmcp
             labels:
-              app.kubernetes.io/part-of: mcp-test-server
+              app: fastmcp
           data:
             server.py: |
               # MCP test server for e2e-testing MCP proxies and gateways.
@@ -53,7 +51,7 @@ components:
 
               from fastmcp import FastMCP
 
-              SERVER_NAME = os.environ.get("MCP_SERVER_NAME", "mcp-test-server")
+              SERVER_NAME = os.environ.get("MCP_SERVER_NAME", "fastmcp")
               AUTH_TOKEN = os.environ.get("MCP_AUTH_TOKEN", "")
               PORT = int(os.environ.get("PORT", "8000"))
 
@@ -115,7 +113,7 @@ components:
                   reverse=reverse,
               )
 
-              roster = os.environ.get("MCP_TOOLS", ",".join(ALL_TOOLS))
+              roster = os.environ.get("MCP_TOOLS") or ",".join(ALL_TOOLS)
               registered = dict()
               for name in [n.strip() for n in roster.split(",") if n.strip()]:
                   registered[name] = mcp.tool(ALL_TOOLS[name])
@@ -186,103 +184,35 @@ components:
         - apiVersion: apps/v1
           kind: Deployment
           metadata:
-            name: mcp-server-alpha
+            name: fastmcp
             labels:
-              app: mcp-server-alpha
+              app: fastmcp
           spec:
             replicas: 1
             selector:
               matchLabels:
-                app: mcp-server-alpha
+                app: fastmcp
             template:
               metadata:
                 labels:
-                  app: mcp-server-alpha
+                  app: fastmcp
               spec:
+                # The service is named fastmcp, so service links would inject
+                # FASTMCP_PORT=tcp://... into the pod — which FastMCP's own
+                # FASTMCP_-prefixed settings reader tries to parse as its
+                # port and crashes on.
+                enableServiceLinks: false
                 containers:
-                  - name: mcp-server
+                  - name: fastmcp
                     image: "{{ .imageRepository }}:{{ .imageTag }}"
                     command: ["sh", "-c"]
                     args:
                       - pip install --no-cache-dir --quiet fastmcp=={{ .fastmcpVersion }} && exec python /app/server.py
                     env:
                       - name: MCP_SERVER_NAME
-                        value: mcp-server-alpha
+                        value: fastmcp
                       - name: MCP_TOOLS
-                        value: echo,add,multiply,to_upper
-                    ports:
-                      - containerPort: 8000
-                        name: http
-                    startupProbe:
-                      httpGet:
-                        path: /health
-                        port: 8000
-                      periodSeconds: 2
-                      failureThreshold: 90
-                    readinessProbe:
-                      httpGet:
-                        path: /health
-                        port: 8000
-                    livenessProbe:
-                      httpGet:
-                        path: /health
-                        port: 8000
-                    volumeMounts:
-                      - name: server
-                        mountPath: /app
-                    resources:
-                      requests:
-                        cpu: 100m
-                        memory: 128Mi
-                      limits:
-                        cpu: 500m
-                        memory: 512Mi
-                volumes:
-                  - name: server
-                    configMap:
-                      name: mcp-test-server
-        - apiVersion: v1
-          kind: Service
-          metadata:
-            name: mcp-server-alpha
-            labels:
-              app: mcp-server-alpha
-          spec:
-            type: NodePort
-            ports:
-              - port: 8000
-                targetPort: 8000
-                nodePort: 30800
-                name: http
-            selector:
-              app: mcp-server-alpha
-        - apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: mcp-server-beta
-            labels:
-              app: mcp-server-beta
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app: mcp-server-beta
-            template:
-              metadata:
-                labels:
-                  app: mcp-server-beta
-              spec:
-                containers:
-                  - name: mcp-server
-                    image: "{{ .imageRepository }}:{{ .imageTag }}"
-                    command: ["sh", "-c"]
-                    args:
-                      - pip install --no-cache-dir --quiet fastmcp=={{ .fastmcpVersion }} && exec python /app/server.py
-                    env:
-                      - name: MCP_SERVER_NAME
-                        value: mcp-server-beta
-                      - name: MCP_TOOLS
-                        value: concat,word_count,reverse
+                        value: "{{ .tools }}"
                       - name: MCP_AUTH_TOKEN
                         value: "{{ .authToken }}"
                     ports:
@@ -315,19 +245,19 @@ components:
                 volumes:
                   - name: server
                     configMap:
-                      name: mcp-test-server
+                      name: fastmcp
         - apiVersion: v1
           kind: Service
           metadata:
-            name: mcp-server-beta
+            name: fastmcp
             labels:
-              app: mcp-server-beta
+              app: fastmcp
           spec:
             type: NodePort
             ports:
               - port: 8000
                 targetPort: 8000
-                nodePort: 30801
+                nodePort: 30800
                 name: http
             selector:
-              app: mcp-server-beta
+              app: fastmcp
