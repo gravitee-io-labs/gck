@@ -1,0 +1,81 @@
+vars:
+  clusterName:
+    default: "mockserver-standalone"
+    description: "Name of the Kind cluster"
+  imageRepository:
+    default: "mockserver/mockserver"
+    description: "MockServer Docker image repository"
+  imageTag:
+    default: "7.6.0"
+    description: "MockServer Docker image tag"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 31080
+          hostPort: 31080
+components:
+  - name: mockserver
+    type: k8s
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mockserver
+            labels:
+              app: mockserver
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mockserver
+            template:
+              metadata:
+                labels:
+                  app: mockserver
+              spec:
+                containers:
+                  - name: mockserver
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    ports:
+                      - containerPort: 1080
+                        name: http
+                    readinessProbe:
+                      httpGet:
+                        path: /mockserver/ready
+                        port: 1080
+                    livenessProbe:
+                      httpGet:
+                        path: /mockserver/ready
+                        port: 1080
+                      initialDelaySeconds: 10
+                    # The JVM sizes its heap from the container limit
+                    # (MaxRAMPercentage=75), so the memory limit is load-bearing.
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 256Mi
+                      limits:
+                        cpu: "1"
+                        memory: 512Mi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mockserver
+            labels:
+              app: mockserver
+          spec:
+            type: NodePort
+            ports:
+              - port: 1080
+                targetPort: 1080
+                nodePort: 31080
+                name: http
+            selector:
+              app: mockserver

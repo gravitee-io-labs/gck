@@ -1,0 +1,15 @@
+---
+title: LLM Inference Simulator
+endpoints:
+  - name: LLM Inference Sim
+    url: http://localhost:30802/v1
+    note: OpenAI-compatible
+---
+Model     gpt-4o (echo mode: responses mirror the request)
+Usage     real prompt/completion token counts in every response
+
+Health    GET /health    Ready  GET /ready    Metrics  GET /metrics
+
+  curl -s http://localhost:30802/v1/chat/completions \
+    -H 'Content-Type: application/json' \
+    -d '{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}'

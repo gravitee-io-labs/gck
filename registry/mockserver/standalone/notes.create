@@ -1,0 +1,16 @@
+---
+title: MockServer
+endpoints:
+  - name: MockServer
+    url: http://localhost:31080
+    note: dashboard at /mockserver/dashboard
+---
+No behavior is baked in: PUT expectations, then call them on the same port.
+
+  curl -s -X PUT http://localhost:31080/mockserver/expectation \
+    -H 'Content-Type: application/json' \
+    -d '{"httpRequest":{"method":"POST","path":"/v1/chat/completions"},"httpLlmResponse":{"provider":"OPENAI","model":"gpt-4o","completion":{"text":"canned answer","usage":{"inputTokens":12,"outputTokens":8}}}}'
+
+  curl -s http://localhost:31080/v1/chat/completions \
+    -H 'Content-Type: application/json' \
+    -d '{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}'

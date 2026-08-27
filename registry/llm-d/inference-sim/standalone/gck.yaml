@@ -1,0 +1,92 @@
+vars:
+  clusterName:
+    default: "inference-sim"
+    description: "Name of the Kind cluster"
+  imageRepository:
+    default: "ghcr.io/llm-d/llm-d-inference-sim"
+    description: "llm-d inference simulator Docker image repository"
+  imageTag:
+    default: "v0.10.2"
+    description: "llm-d inference simulator Docker image tag"
+  model:
+    default: "gpt-4o"
+    description: "Model name the simulator loads and serves"
+  mode:
+    default: "echo"
+    description: "Simulator mode: echo returns the request text back, random returns canned sentences"
+  seed:
+    default: "42"
+    description: "Random seed, keeps generated responses reproducible"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30802
+          hostPort: 30802
+components:
+  - name: inference-sim
+    type: k8s
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: inference-sim
+            labels:
+              app: inference-sim
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: inference-sim
+            template:
+              metadata:
+                labels:
+                  app: inference-sim
+              spec:
+                containers:
+                  - name: inference-sim
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    args:
+                      - --model={{ .model }}
+                      - --mode={{ .mode }}
+                      - --seed={{ .seed }}
+                      - --port=8000
+                    ports:
+                      - containerPort: 8000
+                        name: http
+                    readinessProbe:
+                      httpGet:
+                        path: /ready
+                        port: 8000
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    resources:
+                      requests:
+                        cpu: 50m
+                        memory: 64Mi
+                      limits:
+                        cpu: 200m
+                        memory: 256Mi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: inference-sim
+            labels:
+              app: inference-sim
+          spec:
+            type: NodePort
+            ports:
+              - port: 8000
+                targetPort: 8000
+                nodePort: 30802
+                name: http
+            selector:
+              app: inference-sim
