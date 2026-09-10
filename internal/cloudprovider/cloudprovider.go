@@ -12,9 +12,13 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -221,6 +225,45 @@ func InstallGatewayCRDs(ctx context.Context, clusterName string, channel config.
 		return fmt.Errorf("creating Gateway API CRD manager: %w", err)
 	}
 	return mgr.InstallCRDs(ctx, cpkconfig.GatewayReleaseChannel(channel))
+}
+
+// WaitForGatewayCRDs polls until the Gateway API CRDs required by gck-gateway
+// are established, or until timeout. The gck-gateway manifest needs
+// gateways.gateway.networking.k8s.io; httproutes is included because contexts
+// that declare HTTPRoute resources are applied in the same installComponents pass.
+func WaitForGatewayCRDs(ctx context.Context, clusterName string, timeout time.Duration) error {
+	restCfg, err := clusterRESTConfig(clusterName)
+	if err != nil {
+		return err
+	}
+	crdClient, err := apiextensionsclient.NewForConfig(restCfg)
+	if err != nil {
+		return fmt.Errorf("creating apiextensions client: %w", err)
+	}
+
+	required := []string{
+		"gateways.gateway.networking.k8s.io",
+		"httproutes.gateway.networking.k8s.io",
+	}
+
+	for _, name := range required {
+		if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+			crd, err := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				klog.V(2).Infof("waiting for CRD %s: %v", name, err)
+				return false, nil
+			}
+			for _, c := range crd.Status.Conditions {
+				if c.Type == apiextensionsv1.Established && c.Status == apiextensionsv1.ConditionTrue {
+					return true, nil
+				}
+			}
+			return false, nil
+		}); err != nil {
+			return fmt.Errorf("CRD %s not established within %s: %w", name, timeout, err)
+		}
+	}
+	return nil
 }
 
 // ListLBIPs returns a map of LB container name to its IPv4 address for the

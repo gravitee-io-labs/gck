@@ -220,6 +220,21 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 		}
 	}
 
+	if gatewayEnabled {
+		channel := config.GatewayChannelStandard
+		if cfg.Features.Gateway.Channel != "" {
+			channel = cfg.Features.Gateway.Channel
+		}
+		if err := logger.WithSpinner("Installing Gateway API CRDs", func() error {
+			if err := cloudprovider.InstallGatewayCRDs(ctx, cfg.Kind.Name, channel); err != nil {
+				return err
+			}
+			return cloudprovider.WaitForGatewayCRDs(ctx, cfg.Kind.Name, 90*time.Second)
+		}); err != nil {
+			return err
+		}
+	}
+
 	registry.MergeComponents(resolved, cfg.Components, cfg.Dir)
 	resolved.Repos = registry.MergeRepos(resolved.Repos, cfg.Helm.Repos)
 
