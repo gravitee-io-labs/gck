@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/gravitee-io-labs/gck/compare/v1.3.1...v1.3.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* install Gateway API CRDs synchronously before applying gck-gateway ([2573acf](https://github.com/gravitee-io-labs/gck/commit/2573acf7ec2c23cc46ab2de6399195a2b41e91a1))
+
 ## [1.3.1](https://github.com/gravitee-io-labs/gck/compare/v1.3.0...v1.3.1) (2026-08-24)
 
 
