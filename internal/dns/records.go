@@ -25,11 +25,12 @@ type RecordFile struct {
 // per-cluster JSON record files. It watches the directory for changes and
 // signals via a channel when no record files remain (triggering auto-shutdown).
 type RecordStore struct {
-	dir    string
-	mu     sync.RWMutex
-	byFile map[string]RecordFile // filename → parsed records
-	merged map[string]string     // hostname (lowercase) → IP
-	empty  chan struct{}          // closed when directory becomes empty
+	dir        string
+	mu         sync.RWMutex
+	byFile     map[string]RecordFile // filename → parsed records
+	merged     map[string]string     // hostname (lowercase) → IP
+	empty      chan struct{}          // closed when all records are removed after having existed
+	hadRecords bool                  // true once at least one record file has been loaded
 }
 
 // NewRecordStore creates a store backed by the given directory.
@@ -163,16 +164,21 @@ func (s *RecordStore) handleEvent(event fsnotify.Event) {
 	s.checkEmpty()
 }
 
-// checkEmpty closes the empty channel if no record files remain.
+// checkEmpty closes the empty channel when records that previously existed are
+// all removed. A store that has never held records does not signal empty.
 // Caller must hold s.mu.
 func (s *RecordStore) checkEmpty() {
-	if len(s.byFile) == 0 {
-		select {
-		case <-s.empty:
-			// already closed
-		default:
-			close(s.empty)
-		}
+	if len(s.byFile) > 0 {
+		s.hadRecords = true
+		return
+	}
+	if !s.hadRecords {
+		return
+	}
+	select {
+	case <-s.empty:
+	default:
+		close(s.empty)
 	}
 }
 

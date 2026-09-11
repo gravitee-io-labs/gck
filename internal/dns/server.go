@@ -37,13 +37,6 @@ func Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("loading DNS records: %w", err)
 	}
 
-	select {
-	case <-store.Empty():
-		klog.Info("no record files found, exiting")
-		return nil
-	default:
-	}
-
 	klog.Infof("loaded %d DNS record(s)", store.RecordCount())
 
 	ctx, cancel := context.WithCancel(ctx)
