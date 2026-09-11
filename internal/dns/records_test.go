@@ -94,3 +94,36 @@ func TestLookup_EmptyStore(t *testing.T) {
 		t.Fatal("expected no match in empty store")
 	}
 }
+
+func TestCheckEmpty_NeverHadRecords(t *testing.T) {
+	s := NewRecordStore(t.TempDir())
+	_ = s.Load()
+	select {
+	case <-s.Empty():
+		t.Fatal("empty channel should not be closed when store never had records")
+	default:
+	}
+}
+
+func TestCheckEmpty_RecordsRemovedAfterExisting(t *testing.T) {
+	s := NewRecordStore(t.TempDir())
+	s.mu.Lock()
+	s.byFile["test.json"] = RecordFile{Records: map[string]string{"a.gck.local": "1.2.3.4"}}
+	s.checkEmpty()
+	s.mu.Unlock()
+
+	if s.hadRecords != true {
+		t.Fatal("hadRecords should be true after adding records")
+	}
+
+	s.mu.Lock()
+	delete(s.byFile, "test.json")
+	s.checkEmpty()
+	s.mu.Unlock()
+
+	select {
+	case <-s.Empty():
+	default:
+		t.Fatal("empty channel should be closed after all records are removed")
+	}
+}
