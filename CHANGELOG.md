@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.3](https://github.com/gravitee-io-labs/gck/compare/v1.3.2...v1.3.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* keep DNS server alive when no record files exist at startup ([be8c652](https://github.com/gravitee-io-labs/gck/commit/be8c6520eb43594c7db9ccc287a96fecfcbd6336))
+
 ## [1.3.2](https://github.com/gravitee-io-labs/gck/compare/v1.3.1...v1.3.2) (2026-09-10)
 
 
