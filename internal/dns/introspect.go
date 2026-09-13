@@ -41,46 +41,49 @@ const defaultPollInterval = 2 * time.Second
 //
 // Explicit dnsRecords (from features.dns.records) are resolved by looking up
 // each declared service's LoadBalancer ingress IP.
-func IntrospectCluster(ctx context.Context, clusterName, recordDir string, pollTimeout time.Duration, introspectGateway bool, dnsRecords []config.DNSRecord) error {
+// Collecting nothing is an error when the cluster declared something to
+// collect, and only then. Every failure below used to be a warning that left
+// `gck create` exiting 0 with no record file, so the DNS server came up and
+// served NXDOMAIN forever — a broken cluster reported as a healthy one. The
+// predicate is what was actually asked for (route hostnames, or declared
+// records), NOT features.dns.enabled: a context can enable DNS while declaring
+// neither gateway nor records (registry/gravitee-io/oss/apim/gateway does), and
+// collecting nothing there is correct.
+//
+// It returns the records it wrote, so the caller can verify they are servable.
+func IntrospectCluster(ctx context.Context, clusterName, recordDir string, pollTimeout time.Duration, introspectGateway bool, dnsRecords []config.DNSRecord) (map[string]string, error) {
 	restCfg, err := introspectRESTConfig(clusterName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	records := make(map[string]string)
+	sawRouteHostnames := false
 
 	if introspectGateway {
 		dynClient, err := dynamic.NewForConfig(restCfg)
 		if err != nil {
-			return fmt.Errorf("creating dynamic client: %w", err)
+			return nil, fmt.Errorf("creating dynamic client: %w", err)
 		}
 
-		gwAddrs, err := pollGatewayAddresses(ctx, dynClient, pollTimeout)
+		gwRecords, sawRoutes, err := pollGatewayRecords(ctx, dynClient, pollTimeout)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		if len(gwAddrs) > 0 {
-			gwRecords, err := buildRecords(ctx, dynClient, gwAddrs)
-			if err != nil {
-				return err
-			}
-			for k, v := range gwRecords {
-				records[k] = v
-			}
-		} else {
-			klog.Info("no Gateways with addresses found")
+		sawRouteHostnames = sawRoutes
+		for k, v := range gwRecords {
+			records[k] = v
 		}
 	}
 
 	if len(dnsRecords) > 0 {
 		clientset, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
-			return fmt.Errorf("creating kubernetes client: %w", err)
+			return nil, fmt.Errorf("creating kubernetes client: %w", err)
 		}
 		svcRecords, err := resolveServiceRecords(ctx, clientset, dnsRecords, pollTimeout)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for k, v := range svcRecords {
 			records[k] = v
@@ -88,12 +91,20 @@ func IntrospectCluster(ctx context.Context, clusterName, recordDir string, pollT
 	}
 
 	if len(records) == 0 {
-		klog.Info("no DNS records found; skipping DNS record file")
-		return nil
+		if sawRouteHostnames || len(dnsRecords) > 0 {
+			return nil, fmt.Errorf(
+				"collected no DNS records for cluster %q although the context declares them",
+				clusterName)
+		}
+		klog.Info("context declares no DNS sources (no HTTPRoute hostnames, no features.dns.records); skipping record file")
+		return nil, nil
 	}
 
 	klog.Infof("writing %d DNS record(s) for cluster %q", len(records), clusterName)
-	return WriteRecordFile(recordDir, clusterName, records)
+	if err := WriteRecordFile(recordDir, clusterName, records); err != nil {
+		return nil, err
+	}
+	return records, nil
 }
 
 type gatewayKey struct {
@@ -101,29 +112,52 @@ type gatewayKey struct {
 	Name      string
 }
 
-// pollGatewayAddresses lists Gateways across all namespaces, waiting until at
-// least one has a populated .status.addresses field or the timeout expires.
-func pollGatewayAddresses(ctx context.Context, client dynamic.Interface, timeout time.Duration) (map[gatewayKey]string, error) {
+// pollGatewayRecords polls Gateways and HTTPRoutes until every route hostname
+// maps to a Gateway address, or the timeout expires.
+//
+// sawRoutes reports whether the cluster declares any HTTPRoute hostnames at
+// all. A cluster with none is legitimate (the caller decides); a route whose
+// Gateway never gets an address is not, and is an error here.
+//
+// Route mapping is folded into the poll rather than run once afterwards so a
+// Gateway that gets its address late still gets its routes resolved, and so a
+// route pointing at an addressless Gateway keeps the loop going instead of
+// being dropped with a V(2) line nobody reads.
+func pollGatewayRecords(ctx context.Context, client dynamic.Interface, timeout time.Duration) (records map[string]string, sawRoutes bool, err error) {
 	deadline := time.After(timeout)
 	ticker := time.NewTicker(defaultPollInterval)
 	defer ticker.Stop()
 
+	var unresolved []string
 	for {
 		addrs, err := listGatewayAddresses(ctx, client)
 		if err != nil {
-			return nil, err
-		}
-		if len(addrs) > 0 {
-			return addrs, nil
+			return nil, false, err
 		}
 
-		klog.V(2).Info("no Gateway addresses yet, waiting...")
+		if len(addrs) > 0 {
+			records, unresolved, err = buildRecords(ctx, client, addrs)
+			if err != nil {
+				return nil, false, err
+			}
+			if len(unresolved) == 0 {
+				return records, len(records) > 0, nil
+			}
+		}
+
+		klog.V(2).Info("Gateway addresses or routes not ready yet, waiting...")
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		case <-deadline:
-			klog.Warning("timed out waiting for Gateway addresses")
-			return nil, nil
+			if len(addrs) == 0 {
+				return nil, false, fmt.Errorf(
+					"timed out after %s waiting for any Gateway to report .status.addresses; "+
+						"the cloud-provider-kind controller did not provision the Gateway", timeout)
+			}
+			return nil, false, fmt.Errorf(
+				"timed out after %s: %d HTTPRoute hostname(s) have no Gateway address (%s)",
+				timeout, len(unresolved), strings.Join(unresolved, ", "))
 		case <-ticker.C:
 		}
 	}
@@ -189,17 +223,17 @@ func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dns
 
 	for {
 		records := make(map[string]string)
-		pending := 0
+		var pendingHosts []string
 		for _, r := range dnsRecords {
 			svc, err := client.CoreV1().Services(r.Namespace).Get(ctx, r.Service, metav1.GetOptions{})
 			if err != nil {
 				klog.V(2).Infof("DNS record %q: service %s/%s not found yet: %v", r.Hostname, r.Namespace, r.Service, err)
-				pending++
+				pendingHosts = append(pendingHosts, r.Hostname)
 				continue
 			}
 			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
 				klog.V(2).Infof("DNS record %q: service %s/%s has no LoadBalancer IP yet", r.Hostname, r.Namespace, r.Service)
-				pending++
+				pendingHosts = append(pendingHosts, r.Hostname)
 				continue
 			}
 			ip := svc.Status.LoadBalancer.Ingress[0].IP
@@ -207,17 +241,21 @@ func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dns
 			klog.V(2).Infof("DNS record %s → %s (service %s/%s)", r.Hostname, ip, r.Namespace, r.Service)
 		}
 
-		if pending == 0 {
+		if len(pendingHosts) == 0 {
 			return records, nil
 		}
 
-		klog.V(2).Infof("%d/%d LoadBalancer service(s) still pending", pending, len(dnsRecords))
+		klog.V(2).Infof("%d/%d LoadBalancer service(s) still pending", len(pendingHosts), len(dnsRecords))
 		select {
 		case <-ctx.Done():
 			return records, ctx.Err()
 		case <-deadline:
-			klog.Warningf("timed out waiting for LoadBalancer IPs; returning %d/%d records", len(records), len(dnsRecords))
-			return records, nil
+			// Returning the partial set with a nil error silently dropped
+			// whatever was still pending — for ee/apim that is the whole
+			// *.kafka.gck.local wildcard, absent with no failure anywhere.
+			return records, fmt.Errorf(
+				"timed out after %s waiting for LoadBalancer IPs: %d/%d record(s) unresolved (%s)",
+				timeout, len(pendingHosts), len(dnsRecords), strings.Join(pendingHosts, ", "))
 		case <-ticker.C:
 		}
 	}
@@ -225,13 +263,18 @@ func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dns
 
 // buildRecords lists all HTTPRoutes and maps their hostnames to Gateway IPs
 // using parentRefs.
-func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gatewayKey]string) (map[string]string, error) {
+//
+// unresolved holds the hostnames whose parentRefs matched no addressed Gateway.
+// They are returned rather than only logged so the caller can keep polling and,
+// on timeout, name them: silently dropping one produced a cluster that resolved
+// most of its hostnames and failed on the rest with no indication why.
+func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gatewayKey]string) (records map[string]string, unresolved []string, err error) {
 	list, err := client.Resource(httpRouteGVR).Namespace("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("listing HTTPRoutes: %w", err)
+		return nil, nil, fmt.Errorf("listing HTTPRoutes: %w", err)
 	}
 
-	records := make(map[string]string)
+	records = make(map[string]string)
 	for i := range list.Items {
 		route := &list.Items[i]
 		hostnames := extractHostnames(route)
@@ -243,6 +286,7 @@ func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gat
 		if len(parentIPs) == 0 {
 			klog.V(2).Infof("HTTPRoute %s/%s: no matching Gateway addresses for parentRefs",
 				route.GetNamespace(), route.GetName())
+			unresolved = append(unresolved, hostnames...)
 			continue
 		}
 
@@ -252,7 +296,7 @@ func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gat
 			klog.V(2).Infof("  %s → %s", h, ip)
 		}
 	}
-	return records, nil
+	return records, unresolved, nil
 }
 
 // extractHostnames returns .spec.hostnames from an HTTPRoute.

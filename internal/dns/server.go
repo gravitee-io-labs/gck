@@ -112,11 +112,37 @@ func (h *dnsHandler) ServeDNS(w mdns.ResponseWriter, r *mdns.Msg) {
 		msg := new(mdns.Msg)
 		msg.SetReply(r)
 		msg.Authoritative = true
+		msg.Ns = append(msg.Ns, h.soa())
 		_ = w.WriteMsg(msg)
 		return
 	}
 
 	h.forward(w, r)
+}
+
+// soa bounds how long a negative answer may be cached.
+//
+// Without an SOA in the authority section there is no authoritative negative
+// TTL, so the caching resolver applies its own default — and a NXDOMAIN handed
+// out while records were still being written could then be replayed long after
+// they landed. Minttl is 1s, in the spirit of the 5s positive TTL below:
+// records here change whenever a cluster is created or deleted.
+func (h *dnsHandler) soa() *mdns.SOA {
+	return &mdns.SOA{
+		Hdr: mdns.RR_Header{
+			Name:   mdns.Fqdn(h.domain),
+			Rrtype: mdns.TypeSOA,
+			Class:  mdns.ClassINET,
+			Ttl:    1,
+		},
+		Ns:      "ns." + mdns.Fqdn(h.domain),
+		Mbox:    "hostmaster." + mdns.Fqdn(h.domain),
+		Serial:  1,
+		Refresh: 60,
+		Retry:   60,
+		Expire:  60,
+		Minttl:  1,
+	}
 }
 
 func (h *dnsHandler) handleLocal(w mdns.ResponseWriter, r *mdns.Msg, qname string) {
@@ -127,6 +153,7 @@ func (h *dnsHandler) handleLocal(w mdns.ResponseWriter, r *mdns.Msg, qname strin
 		msg := new(mdns.Msg)
 		msg.SetRcode(r, mdns.RcodeNameError)
 		msg.Authoritative = true
+		msg.Ns = append(msg.Ns, h.soa())
 		_ = w.WriteMsg(msg)
 		return
 	}
