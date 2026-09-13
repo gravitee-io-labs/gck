@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.5](https://github.com/gravitee-io-labs/gck/compare/v1.3.4...v1.3.5) (2026-09-13)
+
+
+### Bug Fixes
+
+* never lose the cloud provider controller's output, and prove it reconciles ([aa995d3](https://github.com/gravitee-io-labs/gck/commit/aa995d3d0626554eb403cb4224e9d9d4ee95c576))
+
 ## [1.3.4](https://github.com/gravitee-io-labs/gck/compare/v1.3.3...v1.3.4) (2026-09-13)
 
 
