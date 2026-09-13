@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.4](https://github.com/gravitee-io-labs/gck/compare/v1.3.3...v1.3.4) (2026-09-13)
+
+
+### Bug Fixes
+
+* fail create when the local DNS server cannot serve its records ([1e4b203](https://github.com/gravitee-io-labs/gck/commit/1e4b203bfabbcdbc3b37695bccb2b36bc06a3d9a))
+
 ## [1.3.3](https://github.com/gravitee-io-labs/gck/compare/v1.3.2...v1.3.3) (2026-09-11)
 
 
