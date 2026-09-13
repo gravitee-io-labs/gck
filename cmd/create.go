@@ -11,17 +11,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/gravitee-io-labs/gck/internal/cache"
-	"github.com/gravitee-io-labs/gck/internal/config"
-	"github.com/gravitee-io-labs/gck/internal/installer"
 	"github.com/gravitee-io-labs/gck/internal/cloudprovider"
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/gravitee-io-labs/gck/internal/dns"
+	"github.com/gravitee-io-labs/gck/internal/installer"
 	"github.com/gravitee-io-labs/gck/internal/kind"
 	"github.com/gravitee-io-labs/gck/internal/logger"
 	"github.com/gravitee-io-labs/gck/internal/notes"
 	"github.com/gravitee-io-labs/gck/internal/registry"
 	"github.com/gravitee-io-labs/gck/internal/state"
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -214,12 +214,11 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 	gatewayEnabled := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
 	lbEnabled := cfg.Features.LB != nil && cfg.Features.LB.Enabled
 
-	if lbEnabled {
-		if err := ensureCPKController(cfg, gatewayEnabled); err != nil {
-			return err
-		}
-	}
-
+	// CRDs first, then the controller. The controller builds its Gateway
+	// informer at startup: started against a cluster with no Gateway CRD it
+	// has nothing to watch, and nothing re-establishes the watch when the CRD
+	// appears a second later. Installing CRDs needs only the API server, so
+	// this ordering costs nothing.
 	if gatewayEnabled {
 		channel := config.GatewayChannelStandard
 		if cfg.Features.Gateway.Channel != "" {
@@ -232,6 +231,19 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 			return cloudprovider.WaitForGatewayCRDs(ctx, cfg.Kind.Name, 90*time.Second)
 		}); err != nil {
 			return err
+		}
+	}
+
+	if lbEnabled {
+		if err := ensureCPKController(cfg, gatewayEnabled); err != nil {
+			return err
+		}
+		if gatewayEnabled {
+			if err := logger.WithSpinner("Waiting for the cloud-provider-kind GatewayClass", func() error {
+				return cloudprovider.WaitForGatewayClass(ctx, cfg.Kind.Name, gatewayClassName, gatewayClassTimeout)
+			}); err != nil {
+				return fmt.Errorf("%w\nController log: %s", err, cpkLogPath())
+			}
 		}
 	}
 
@@ -323,7 +335,7 @@ func injectGatewayComponents(resolved *config.ResolvedContext) {
 					"kind":       "Gateway",
 					"metadata":   map[string]interface{}{"name": "gck-gateway"},
 					"spec": map[string]interface{}{
-						"gatewayClassName": "cloud-provider-kind",
+						"gatewayClassName": gatewayClassName,
 						"listeners": []map[string]interface{}{
 							{
 								"name": "http", "protocol": "HTTP", "port": 80,
@@ -343,7 +355,23 @@ func injectGatewayComponents(resolved *config.ResolvedContext) {
 // The CPK controller is restarted fresh on each gck create, so it discovers the
 // cluster immediately. 90s gives time for the CCM to start, informers to
 // sync, and the gateway controller to reconcile and set status.addresses.
-const gatewayPollTimeout = 90 * time.Second
+const (
+	gatewayPollTimeout = 90 * time.Second
+
+	// The GatewayClass the injected gck-gateway binds to, implemented by the
+	// cloud provider controller.
+	gatewayClassName = "cloud-provider-kind"
+
+	// How long the controller gets to register its GatewayClass once the CRDs
+	// exist. Registration is one API write on a watch it already holds, so
+	// this is short on purpose: exceeding it means the controller is running
+	// but not reconciling, which is worth saying in seconds rather than
+	// discovering 90s later as a Gateway with no address.
+	gatewayClassTimeout = 30 * time.Second
+
+	// A controller that is going to die on startup does so at once.
+	cpkStartupGrace = 500 * time.Millisecond
+)
 
 // dnsResolveTimeout bounds the wait for the DNS server to answer for the
 // records just written. This is a startup window, not a provisioning one — the
@@ -365,6 +393,17 @@ func setupDNSRecords(ctx context.Context, cfg *config.Config) error {
 		records, err = dns.IntrospectCluster(ctx, cfg.Kind.Name, dnsDir, gatewayPollTimeout, introspectGateway, dnsRecords)
 		return err
 	}); err != nil {
+		// A bare "no Gateway reported an address" says what did not happen,
+		// never why. The Gateway's own conditions usually carry the reason,
+		// and the controller that should have set them logs to cpk.log — both
+		// are gone by the time anyone reads CI output, so attach them here.
+		if introspectGateway {
+			return fmt.Errorf("%w\n\nGateway status:\n%s\n\nCloud provider controller: %s\nIts log: %s",
+				err,
+				cloudprovider.DescribeGateways(ctx, cfg.Kind.Name),
+				cpkStatus(),
+				cpkLogPath())
+		}
 		return err
 	}
 
@@ -433,6 +472,11 @@ func ensureCPKController(_ *config.Config, gatewayEnabled bool) error {
 	if err := os.MkdirAll(pidDir, 0o755); err != nil {
 		return fmt.Errorf("creating pid directory: %w", err)
 	}
+	// Both start paths write the controller log; the sudo path does it through
+	// a shell redirect that will not create the directory itself.
+	if err := os.MkdirAll(filepath.Join(gckHome, "logs"), 0o755); err != nil {
+		return fmt.Errorf("creating log directory: %w", err)
+	}
 
 	gckBin, err := os.Executable()
 	if err != nil {
@@ -456,7 +500,9 @@ func ensureCPKController(_ *config.Config, gatewayEnabled bool) error {
 		}
 		cmd := exec.Command("sudo", "-p",
 			"\n  gck needs administrator privileges for network routing.\n  Password: ",
-			"sh", "-c", fullCmd+" &")
+			// Same reasoning as the Linux path below: the controller's output
+			// is the only record of why it failed, so it never goes nowhere.
+			"sh", "-c", fullCmd+" >> "+cpkLogPath()+" 2>&1 &")
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = nil
 		cmd.Stderr = nil
@@ -483,8 +529,19 @@ func ensureCPKController(_ *config.Config, gatewayEnabled bool) error {
 
 	cmd := exec.Command(gckBin, cmdArgs...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+
+	// Never /dev/null. This controller is what assigns LoadBalancer and
+	// Gateway addresses, and discarding its output made every failure
+	// unfalsifiable: a Gateway that never got an address looked identical to
+	// one whose controller had died on startup, and CI could collect nothing
+	// because nothing was written anywhere.
+	cpkLog, err := openCPKLog()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = cpkLog.Close() }()
+	cmd.Stdout = cpkLog
+	cmd.Stderr = cpkLog
 	cmd.Stdin = nil
 
 	if err := cmd.Start(); err != nil {
@@ -500,8 +557,87 @@ func ensureCPKController(_ *config.Config, gatewayEnabled bool) error {
 		return fmt.Errorf("releasing CPK process: %w", err)
 	}
 
-	logger.Success("Cloud provider controller started (pid %d)", pid)
+	// Start() only means fork/exec succeeded. A controller that exits
+	// immediately — bad flag, no Docker socket, no API server — left the same
+	// green "started" line as a healthy one, and the failure surfaced minutes
+	// later as a Gateway with no address and no explanation.
+	if err := confirmCPKAlive(pid); err != nil {
+		return err
+	}
+
+	logger.Success("Cloud provider controller started (pid %d, logging to %s)", pid, cpkLogPath())
 	return nil
+}
+
+func cpkLogPath() string { return filepath.Join(gckHome, "logs", "cpk.log") }
+
+func openCPKLog() (*os.File, error) {
+	if err := os.MkdirAll(filepath.Join(gckHome, "logs"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating log directory: %w", err)
+	}
+	f, err := os.OpenFile(cpkLogPath(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("opening CPK log: %w", err)
+	}
+	return f, nil
+}
+
+// confirmCPKAlive gives the controller a moment to fail, then checks it is
+// still there. Short on purpose: this catches the immediate exit, and the
+// GatewayClass check after the CRDs land catches a controller that is running
+// but not reconciling.
+func confirmCPKAlive(pid int) error {
+	time.Sleep(cpkStartupGrace)
+	if processAlive(pid) {
+		return nil
+	}
+	detail := lastLogLines(cpkLogPath(), 20)
+	if detail == "" {
+		detail = "(no output captured)"
+	}
+	return fmt.Errorf(
+		"cloud provider controller exited immediately after start; "+
+			"LoadBalancer and Gateway addresses cannot be assigned without it.\n"+
+			"Last output from %s:\n%s", cpkLogPath(), detail)
+}
+
+// cpkStatus reports whether the controller is still running, for inclusion in
+// a failure message. "alive but idle" and "dead" call for different fixes, and
+// the distinction was previously invisible.
+func cpkStatus() string {
+	data, err := os.ReadFile(filepath.Join(gckHome, "pids", "cpk.pid"))
+	if err != nil {
+		return "no PID file — it was never started"
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return "unreadable PID file"
+	}
+	if processAlive(pid) {
+		return fmt.Sprintf("pid %d is alive (so it is running but not reconciling)", pid)
+	}
+	return fmt.Sprintf("pid %d is GONE — the controller died after starting", pid)
+}
+
+func processAlive(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	// On Unix FindProcess always succeeds; signal 0 is the liveness probe.
+	return proc.Signal(syscall.Signal(0)) == nil
+}
+
+func lastLogLines(path string, n int) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func killProcess(pidPath string) {

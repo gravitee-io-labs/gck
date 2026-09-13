@@ -18,7 +18,10 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,8 +30,8 @@ import (
 	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/gravitee-io-labs/gck/internal/privilege"
 	cpkconfig "sigs.k8s.io/cloud-provider-kind/pkg/config"
-	"sigs.k8s.io/cloud-provider-kind/pkg/container"
 	"sigs.k8s.io/cloud-provider-kind/pkg/constants"
+	"sigs.k8s.io/cloud-provider-kind/pkg/container"
 	"sigs.k8s.io/cloud-provider-kind/pkg/gateway"
 	"sigs.k8s.io/cloud-provider-kind/pkg/loadbalancer"
 	"sigs.k8s.io/cloud-provider-kind/pkg/tunnels"
@@ -264,6 +267,121 @@ func WaitForGatewayCRDs(ctx context.Context, clusterName string, timeout time.Du
 		}
 	}
 	return nil
+}
+
+// WaitForGatewayClass polls until the named GatewayClass exists and is
+// Accepted, or until timeout.
+//
+// This is the proof that the controller is not merely running but reconciling.
+// Starting it only told us fork/exec succeeded; registering the GatewayClass is
+// the first thing it does once it can watch the CRDs. A timeout here means the
+// controller is alive and not working — worth saying in seconds rather than
+// discovering it 90s later as a Gateway with no address and no explanation.
+func WaitForGatewayClass(ctx context.Context, clusterName, className string, timeout time.Duration) error {
+	restCfg, err := clusterRESTConfig(clusterName)
+	if err != nil {
+		return err
+	}
+	dynClient, err := dynamic.NewForConfig(restCfg)
+	if err != nil {
+		return fmt.Errorf("creating dynamic client: %w", err)
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Version:  "v1",
+		Resource: "gatewayclasses",
+	}
+
+	lastReason := "not registered"
+	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		gc, err := dynClient.Resource(gvr).Get(ctx, className, metav1.GetOptions{})
+		if err != nil {
+			lastReason = fmt.Sprintf("not registered (%v)", err)
+			klog.V(2).Infof("waiting for GatewayClass %s: %v", className, err)
+			return false, nil
+		}
+		conditions, _, _ := unstructured.NestedSlice(gc.Object, "status", "conditions")
+		for _, c := range conditions {
+			m, ok := c.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			condType, _, _ := unstructured.NestedString(m, "type")
+			if condType != "Accepted" {
+				continue
+			}
+			status, _, _ := unstructured.NestedString(m, "status")
+			if status == "True" {
+				return true, nil
+			}
+			reason, _, _ := unstructured.NestedString(m, "reason")
+			message, _, _ := unstructured.NestedString(m, "message")
+			lastReason = fmt.Sprintf("registered but not Accepted (reason=%s, message=%s)", reason, message)
+			return false, nil
+		}
+		lastReason = "registered but reports no Accepted condition"
+		return false, nil
+	}); err != nil {
+		return fmt.Errorf(
+			"GatewayClass %q not accepted within %s: %s; "+
+				"the cloud provider controller is not reconciling Gateway API resources",
+			className, timeout, lastReason)
+	}
+	return nil
+}
+
+// DescribeGateways returns a human-readable status line per Gateway, for
+// diagnostics when no Gateway ever reports an address. Best-effort: it only
+// ever runs to explain a failure, so every error becomes part of the message.
+func DescribeGateways(ctx context.Context, clusterName string) string {
+	restCfg, err := clusterRESTConfig(clusterName)
+	if err != nil {
+		return fmt.Sprintf("(could not reach the cluster: %v)", err)
+	}
+	dynClient, err := dynamic.NewForConfig(restCfg)
+	if err != nil {
+		return fmt.Sprintf("(could not build a client: %v)", err)
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Version:  "v1",
+		Resource: "gateways",
+	}
+	list, err := dynClient.Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Sprintf("(could not list Gateways: %v)", err)
+	}
+	if len(list.Items) == 0 {
+		return "  (no Gateway objects exist in the cluster)"
+	}
+
+	var b strings.Builder
+	for i := range list.Items {
+		gw := &list.Items[i]
+		class, _, _ := unstructured.NestedString(gw.Object, "spec", "gatewayClassName")
+		fmt.Fprintf(&b, "  %s/%s (class %s):", gw.GetNamespace(), gw.GetName(), class)
+
+		conditions, _, _ := unstructured.NestedSlice(gw.Object, "status", "conditions")
+		if len(conditions) == 0 {
+			b.WriteString(" no status conditions — nothing has reconciled it\n")
+			continue
+		}
+		b.WriteString("\n")
+		for _, c := range conditions {
+			m, ok := c.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			condType, _, _ := unstructured.NestedString(m, "type")
+			status, _, _ := unstructured.NestedString(m, "status")
+			reason, _, _ := unstructured.NestedString(m, "reason")
+			message, _, _ := unstructured.NestedString(m, "message")
+			fmt.Fprintf(&b, "    %s=%s reason=%s %s\n", condType, status, reason, message)
+		}
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // ListLBIPs returns a map of LB container name to its IPv4 address for the
