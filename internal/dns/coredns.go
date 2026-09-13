@@ -141,7 +141,7 @@ func resolveGatewayRecords(ctx context.Context, client dynamic.Interface) (map[s
 		klog.Info("CoreDNS sync: no Gateway addresses found")
 		return nil, nil
 	}
-	records, err := buildRecords(ctx, client, gwAddrs)
+	records, _, err := buildRecords(ctx, client, gwAddrs)
 	if err != nil {
 		return nil, err
 	}

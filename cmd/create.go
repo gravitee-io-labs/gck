@@ -345,6 +345,12 @@ func injectGatewayComponents(resolved *config.ResolvedContext) {
 // sync, and the gateway controller to reconcile and set status.addresses.
 const gatewayPollTimeout = 90 * time.Second
 
+// dnsResolveTimeout bounds the wait for the DNS server to answer for the
+// records just written. This is a startup window, not a provisioning one — the
+// records already exist by the time it runs and the child only has to finish
+// binding its socket, which is sub-second. 20s is headroom for a loaded CI box.
+const dnsResolveTimeout = 20 * time.Second
+
 func setupDNSRecords(ctx context.Context, cfg *config.Config) error {
 	dnsDir := filepath.Join(gckHome, "dns")
 	var dnsRecords []config.DNSRecord
@@ -352,15 +358,36 @@ func setupDNSRecords(ctx context.Context, cfg *config.Config) error {
 		dnsRecords = cfg.Features.DNS.Records
 	}
 
+	var records map[string]string
 	introspectGateway := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
 	if err := logger.WithSpinner("Collecting DNS records from cluster", func() error {
-		return dns.IntrospectCluster(ctx, cfg.Kind.Name, dnsDir, gatewayPollTimeout, introspectGateway, dnsRecords)
+		var err error
+		records, err = dns.IntrospectCluster(ctx, cfg.Kind.Name, dnsDir, gatewayPollTimeout, introspectGateway, dnsRecords)
+		return err
 	}); err != nil {
 		return err
 	}
 
+	// Fatal, not a warning: setupDNSRecords only runs when features.dns is
+	// enabled (see the call site), so here the DNS server IS the deliverable.
+	// Warning left `gck create` exiting 0 with no resolver.
 	if err := ensureDNSServer(cfg); err != nil {
-		logger.Warn("failed to start DNS server: %v", err)
+		return fmt.Errorf("starting local DNS server: %w", err)
+	}
+
+	// "Started" above means fork/exec returned; the child still has to reach
+	// ListenAndServe. Ask it a question before claiming the cluster is usable —
+	// this is the step whose absence let a cluster with no working DNS report
+	// success, and it is the contract every caller depends on.
+	_, dnsPort, _ := dnsServerParams(cfg)
+	dnsAddr := fmt.Sprintf("127.0.0.1:%d", dnsPort)
+	if err := logger.WithSpinner("Waiting for DNS server to serve records", func() error {
+		if len(records) == 0 {
+			return dns.WaitForServer(ctx, dnsAddr, cfg.Features.DNS.Domain, dnsResolveTimeout)
+		}
+		return dns.WaitForResolution(ctx, dnsAddr, records, dnsResolveTimeout)
+	}); err != nil {
+		return err
 	}
 
 	gwEnabled := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
