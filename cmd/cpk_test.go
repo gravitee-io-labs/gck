@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"sigs.k8s.io/cloud-provider-kind/pkg/config"
 )
 
 // The controller used to be declared started on the strength of fork/exec
@@ -102,5 +104,37 @@ func TestLastLogLines_TailsAndSurvivesAMissingFile(t *testing.T) {
 	}
 	if got := lastLogLines(filepath.Join(dir, "absent.log"), 5); got != "" {
 		t.Fatalf("a missing log must not break the error path, got %q", got)
+	}
+}
+
+// The Ingress→HTTPRoute translation is the reason a gamma create once died on
+// apim.example.com: CPK registered itself as the default IngressClass, adopted
+// the two placeholder Ingresses the APIM chart enables by default, and turned
+// them into HTTPRoutes that gck then collected as DNS records. Contexts declare
+// their own HTTPRoutes, so CPK must never claim an Ingress that did not ask
+// for it — with or without the gateway feature.
+func TestApplyCPKConfig_NeverTheDefaultIngressClass(t *testing.T) {
+	for _, gateway := range []bool{true, false} {
+		config.DefaultConfig.IngressDefault = true
+
+		applyCPKConfig(gateway)
+
+		if config.DefaultConfig.IngressDefault {
+			t.Fatalf("enableGateway=%v: CPK must not register as the default IngressClass", gateway)
+		}
+	}
+}
+
+func TestApplyCPKConfig_GatewayChannelFollowsTheFeature(t *testing.T) {
+	applyCPKConfig(true)
+	if config.DefaultConfig.GatewayReleaseChannel != config.Standard {
+		t.Fatalf("gateway enabled must select the standard channel, got %q",
+			config.DefaultConfig.GatewayReleaseChannel)
+	}
+
+	applyCPKConfig(false)
+	if config.DefaultConfig.GatewayReleaseChannel != config.Disabled {
+		t.Fatalf("gateway disabled must disable the channel, got %q",
+			config.DefaultConfig.GatewayReleaseChannel)
 	}
 }

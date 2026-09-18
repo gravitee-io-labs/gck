@@ -52,7 +52,7 @@ func SyncCoreDNS(ctx context.Context, clusterName string, domain string, dnsReco
 		if err != nil {
 			return fmt.Errorf("creating dynamic client: %w", err)
 		}
-		records, err = resolveGatewayRecords(ctx, dynClient)
+		records, err = resolveGatewayRecords(ctx, dynClient, domain)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,10 @@ func CoreDNSSynced(ctx context.Context, clusterName string) (bool, error) {
 // resolveGatewayRecords lists Gateways and HTTPRoutes, returning a
 // hostname→IP map where each HTTPRoute hostname points to its parent
 // Gateway's LB IP. The LB IP is reachable from inside the cluster.
-func resolveGatewayRecords(ctx context.Context, client dynamic.Interface) (map[string]string, error) {
+//
+// Same zone rule as the host-side records: the Corefile block it feeds is a
+// stanza for domain, so a hostname outside it has nowhere to go.
+func resolveGatewayRecords(ctx context.Context, client dynamic.Interface, domain string) (map[string]string, error) {
 	gwAddrs, err := listGatewayAddresses(ctx, client)
 	if err != nil {
 		return nil, err
@@ -141,7 +144,7 @@ func resolveGatewayRecords(ctx context.Context, client dynamic.Interface) (map[s
 		klog.Info("CoreDNS sync: no Gateway addresses found")
 		return nil, nil
 	}
-	records, _, err := buildRecords(ctx, client, gwAddrs)
+	records, _, err := buildRecords(ctx, client, gwAddrs, domain)
 	if err != nil {
 		return nil, err
 	}

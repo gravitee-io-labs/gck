@@ -64,7 +64,10 @@ components:
           uri: mongodb://mongodb:27017/apim?connectTimeoutMS=30000
         api:
           ingress:
-            enabled: false
+            management:
+              enabled: false
+            portal:
+              enabled: false
           service:
             type: NodePort
             nodePort: 30083

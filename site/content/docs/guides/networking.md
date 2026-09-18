@@ -47,13 +47,22 @@ features:
 
 This installs the Gateway API CRDs so you can define `Gateway` and `HTTPRoute` resources in your contexts or local manifests.
 
+You can also expose a service with a plain `Ingress`: the controller translates it into the equivalent `HTTPRoute`s for you. Opt in by naming the class on the Ingress:
+
+```yaml
+spec:
+  ingressClassName: cloud-provider-kind
+```
+
+Without that class, the Ingress is left untouched. The result is an ordinary `HTTPRoute`, so its hostnames are collected by local DNS like any route you declare yourself.
+
 ## Local DNS
 
 gck can run a local DNS server that lets you reach services by hostname (e.g. `api.gck.local`) instead of looking up IPs manually.
 
 ### How it works
 
-1. **Record collection** -- After all components are installed, gck introspects the cluster for hostnames. It discovers routes from Gateway API resources (`Gateway` + `HTTPRoute`) and resolves static records you define manually.
+1. **Record collection** -- After all components are installed, gck introspects the cluster for hostnames. It discovers routes from Gateway API resources (`Gateway` + `HTTPRoute`) and resolves static records you define manually. Only hostnames under the served domain are collected -- the server forwards everything else upstream, so placeholder hosts shipped by Helm charts (`apim.example.com` and the like) are skipped rather than recorded.
 2. **DNS server** -- A lightweight DNS server runs in the background, serving A queries for `*.<domain>`. It watches for changes and hot-reloads when records are updated.
 3. **OS routing** -- A one-time `gck setup dns` command tells your operating system to forward queries for the gck domain to the local server.
 
@@ -96,6 +105,8 @@ features:
         namespace: default
 ```
 
+The hostname must sit under the served `domain`. Anything outside it fails `gck create` with an error naming the record.
+
 ### Wildcard records
 
 Wildcard hostnames are supported per [RFC 4592](https://datatracker.ietf.org/doc/html/rfc4592). A `*` first label matches any hostname sharing the remaining suffix:
@@ -116,7 +127,7 @@ Both `demo.api.gck.local` and `v2.demo.api.gck.local` resolve to the same Servic
 
 When DNS is enabled, gck also patches the in-cluster CoreDNS configuration so that pods can resolve `*.gck.local` hostnames. This is essential for flows where both a browser (on the host) and a backend service (in a pod) must use the same hostname -- for example, OAuth/OIDC redirect flows where the authorization server's hostname appears in redirect URIs and token endpoints.
 
-The in-cluster records point to **ClusterIPs** (not the LoadBalancer IPs used by the host DNS server), so pod-to-service traffic stays inside the cluster with no hairpin routing.
+With the Gateway API enabled, the in-cluster records point to the **Gateway's LoadBalancer IP**. Kind nodes share the Docker bridge network with the proxy container, so pods reach the same proxy the host does. With static records and no gateway, the records point to the Service's **ClusterIP**, so pod-to-service traffic stays inside the cluster with no hairpin routing.
 
 This happens automatically during `gck create` and `gck refresh dns`. You can verify the sync status with `gck describe`.
 

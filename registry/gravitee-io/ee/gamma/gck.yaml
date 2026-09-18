@@ -392,8 +392,16 @@ components:
           image:
             repository: "{{ .imagePrefix }}/apim-management-api"
             tag: "{{ .imageTag }}-debian"
+          # The chart has no api.ingress.enabled key: management and portal are
+          # separate blocks, both enabled by default on apim.example.com. Set at
+          # the wrong level this silently does nothing, and cloud-provider-kind
+          # translates every Ingress into an HTTPRoute — which gck then collects
+          # as a DNS record it cannot serve.
           ingress:
-            enabled: false
+            management:
+              enabled: false
+            portal:
+              enabled: false
           service:
             type: NodePort
             nodePort: 30083

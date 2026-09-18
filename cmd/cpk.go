@@ -40,17 +40,36 @@ func init() {
 	rootCmd.AddCommand(cpkCmd)
 }
 
-func runCPKServe(_ *cobra.Command, _ []string) error {
+// applyCPKConfig sets the CPK globals this command runs with.
+//
+// IngressDefault is the one that is not obvious. CPK ships an Ingress→Gateway
+// API translation controller alongside its gateway controller, and by default
+// registers its own IngressClass as the cluster default — which makes it adopt
+// every Ingress that names no class, including the placeholder Ingresses Helm
+// charts ship (graviteeio/apim renders apim.example.com). Each adopted Ingress
+// becomes an HTTPRoute named <ingress>-<sha256(host)[:10]>, and gck collects
+// HTTPRoute hostnames as DNS records — so a chart's placeholder host became a
+// record the DNS server cannot serve and a create that failed on a hostname
+// appearing in no context. Contexts declare the HTTPRoutes they want, so an
+// Ingress here has to ask for this controller by name
+// (ingressClassName: cloud-provider-kind) rather than being adopted silently.
+func applyCPKConfig(enableGateway bool) {
 	if runtime.GOOS != "linux" {
 		config.DefaultConfig.LoadBalancerConnectivity = config.Tunnel
 		config.DefaultConfig.ControlPlaneConnectivity = config.Portmap
 	}
+
+	config.DefaultConfig.IngressDefault = false
 
 	if enableGateway {
 		config.DefaultConfig.GatewayReleaseChannel = config.Standard
 	} else {
 		config.DefaultConfig.GatewayReleaseChannel = config.Disabled
 	}
+}
+
+func runCPKServe(_ *cobra.Command, _ []string) error {
+	applyCPKConfig(enableGateway)
 
 	option, err := cluster.DetectNodeProvider()
 	if err != nil {

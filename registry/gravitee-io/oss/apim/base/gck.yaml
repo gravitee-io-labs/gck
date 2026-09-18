@@ -143,7 +143,10 @@ components:
             repository: "{{ .imagePrefix }}/apim-management-api"
             tag: "{{ .imageTag }}-debian"
           ingress:
-            enabled: false
+            management:
+              enabled: false
+            portal:
+              enabled: false
           service:
             type: NodePort
             nodePort: 30083

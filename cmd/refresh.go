@@ -50,9 +50,14 @@ func runDNSRefresh(_ *cobra.Command, _ []string) error {
 		dnsRecords = cfg.Features.DNS.Records
 	}
 
+	dnsDomain := config.DNSDefaultDomain
+	if cfg.Features.DNS != nil && cfg.Features.DNS.Domain != "" {
+		dnsDomain = cfg.Features.DNS.Domain
+	}
+
 	introspectGateway := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
 	ctx := context.Background()
-	if _, err := dns.IntrospectCluster(ctx, clusterName, dnsDir, refreshPollTimeout, introspectGateway, dnsRecords); err != nil {
+	if _, err := dns.IntrospectCluster(ctx, clusterName, dnsDir, dnsDomain, refreshPollTimeout, introspectGateway, dnsRecords); err != nil {
 		return fmt.Errorf("introspecting cluster %q: %w", clusterName, err)
 	}
 

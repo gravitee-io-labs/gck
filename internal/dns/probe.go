@@ -37,11 +37,11 @@ func WaitForServer(ctx context.Context, addr, domain string, timeout time.Durati
 
 	var lastErr error
 	for {
-		if _, _, err := exchangeA(ctx, addr, name); err == nil {
+		_, _, err := exchangeA(ctx, addr, name)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 
 		if time.Now().After(deadline) {
 			return fmt.Errorf(

@@ -50,8 +50,15 @@ const defaultPollInterval = 2 * time.Second
 // neither gateway nor records (registry/gravitee-io/oss/apim/gateway does), and
 // collecting nothing there is correct.
 //
+// Only hostnames inside domain are collected — see inDomain for why anything
+// else is not a record but a guaranteed failure.
+//
 // It returns the records it wrote, so the caller can verify they are servable.
-func IntrospectCluster(ctx context.Context, clusterName, recordDir string, pollTimeout time.Duration, introspectGateway bool, dnsRecords []config.DNSRecord) (map[string]string, error) {
+func IntrospectCluster(ctx context.Context, clusterName, recordDir, domain string, pollTimeout time.Duration, introspectGateway bool, dnsRecords []config.DNSRecord) (map[string]string, error) {
+	if err := validateRecordDomains(dnsRecords, domain); err != nil {
+		return nil, err
+	}
+
 	restCfg, err := introspectRESTConfig(clusterName)
 	if err != nil {
 		return nil, err
@@ -66,7 +73,7 @@ func IntrospectCluster(ctx context.Context, clusterName, recordDir string, pollT
 			return nil, fmt.Errorf("creating dynamic client: %w", err)
 		}
 
-		gwRecords, sawRoutes, err := pollGatewayRecords(ctx, dynClient, pollTimeout)
+		gwRecords, sawRoutes, err := pollGatewayRecords(ctx, dynClient, pollTimeout, domain)
 		if err != nil {
 			return nil, err
 		}
@@ -115,15 +122,16 @@ type gatewayKey struct {
 // pollGatewayRecords polls Gateways and HTTPRoutes until every route hostname
 // maps to a Gateway address, or the timeout expires.
 //
-// sawRoutes reports whether the cluster declares any HTTPRoute hostnames at
-// all. A cluster with none is legitimate (the caller decides); a route whose
-// Gateway never gets an address is not, and is an error here.
+// sawRoutes reports whether the cluster declares any HTTPRoute hostname inside
+// domain. A cluster with none is legitimate (the caller decides); a route whose
+// Gateway never gets an address is not, and is an error here — unless its
+// hostnames are out of zone, in which case the route is not ours to wait on.
 //
 // Route mapping is folded into the poll rather than run once afterwards so a
 // Gateway that gets its address late still gets its routes resolved, and so a
 // route pointing at an addressless Gateway keeps the loop going instead of
 // being dropped with a V(2) line nobody reads.
-func pollGatewayRecords(ctx context.Context, client dynamic.Interface, timeout time.Duration) (records map[string]string, sawRoutes bool, err error) {
+func pollGatewayRecords(ctx context.Context, client dynamic.Interface, timeout time.Duration, domain string) (records map[string]string, sawRoutes bool, err error) {
 	deadline := time.After(timeout)
 	ticker := time.NewTicker(defaultPollInterval)
 	defer ticker.Stop()
@@ -136,7 +144,7 @@ func pollGatewayRecords(ctx context.Context, client dynamic.Interface, timeout t
 		}
 
 		if len(addrs) > 0 {
-			records, unresolved, err = buildRecords(ctx, client, addrs)
+			records, unresolved, err = buildRecords(ctx, client, addrs, domain)
 			if err != nil {
 				return nil, false, err
 			}
@@ -264,11 +272,17 @@ func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dns
 // buildRecords lists all HTTPRoutes and maps their hostnames to Gateway IPs
 // using parentRefs.
 //
-// unresolved holds the hostnames whose parentRefs matched no addressed Gateway.
-// They are returned rather than only logged so the caller can keep polling and,
-// on timeout, name them: silently dropping one produced a cluster that resolved
-// most of its hostnames and failed on the rest with no indication why.
-func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gatewayKey]string) (records map[string]string, unresolved []string, err error) {
+// Hostnames outside domain are skipped before anything else: they are neither
+// collected nor waited for. A chart that renders a placeholder host is not a
+// broken cluster, and blocking on one is how a foreign hostname became a
+// 90-second timeout naming a route gck never asked for.
+//
+// unresolved holds the in-domain hostnames whose parentRefs matched no
+// addressed Gateway. They are returned rather than only logged so the caller
+// can keep polling and, on timeout, name them: silently dropping one produced a
+// cluster that resolved most of its hostnames and failed on the rest with no
+// indication why.
+func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gatewayKey]string, domain string) (records map[string]string, unresolved []string, err error) {
 	list, err := client.Resource(httpRouteGVR).Namespace("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("listing HTTPRoutes: %w", err)
@@ -277,7 +291,7 @@ func buildRecords(ctx context.Context, client dynamic.Interface, gwAddrs map[gat
 	records = make(map[string]string)
 	for i := range list.Items {
 		route := &list.Items[i]
-		hostnames := extractHostnames(route)
+		hostnames := inDomainHostnames(extractHostnames(route), domain, route)
 		if len(hostnames) == 0 {
 			continue
 		}
@@ -363,4 +377,63 @@ func introspectRESTConfig(clusterName string) (*rest.Config, error) {
 		return nil, fmt.Errorf("parsing kubeconfig: %w", err)
 	}
 	return restCfg, nil
+}
+
+// inDomain reports whether hostname belongs to the zone this gck serves.
+//
+// It is the one condition for a record to exist at all. ServeDNS consults the
+// store only for names under features.dns.domain and forwards everything else
+// upstream (server.go), so a foreign hostname collected here is not a record:
+// it is a line in the record file that the server is structurally incapable of
+// answering, and the startup probe then spends its whole budget on it before
+// failing with a bind error that has nothing to do with the cause.
+//
+// The hostnames come from every HTTPRoute in the cluster, which means they come
+// from Helm charts as much as from gck — graviteeio/apim renders
+// apim.example.com as its placeholder host, and no registry context can declare
+// its way out of that. Wildcards ("*.kafka.gck.local") match on the suffix like
+// any other name.
+func inDomain(hostname, domain string) bool {
+	h := strings.ToLower(strings.TrimSuffix(hostname, "."))
+	d := strings.ToLower(strings.Trim(domain, "."))
+	if d == "" {
+		return true
+	}
+	return h == d || strings.HasSuffix(h, "."+d)
+}
+
+// inDomainHostnames keeps the hostnames of a route that gck can actually serve.
+// Skipping is logged at V(2) and nowhere else: a chart shipping a placeholder
+// host is routine, not a warning worth printing on every create.
+func inDomainHostnames(hostnames []string, domain string, route *unstructured.Unstructured) []string {
+	kept := make([]string, 0, len(hostnames))
+	for _, h := range hostnames {
+		if !inDomain(h, domain) {
+			klog.V(2).Infof("HTTPRoute %s/%s: skipping %s (outside %s)",
+				route.GetNamespace(), route.GetName(), h, domain)
+			continue
+		}
+		kept = append(kept, h)
+	}
+	return kept
+}
+
+// validateRecordDomains rejects a features.dns.records entry outside the served
+// domain. Unlike a harvested route hostname, this one was written by a context
+// author on purpose, so it is a config error and is named as such rather than
+// dropped into a V(2) line and rediscovered as a probe timeout.
+func validateRecordDomains(records []config.DNSRecord, domain string) error {
+	var bad []string
+	for _, r := range records {
+		if !inDomain(r.Hostname, domain) {
+			bad = append(bad, r.Hostname)
+		}
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf(
+			"features.dns.records declares %d hostname(s) outside the served domain %q (%s); "+
+				"the DNS server only answers for %s and forwards everything else upstream",
+			len(bad), domain, strings.Join(bad, ", "), domain)
+	}
+	return nil
 }

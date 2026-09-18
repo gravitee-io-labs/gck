@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gravitee-io-labs/gck/internal/config"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -79,7 +80,7 @@ func fakeDynamic(objs ...*unstructured.Unstructured) *fake.FakeDynamicClient {
 func TestPollGatewayRecords_TimeoutIsAnError(t *testing.T) {
 	client := fakeDynamic(gateway("default", "gck-gateway")) // no .status.addresses
 
-	_, _, err := pollGatewayRecords(context.Background(), client, 100*time.Millisecond)
+	_, _, err := pollGatewayRecords(context.Background(), client, 100*time.Millisecond, "gck.local")
 	if err == nil {
 		t.Fatal("a Gateway that never gets an address must be an error, not a silent success")
 	}
@@ -97,7 +98,7 @@ func TestPollGatewayRecords_UnresolvedRouteIsAnError(t *testing.T) {
 		httpRoute("gravitee", "apim-api", "other-gateway", "apim-api.gravitee.gck.local"),
 	)
 
-	_, _, err := pollGatewayRecords(context.Background(), client, 100*time.Millisecond)
+	_, _, err := pollGatewayRecords(context.Background(), client, 100*time.Millisecond, "gck.local")
 	if err == nil {
 		t.Fatal("a route with no addressed parent Gateway must be an error")
 	}
@@ -112,7 +113,7 @@ func TestPollGatewayRecords_UnresolvedRouteIsAnError(t *testing.T) {
 func TestPollGatewayRecords_NoRouteHostnamesIsNotAnError(t *testing.T) {
 	client := fakeDynamic(gateway("default", "gck-gateway", "172.18.0.5"))
 
-	records, sawRoutes, err := pollGatewayRecords(context.Background(), client, 2*time.Second)
+	records, sawRoutes, err := pollGatewayRecords(context.Background(), client, 2*time.Second, "gck.local")
 	if err != nil {
 		t.Fatalf("a cluster with no routes is legitimate: %v", err)
 	}
@@ -130,7 +131,7 @@ func TestPollGatewayRecords_MapsHostnamesToGatewayAddress(t *testing.T) {
 		httpRoute("gravitee", "apim-api", "gck-gateway", "apim-api.gravitee.gck.local"),
 	)
 
-	records, sawRoutes, err := pollGatewayRecords(context.Background(), client, 2*time.Second)
+	records, sawRoutes, err := pollGatewayRecords(context.Background(), client, 2*time.Second, "gck.local")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -139,5 +140,96 @@ func TestPollGatewayRecords_MapsHostnamesToGatewayAddress(t *testing.T) {
 	}
 	if got := records["apim-api.gravitee.gck.local"]; got != "172.18.0.5" {
 		t.Fatalf("expected 172.18.0.5, got %q", got)
+	}
+}
+
+// The bug this filter exists for. graviteeio/apim renders apim.example.com as
+// its placeholder host, so a chart — not a registry context — puts a hostname
+// in the cluster that gck's server can never answer for: ServeDNS forwards
+// anything outside the zone upstream. Collected, it went into the record file
+// and then burned the whole startup probe budget before failing with "the
+// server may have failed to bind", which was never the problem.
+func TestPollGatewayRecords_SkipsHostnamesOutsideDomain(t *testing.T) {
+	client := fakeDynamic(
+		gateway("default", "gck-gateway", "172.18.0.5"),
+		httpRoute("gravitee", "apim-console", "gck-gateway", "apim-console.gravitee.gck.local"),
+		httpRoute("gravitee", "apim-ui", "gck-gateway", "apim.example.com"),
+	)
+
+	records, sawRoutes, err := pollGatewayRecords(context.Background(), client, 2*time.Second, "gck.local")
+	if err != nil {
+		t.Fatalf("a foreign hostname is not a failure: %v", err)
+	}
+	if !sawRoutes {
+		t.Fatal("the in-domain route must still count")
+	}
+	if _, ok := records["apim.example.com"]; ok {
+		t.Fatalf("apim.example.com must never be collected, got %v", records)
+	}
+	if got := records["apim-console.gravitee.gck.local"]; got != "172.18.0.5" {
+		t.Fatalf("in-domain hostname lost: %v", records)
+	}
+}
+
+// A route gck does not serve is also a route gck does not wait for. Before the
+// filter this cost 90 seconds and then failed the create, naming a hostname
+// that appears in no registry file.
+func TestPollGatewayRecords_ForeignHostnameDoesNotBlockOnMissingGateway(t *testing.T) {
+	client := fakeDynamic(
+		gateway("default", "gck-gateway", "172.18.0.5"),
+		httpRoute("gravitee", "apim-ui", "traefik-gateway", "apim.example.com"),
+	)
+
+	records, sawRoutes, err := pollGatewayRecords(context.Background(), client, 100*time.Millisecond, "gck.local")
+	if err != nil {
+		t.Fatalf("an out-of-zone route with no addressed parent must not block: %v", err)
+	}
+	if sawRoutes || len(records) != 0 {
+		t.Fatalf("nothing should have been collected, got %v (sawRoutes=%v)", records, sawRoutes)
+	}
+}
+
+func TestInDomain(t *testing.T) {
+	cases := []struct {
+		hostname string
+		want     bool
+	}{
+		{"apim-api.gravitee.gck.local", true},
+		{"*.kafka.gck.local", true},
+		{"gck.local", true},
+		{"APIM-API.GRAVITEE.GCK.LOCAL", true},
+		{"apim-api.gravitee.gck.local.", true},
+		{"apim.example.com", false},
+		{"notgck.local", false},
+		{"gck.local.evil.com", false},
+	}
+	for _, c := range cases {
+		if got := inDomain(c.hostname, "gck.local"); got != c.want {
+			t.Errorf("inDomain(%q) = %v, want %v", c.hostname, got, c.want)
+		}
+	}
+}
+
+// A declared record is authored intent, so it fails loudly instead of being
+// dropped into a V(2) line and rediscovered later as a probe timeout.
+func TestValidateRecordDomains(t *testing.T) {
+	err := validateRecordDomains([]config.DNSRecord{
+		{Hostname: "*.kafka.gck.local", Service: "kafka", Namespace: "gravitee"},
+		{Hostname: "apim.example.com", Service: "apim", Namespace: "gravitee"},
+	}, "gck.local")
+	if err == nil {
+		t.Fatal("a record outside the served domain must be a config error")
+	}
+	if !strings.Contains(err.Error(), "apim.example.com") {
+		t.Fatalf("error must name the offending hostname, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "kafka") {
+		t.Fatalf("error must not implicate the valid record, got: %v", err)
+	}
+
+	if err := validateRecordDomains([]config.DNSRecord{
+		{Hostname: "*.kafka.gck.local"},
+	}, "gck.local"); err != nil {
+		t.Fatalf("an in-domain record must pass: %v", err)
 	}
 }

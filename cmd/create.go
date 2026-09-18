@@ -390,7 +390,7 @@ func setupDNSRecords(ctx context.Context, cfg *config.Config) error {
 	introspectGateway := cfg.Features.Gateway != nil && cfg.Features.Gateway.Enabled
 	if err := logger.WithSpinner("Collecting DNS records from cluster", func() error {
 		var err error
-		records, err = dns.IntrospectCluster(ctx, cfg.Kind.Name, dnsDir, gatewayPollTimeout, introspectGateway, dnsRecords)
+		records, err = dns.IntrospectCluster(ctx, cfg.Kind.Name, dnsDir, cfg.Features.DNS.Domain, gatewayPollTimeout, introspectGateway, dnsRecords)
 		return err
 	}); err != nil {
 		// A bare "no Gateway reported an address" says what did not happen,
