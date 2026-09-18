@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.6](https://github.com/gravitee-io-labs/gck/compare/v1.3.5...v1.3.6) (2026-09-18)
+
+
+### Bug Fixes
+
+* do not try and turn unknown ingresses into http routes ([eb2d1af](https://github.com/gravitee-io-labs/gck/commit/eb2d1af25f8026c455d23913e6388dd836fb986e))
+
 ## [1.3.5](https://github.com/gravitee-io-labs/gck/compare/v1.3.4...v1.3.5) (2026-09-13)
 
 
