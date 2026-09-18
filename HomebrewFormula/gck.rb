@@ -5,21 +5,21 @@
 class Gck < Formula
   desc "Full Kubernetes environments, composed and deployed in one command"
   homepage "https://gravitee-io-labs.github.io/gck/"
-  version "1.3.5"
+  version "1.3.6"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.5/gck_1.3.5_darwin_amd64.zip"
-      sha256 "eb8432becf9dc74341ebee47ca64a1854e259a8bdebf96d96b439ae538bf7c39"
+      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.6/gck_1.3.6_darwin_amd64.zip"
+      sha256 "074b918cc6b400afada5a02be5a86c287c4f958ff6b8b2b5547cb204a908df14"
 
       define_method(:install) do
         bin.install "gck"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.5/gck_1.3.5_darwin_arm64.zip"
-      sha256 "2b2c0b8f5943d5c768d041961b152c7c24068f0f23f8102363484d99e5c0de62"
+      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.6/gck_1.3.6_darwin_arm64.zip"
+      sha256 "dd4812132d308edb9d8228bd71306c5e6d13f6e08ac6b02c8a344f43d4601f79"
 
       define_method(:install) do
         bin.install "gck"
@@ -29,15 +29,15 @@ class Gck < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.5/gck_1.3.5_linux_amd64.tar.gz"
-      sha256 "d54029dfec0d8722084fc3e08053b6f7cbaea12812fb47eca6650e46927de50d"
+      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.6/gck_1.3.6_linux_amd64.tar.gz"
+      sha256 "83c52ed2ecfdcb79411978b10789d9da749a4306bc5abe53405718edece130c7"
       define_method(:install) do
         bin.install "gck"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.5/gck_1.3.5_linux_arm64.tar.gz"
-      sha256 "9c1c91b9ba0e29098ffedd4116de4930929c98b6d9999e2e6eb097fff2f69652"
+      url "https://github.com/gravitee-io-labs/gck/releases/download/v1.3.6/gck_1.3.6_linux_arm64.tar.gz"
+      sha256 "1ca8a9211fd88503bb24694c6b7345b8032792107f3db8fe32a99ac45c2b3e3d"
       define_method(:install) do
         bin.install "gck"
       end
