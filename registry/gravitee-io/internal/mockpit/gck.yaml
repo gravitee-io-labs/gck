@@ -1,0 +1,89 @@
+# mockpit stands in for Gravitee Cockpit so AM and APIM can run as
+# multi-tenant installations in CI: it seeds every installation that connects
+# with built-in organizations and environments, and signs browsers in through
+# Cockpit SSO. See https://github.com/gravitee-io-labs/mockpit.
+#
+# Abstract and README-less on purpose: this is internal CI tooling, so it gets
+# no registry page, and it only makes sense composed with the AM and APIM it
+# serves. The composing stack points their cloud connector at
+# http://mockpit.gravitee.svc.cluster.local:8085 and mounts mockpit's built-in
+# keystore.
+#
+# It declares no features, routes or patches on other components: features
+# blocks replace each other whole on merge, and product component names
+# differ between contexts (gamma vs apim).
+abstract: true
+vars:
+  imageRepository:
+    default: "graviteeio.azurecr.io/mockpit"
+    description: "mockpit image repository"
+  imageTag:
+    default: "main"
+    description: "mockpit image tag: main follows the main branch, X.Y.Z a release"
+  seedDelay:
+    default: "20s"
+    description: "Wait between an installation's HELLO and the seed of the built-in tenants, so its startup upgraders run first"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+components:
+  - name: mockpit
+    type: k8s
+    namespace: gravitee
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: mockpit
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mockpit
+            labels:
+              app: mockpit
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mockpit
+            template:
+              metadata:
+                labels:
+                  app: mockpit
+              spec:
+                containers:
+                  - name: mockpit
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    args:
+                      - "--seed-delay={{ .seedDelay }}"
+                    ports:
+                      - containerPort: 8085
+                        name: http
+                    readinessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: 8085
+                    resources:
+                      requests:
+                        cpu: 10m
+                        memory: 16Mi
+                      limits:
+                        cpu: 200m
+                        memory: 64Mi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mockpit
+            labels:
+              app: mockpit
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 8085
+                targetPort: 8085
+                name: http
+            selector:
+              app: mockpit
