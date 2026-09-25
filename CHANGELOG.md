@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.7](https://github.com/gravitee-io-labs/gck/compare/v1.3.6...v1.3.7) (2026-09-25)
+
+
+### Bug Fixes
+
+* render template functions in var defaults ([22f765a](https://github.com/gravitee-io-labs/gck/commit/22f765ac132e94432e1a704c0b540c79bcb2cf35))
+
 ## [1.3.6](https://github.com/gravitee-io-labs/gck/compare/v1.3.5...v1.3.6) (2026-09-18)
 
 
