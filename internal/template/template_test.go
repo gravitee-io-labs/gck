@@ -636,3 +636,94 @@ func TestRenderWithVars(t *testing.T) {
 		t.Errorf("expected rendered output, got:\n%s", string(out))
 	}
 }
+
+func TestRender_VarDefaultTemplateIsRendered(t *testing.T) {
+	t.Setenv("GCK_TEST_HOME", "/home/test")
+	raw := []byte(`vars:
+  licenseFile:
+    default: '{{ env "GCK_TEST_HOME" }}/opt/license.key'
+path: '{{ .licenseFile }}'
+`)
+	out, err := Render(raw, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(out), `path: '/home/test/opt/license.key'`) {
+		t.Errorf("expected the default's template to be rendered, got:\n%s", string(out))
+	}
+}
+
+func TestRender_SetValueTemplateIsRendered(t *testing.T) {
+	t.Setenv("GCK_TEST_HOME", "/home/test")
+	raw := []byte(`vars:
+  licenseFile:
+    default: "/unused"
+path: '{{ .licenseFile }}'
+`)
+	out, err := Render(raw, map[string]string{"licenseFile": `{{ env "GCK_TEST_HOME" }}/license.key`})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(out), `path: '/home/test/license.key'`) {
+		t.Errorf("expected the --set value's template to be rendered, got:\n%s", string(out))
+	}
+}
+
+func TestRender_VarValueReferencingAnotherVarFails(t *testing.T) {
+	raw := []byte(`vars:
+  base:
+    default: "/opt"
+  licenseFile:
+    default: '{{ .base }}/license.key'
+path: '{{ .licenseFile }}'
+`)
+	_, err := Render(raw, nil)
+	if err == nil {
+		t.Fatal("expected an error for a var value that references another var")
+	}
+	if !strings.Contains(err.Error(), `var "licenseFile"`) || !strings.Contains(err.Error(), "not other vars") {
+		t.Errorf("error should name the var and say why, got: %v", err)
+	}
+}
+
+func TestRender_VarValueEscapedBraces(t *testing.T) {
+	raw := []byte(`vars:
+  helmTpl:
+    default: '{{ "{{" }} .Release.Name }}'
+tpl: '{{ .helmTpl }}'
+`)
+	out, err := Render(raw, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(out), `tpl: '{{ .Release.Name }}'`) {
+		t.Errorf("expected escaped braces to reach the document literally, got:\n%s", string(out))
+	}
+}
+
+func TestRenderWithVars_DoesNotMutateVars(t *testing.T) {
+	t.Setenv("GCK_TEST_HOME", "/home/test")
+	vars := map[string]string{"licenseFile": `{{ env "GCK_TEST_HOME" }}/license.key`}
+	if _, err := RenderWithVars([]byte(`path: '{{ .licenseFile }}'`), vars); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if vars["licenseFile"] != `{{ env "GCK_TEST_HOME" }}/license.key` {
+		t.Errorf("caller's vars were mutated: %q", vars["licenseFile"])
+	}
+}
+
+func TestExtractVarDefs_KeepsTheRawDefault(t *testing.T) {
+	raw := []byte(`vars:
+  licenseFile:
+    default: '{{ env "HOME" }}/opt/license.key'
+`)
+	defs, err := ExtractVarDefs(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// The site's Variables table shows this value; rendering it here would
+	// publish the builder's HOME.
+	if len(defs) != 1 || defs[0].Default != `{{ env "HOME" }}/opt/license.key` {
+		t.Errorf("expected the raw default, got %+v", defs)
+	}
+}

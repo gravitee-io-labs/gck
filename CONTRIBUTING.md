@@ -632,7 +632,10 @@ gck create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
 - Variable names use **camelCase** (`imageTag`, `helmVersion`).
 - Variable names must not contain dots.
 - Registry path segments must not contain dots (enforced by `gck validate`).
-- The `vars` block must not itself contain template expressions.
+- A default may use the template functions (`env`, `default`, `required`),
+  not other vars: `default: '{{ env "HOME" }}/opt/gravitee/license.key'`
+  renders, `default: '{{ .base }}/license.key'` fails. `--set` values too.
+  Write a literal `{{` as `{{ "{{" }}`.
 - Undefined variables with no default cause a clear error
   (`missingkey=error`).
 
