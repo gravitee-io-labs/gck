@@ -1,0 +1,12 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="128.0,24.0 209.3,63.2 229.4,151.1 173.1,221.7 82.9,221.7 26.6,151.1 46.7,63.2" fill="#326ce5" stroke="#326ce5" stroke-width="20" stroke-linejoin="round"/>
+  <circle cx="128" cy="128" r="54" stroke="#fff" stroke-width="12"/>
+  <line x1="128.0" y1="110.0" x2="128.0" y2="50.0" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <line x1="142.1" y1="116.8" x2="189.0" y2="79.4" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <line x1="145.5" y1="132.0" x2="204.0" y2="145.4" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <line x1="135.8" y1="144.2" x2="161.8" y2="198.3" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <line x1="120.2" y1="144.2" x2="94.2" y2="198.3" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <line x1="110.5" y1="132.0" x2="52.0" y2="145.4" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <line x1="113.9" y1="116.8" x2="67.0" y2="79.4" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="128" cy="128" r="14" fill="#fff"/>
+</svg>

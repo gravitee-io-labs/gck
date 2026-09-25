@@ -1,0 +1,13 @@
+---
+title: kube-state-metrics
+---
+kube-state-metrics exposes the state of pods, nodes and workloads (restarts,
+last termination reason, readiness, resource requests and limits) in
+Prometheus format. Scrapers sharing its namespace reach it at
+`kube-state-metrics:8080`; from another namespace use
+`kube-state-metrics.<namespace>.svc.cluster.local:8080`.
+
+Read what it exports:
+
+  kubectl -n observability port-forward svc/kube-state-metrics 8080
+  curl -s localhost:8080/metrics | grep kube_pod_container_status_restarts_total
