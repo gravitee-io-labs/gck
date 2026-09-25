@@ -30,7 +30,14 @@ func Render(raw []byte, setOverrides map[string]string) ([]byte, error) {
 // variable map. Unlike Render, it does not extract vars from the document
 // or apply --set overrides — the caller is responsible for providing the
 // fully-merged effective vars.
+//
+// Var values are rendered first, see renderVarValues.
 func RenderWithVars(raw []byte, vars map[string]string) ([]byte, error) {
+	vars, err := renderVarValues(vars)
+	if err != nil {
+		return nil, err
+	}
+
 	tmpl, err := template.New("gck").
 		Option("missingkey=error").
 		Funcs(funcMap()).
@@ -44,6 +51,37 @@ func RenderWithVars(raw []byte, vars map[string]string) ([]byte, error) {
 		return nil, fmt.Errorf("executing template: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+// renderVarValues renders the template expressions inside var values, so
+// that a default such as '{{ env "HOME" }}/opt/license.key' means what it
+// says: the document template receives var values as data, and would insert
+// the expression literally.
+//
+// Values are rendered with the template functions and no data. A value that
+// references another var fails, rather than depending on the order in which
+// vars are resolved. A literal "{{" is written {{ "{{" }}.
+func renderVarValues(vars map[string]string) (map[string]string, error) {
+	out := make(map[string]string, len(vars))
+	for name, value := range vars {
+		if !strings.Contains(value, "{{") {
+			out[name] = value
+			continue
+		}
+		tmpl, err := template.New(name).
+			Option("missingkey=error").
+			Funcs(funcMap()).
+			Parse(value)
+		if err != nil {
+			return nil, fmt.Errorf("var %q: parsing value: %w", name, err)
+		}
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, map[string]string{}); err != nil {
+			return nil, fmt.Errorf("var %q: a var value can use template functions (env, default, required) but not other vars: %w", name, err)
+		}
+		out[name] = buf.String()
+	}
+	return out, nil
 }
 
 // VarDef describes a template variable with its default value and

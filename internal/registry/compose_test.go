@@ -1693,3 +1693,59 @@ vars:
 		t.Fatalf("expected child imageTag to override parent, got %q", resolved.EffectiveVars["imageTag"])
 	}
 }
+
+// A var default using a template function reaches a composed context
+// rendered, including through a path-scoped override from the child.
+func TestFSResolver_VarDefaultTemplateIsRendered(t *testing.T) {
+	t.Setenv("GCK_TEST_HOME", "/home/test")
+	root := t.TempDir()
+
+	writeFile(t, filepath.Join(root, "base", "gck.yaml"), `
+abstract: true
+vars:
+  licenseFile:
+    default: '{{ env "GCK_TEST_HOME" }}/opt/license.key'
+  keyFile:
+    default: '{{ env "GCK_TEST_HOME" }}/opt/base.key'
+components:
+  - name: license
+    type: k8s
+    k8s:
+      secrets:
+        - name: license
+          entries:
+            - key: license.key
+              fromFile: '{{ .licenseFile }}'
+            - key: other.key
+              fromFile: '{{ .keyFile }}'
+`)
+	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `
+from:
+  - base
+vars:
+  base:
+    keyFile:
+      default: '{{ env "GCK_TEST_HOME" }}/opt/child.key'
+`)
+
+	resolver := &FSResolver{Root: root, GckHome: t.TempDir()}
+	resolved, err := resolver.Resolve(context.Background(), "child")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var entries []config.ResourceEntry
+	for _, c := range resolved.Components {
+		if c.Name == "license" && c.K8s != nil && len(c.K8s.Secrets) == 1 {
+			entries = c.K8s.Secrets[0].Entries
+		}
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected the license secret with 2 entries, got %+v", resolved.Components)
+	}
+	if entries[0].FromFile != "/home/test/opt/license.key" {
+		t.Errorf("own default: got %q", entries[0].FromFile)
+	}
+	if entries[1].FromFile != "/home/test/opt/child.key" {
+		t.Errorf("path-scoped override: got %q", entries[1].FromFile)
+	}
+}

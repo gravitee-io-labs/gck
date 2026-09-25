@@ -209,7 +209,7 @@ gck create --set imageTag=4.12.0
 
 - Variable names use **camelCase** (`imageTag`, `helmVersion`, not `image_tag`).
 - `vars` is a flat `map[string]string` -- no nesting.
-- The `vars` block itself must not contain template expressions.
+- A default may use the template functions, but not other vars: `default: '{{ env "HOME" }}/opt/gravitee/license.key'` renders, and `default: '{{ .base }}/license.key'` fails with an error naming the var. The same holds for `--set` values. Write a literal `{{` as `{{ "{{" }}`.
 - Undefined variables with no default cause an error.
 - Use the `env` function to reference environment variables: `{{ env "HOME" }}`.
 - Use `default` for inline fallbacks: `{{ .myVar | default "fallback" }}`.
