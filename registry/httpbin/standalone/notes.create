@@ -1,0 +1,11 @@
+---
+title: httpbin
+endpoints:
+  - name: httpbin
+    url: http://localhost:31880
+    note: http://httpbin:8080 in-cluster
+---
+Every endpoint works without setup:
+
+  curl -s http://localhost:31880/anything
+  curl -s -o /dev/null -w '%{http_code}\n' http://localhost:31880/status/503
