@@ -1,7 +1,7 @@
 ---
 title: "Gamma"
 description: "Gravitee Gamma with Access Management and MongoDB backend"
-tags: [networking, security]
+tags: [ai, networking, security]
 ---
 
 # Gamma
