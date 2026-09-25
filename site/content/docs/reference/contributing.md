@@ -115,6 +115,8 @@ registry/
 │   │   │       ├── base/       # abstract OpenSearch config
 │   │   │       └── mongodb/    # concrete variant
 │   │   └── gko/                # standalone GKO deployment
+│   ├── internal/
+│   │   └── mockpit/            # abstract, CI-only: Cockpit mock for multi-tenant AM and APIM
 │   └── ee/
 │       ├── apim/
 │       │   ├── base/           # abstract EE config (flags: Kafka, Alert Engine)
@@ -440,7 +442,13 @@ block instead of duplicating the parent's manifests. See the
 Use `abstract: true` for shared base configurations that should not be
 deployed directly. 
 
-Abstract contexts are meant to be composed into concrete variants via `from`:
+Abstract contexts are meant to be composed into concrete variants via `from`.
+Abstract also means no page or card on the registry site, which is why
+internal tooling lives under `gravitee-io/internal/` as abstract, README-less
+contexts: a stack outside the registry composes them via `from`, and nobody
+browsing the registry sees them. `gravitee-io/internal/mockpit` is one.
+
+
 
 ```yaml
 abstract: true
