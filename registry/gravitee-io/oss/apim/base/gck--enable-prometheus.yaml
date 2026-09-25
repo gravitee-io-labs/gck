@@ -1,8 +1,15 @@
 description: "Deploy Prometheus and enable APIM metrics"
+vars:
+  prometheusImageRepository:
+    default: "prom/prometheus"
+    description: "Prometheus Docker image repository"
+  prometheusImageTag:
+    default: "v3.4.1"
+    description: "Prometheus Docker image tag"
 images:
   preload:
     refs:
-      - prom/prometheus:v3.4.1
+      - "{{ .prometheusImageRepository }}:{{ .prometheusImageTag }}"
 components:
   - name: prometheus
     type: k8s
@@ -28,9 +35,15 @@ components:
                 - job_name: prometheus
                   static_configs:
                     - targets: ["localhost:9090"]
+                # The gateway serves Prometheus metrics on its technical
+                # API, not on /metrics, behind the chart's default Basic auth.
                 - job_name: apim-gateway
+                  metrics_path: /_node/metrics/prometheus
+                  basic_auth:
+                    username: admin
+                    password: adminadmin
                   static_configs:
-                    - targets: ["apim-apim-gateway:18082"]
+                    - targets: ["apim-gateway:18082"]
         - apiVersion: apps/v1
           kind: Deployment
           metadata:
@@ -49,7 +62,7 @@ components:
               spec:
                 containers:
                   - name: prometheus
-                    image: prom/prometheus:v3.4.1
+                    image: "{{ .prometheusImageRepository }}:{{ .prometheusImageTag }}"
                     args:
                       - "--config.file=/etc/prometheus/prometheus.yml"
                       - "--storage.tsdb.retention.time=2h"
@@ -89,14 +102,14 @@ components:
     helm:
       values:
         gateway:
-          env:
-            - name: gravitee_services_metrics_enabled
-              value: "true"
-            - name: gravitee_services_metrics_prometheus_enabled
-              value: "true"
-            - name: gravitee_services_core_http_enabled
-              value: "true"
-            - name: gravitee_services_core_http_host
-              value: "0.0.0.0"
-            - name: gravitee_services_core_http_port
-              value: "18082"
+          services:
+            metrics:
+              enabled: true
+              prometheus:
+                enabled: true
+            # The chart serves the technical API (18082) on the pod only;
+            # this adds the port to the gateway Service Prometheus scrapes.
+            core:
+              service:
+                enabled: true
+                externalPort: 18082

@@ -104,6 +104,20 @@ Each layer is also available on its own: `grafana/tempo/base` is Tempo with no G
 
 > The collector keeps its `debug` exporter alongside the Tempo one, so `kubectl logs -f deploy/otel-collector -n observability` remains the fastest way to check whether spans are arriving at all — useful for telling "the gateway is not exporting" apart from "Tempo is not storing".
 
+## Watching pod restarts and resource limits
+
+The `kube-state-metrics/base` context deploys [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) into the `observability` namespace, where it reports container restarts and the reason for the last termination, readiness, pod phase, and each container's requests and limits in Prometheus format:
+
+```bash
+gck create \
+  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from kube-state-metrics/base
+```
+
+Any scraper in the cluster reaches it at `kube-state-metrics.observability.svc.cluster.local:8080`.
+
+> For CPU and memory usage, scrape the kubelet's `/metrics/resource` and `/metrics/cadvisor` endpoints alongside it.
+
 ## Abstract contexts
 
 When several variants share a common foundation, extract the shared parts into an **abstract** context. Mark it with `abstract: true` -- it can't be deployed on its own, only composed into concrete contexts:

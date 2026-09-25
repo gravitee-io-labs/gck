@@ -1,0 +1,134 @@
+abstract: true
+vars:
+  imageRepository:
+    default: "registry.k8s.io/kube-state-metrics/kube-state-metrics"
+    description: "kube-state-metrics Docker image repository"
+  imageTag:
+    default: "v2.20.0"
+    description: "kube-state-metrics Docker image tag"
+  namespace:
+    default: "observability"
+    description: "Namespace kube-state-metrics is deployed into, shared with the rest of the observability layer so a collector or Prometheus there reaches it by service name"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+components:
+  - name: kube-state-metrics
+    type: k8s
+    namespace: "{{ .namespace }}"
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: kube-state-metrics
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: kube-state-metrics
+            labels:
+              app: kube-state-metrics
+        # Read-only, and limited to the resources passed to --resources below:
+        # kube-state-metrics logs a list error for any resource it is asked to
+        # watch without the matching grant.
+        - apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: kube-state-metrics
+            labels:
+              app: kube-state-metrics
+          rules:
+            - apiGroups: [""]
+              resources: [namespaces, nodes, pods]
+              verbs: [list, watch]
+            - apiGroups: [apps]
+              resources: [daemonsets, deployments, replicasets, statefulsets]
+              verbs: [list, watch]
+            - apiGroups: [batch]
+              resources: [jobs]
+              verbs: [list, watch]
+        - apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: kube-state-metrics
+            labels:
+              app: kube-state-metrics
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: kube-state-metrics
+          subjects:
+            - kind: ServiceAccount
+              name: kube-state-metrics
+              namespace: "{{ .namespace }}"
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kube-state-metrics
+            labels:
+              app: kube-state-metrics
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: kube-state-metrics
+            template:
+              metadata:
+                labels:
+                  app: kube-state-metrics
+              spec:
+                serviceAccountName: kube-state-metrics
+                containers:
+                  - name: kube-state-metrics
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    args:
+                      - "--resources=daemonsets,deployments,jobs,namespaces,nodes,pods,replicasets,statefulsets"
+                    ports:
+                      - containerPort: 8080
+                        name: http-metrics
+                      - containerPort: 8081
+                        name: telemetry
+                    livenessProbe:
+                      httpGet:
+                        path: /livez
+                        port: http-metrics
+                      initialDelaySeconds: 5
+                      timeoutSeconds: 5
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: telemetry
+                      initialDelaySeconds: 5
+                      timeoutSeconds: 5
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop: [ALL]
+                      readOnlyRootFilesystem: true
+                      runAsNonRoot: true
+                      runAsUser: 65534
+                      seccompProfile:
+                        type: RuntimeDefault
+                    resources:
+                      requests:
+                        cpu: 10m
+                        memory: 32Mi
+                      limits:
+                        cpu: 100m
+                        memory: 128Mi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: kube-state-metrics
+            labels:
+              app: kube-state-metrics
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 8080
+                targetPort: http-metrics
+                name: http-metrics
+            selector:
+              app: kube-state-metrics

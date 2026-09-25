@@ -1,0 +1,8 @@
+from:
+  - kube-state-metrics/base
+vars:
+  clusterName:
+    default: "kube-state-metrics"
+    description: "Name of the Kind cluster"
+kind:
+  name: "{{ .clusterName }}"
