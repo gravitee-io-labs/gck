@@ -1,0 +1,326 @@
+vars:
+  clusterName:
+    default: "a2a-standalone"
+    description: "Name of the Kind cluster"
+  imageRepository:
+    default: "python"
+    description: "Python Docker image repository used to run the agent"
+  imageTag:
+    default: "3.14-slim"
+    description: "Python Docker image tag"
+  a2aSdkVersion:
+    default: "1.1.5"
+    description: "A2A Python SDK version the agent is built on, installed at startup"
+  agentName:
+    default: "echo-agent"
+    description: "Agent name advertised in the agent card"
+  publicUrl:
+    default: "http://localhost:30803"
+    description: "Base URL the agent card advertises for its interfaces; set it to the gateway or in-cluster URL when clients reach the agent another way"
+  authToken:
+    default: ""
+    description: "Static bearer token callers must present; empty disables authentication"
+images:
+  preload:
+    refs:
+      - "{{ .imageRepository }}:{{ .imageTag }}"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30803
+          hostPort: 30803
+components:
+  - name: a2a-agent
+    type: k8s
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: a2a-agent
+            labels:
+              app: a2a-agent
+          data:
+            server.py: |
+              # A2A test agent for e2e-testing A2A clients, proxies and gateways.
+              # Serves the agent card on /.well-known/agent-card.json, JSON-RPC on /
+              # and HTTP+JSON on /rest, both speaking A2A 1.0 and 0.3, plus GET /health.
+              # Behaviour is deterministic and driven by the text of the message.
+              import asyncio
+              import os
+
+              import httpx
+              import uvicorn
+              from starlette.applications import Starlette
+              from starlette.requests import Request
+              from starlette.responses import JSONResponse
+              from starlette.routing import Route
+
+              from a2a.helpers import (
+                  get_message_text,
+                  new_task_from_user_message,
+                  new_text_message,
+                  new_text_part,
+              )
+              from a2a.server.agent_execution import AgentExecutor, RequestContext
+              from a2a.server.events import EventQueue
+              from a2a.server.request_handlers import DefaultRequestHandler
+              from a2a.server.routes import (
+                  create_agent_card_routes,
+                  create_jsonrpc_routes,
+                  create_rest_routes,
+              )
+              from a2a.server.tasks import (
+                  BasePushNotificationSender,
+                  InMemoryPushNotificationConfigStore,
+                  InMemoryTaskStore,
+                  TaskUpdater,
+              )
+              from a2a.types import (
+                  AgentCapabilities,
+                  AgentCard,
+                  AgentInterface,
+                  AgentSkill,
+                  HTTPAuthSecurityScheme,
+                  SecurityRequirement,
+                  SecurityScheme,
+                  StringList,
+                  TaskState,
+              )
+              from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
+
+              AGENT_NAME = os.environ.get("A2A_AGENT_NAME", "echo-agent")
+              PUBLIC_URL = os.environ.get("A2A_PUBLIC_URL", "http://localhost:8000").rstrip("/")
+              AUTH_TOKEN = os.environ.get("A2A_AUTH_TOKEN", "")
+              PORT = int(os.environ.get("PORT", "8000"))
+
+              STREAM_CHUNK_DELAY = 0.2
+
+
+              def _number(words: list[str], default: float) -> float:
+                  try:
+                      return float(words[1])
+                  except (IndexError, ValueError):
+                      return default
+
+
+              class TestAgentExecutor(AgentExecutor):
+                  async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+                      text = get_message_text(context.message).strip()
+                      words = text.split()
+                      keyword = words[0].lower() if words else ""
+
+                      # A plain message reply, with no task behind it.
+                      if keyword == "message" and not context.current_task:
+                          await event_queue.enqueue_event(
+                              new_text_message(f"echo: {text}", context_id=context.context_id)
+                          )
+                          return
+
+                      task = context.current_task
+                      if not task:
+                          task = new_task_from_user_message(context.message)
+                          await event_queue.enqueue_event(task)
+                      updater = TaskUpdater(event_queue, task.id, task.context_id)
+
+                      # Second turn of "ask": whatever the user answers completes the task.
+                      if task.status.state == TaskState.TASK_STATE_INPUT_REQUIRED:
+                          await updater.add_artifact([new_text_part(f"thanks, {text}")], name="answer")
+                          await updater.complete()
+                          return
+
+                      await updater.start_work()
+
+                      if keyword == "stream":
+                          chunks = int(_number(words, 3))
+                          artifact_id = f"{task.id}-stream"
+                          for i in range(1, chunks + 1):
+                              await asyncio.sleep(STREAM_CHUNK_DELAY)
+                              await updater.add_artifact(
+                                  [new_text_part(f"chunk {i}/{chunks}\n")],
+                                  artifact_id=artifact_id,
+                                  name="stream",
+                                  append=i > 1,
+                                  last_chunk=i == chunks,
+                              )
+                          await updater.complete()
+                      elif keyword == "slow":
+                          # Cancelling the task interrupts this sleep.
+                          await asyncio.sleep(_number(words, 30))
+                          await updater.add_artifact([new_text_part(f"echo: {text}")], name="echo")
+                          await updater.complete()
+                      elif keyword == "ask":
+                          await updater.requires_input(
+                              updater.new_agent_message([new_text_part("What is your name?")])
+                          )
+                      elif keyword == "fail":
+                          await updater.failed(
+                              updater.new_agent_message([new_text_part("failed on request")])
+                          )
+                      else:
+                          await updater.add_artifact([new_text_part(f"echo: {text}")], name="echo")
+                          await updater.complete()
+
+                  async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+                      task = context.current_task
+                      updater = TaskUpdater(event_queue, task.id, task.context_id)
+                      await updater.cancel()
+
+
+              skill = AgentSkill(
+                  id="echo",
+                  name="Echo",
+                  description=(
+                      "Echoes the text back. Keywords drive the task lifecycle: "
+                      "'message' replies without a task, 'stream <n>' streams n artifact chunks, "
+                      "'slow <seconds>' keeps the task working, 'ask' requires input, 'fail' fails."
+                  ),
+                  tags=["test", "echo"],
+                  examples=["hello", "message hello", "stream 3", "slow 10", "ask", "fail"],
+                  input_modes=["text/plain"],
+                  output_modes=["text/plain"],
+              )
+
+              card = AgentCard(
+                  name=AGENT_NAME,
+                  description="Deterministic A2A agent for testing A2A clients, proxies and gateways",
+                  version="1.0.0",
+                  supported_interfaces=[
+                      AgentInterface(protocol_binding="JSONRPC", url=PUBLIC_URL, protocol_version="1.0"),
+                      AgentInterface(protocol_binding="HTTP+JSON", url=f"{PUBLIC_URL}/rest", protocol_version="1.0"),
+                  ],
+                  capabilities=AgentCapabilities(streaming=True, push_notifications=True),
+                  default_input_modes=["text/plain"],
+                  default_output_modes=["text/plain"],
+                  skills=[skill],
+              )
+              if AUTH_TOKEN:
+                  card.security_schemes["bearer"].CopyFrom(
+                      SecurityScheme(http_auth_security_scheme=HTTPAuthSecurityScheme(scheme="Bearer"))
+                  )
+                  card.security_requirements.append(
+                      SecurityRequirement(schemes={"bearer": StringList(list=[])})
+                  )
+
+              push_config_store = InMemoryPushNotificationConfigStore()
+              handler = DefaultRequestHandler(
+                  agent_executor=TestAgentExecutor(),
+                  task_store=InMemoryTaskStore(),
+                  agent_card=card,
+                  push_config_store=push_config_store,
+                  push_sender=BasePushNotificationSender(httpx.AsyncClient(), push_config_store),
+              )
+
+
+              async def health(request: Request) -> JSONResponse:
+                  return JSONResponse({"status": "healthy", "agent": AGENT_NAME})
+
+
+              class BearerAuth:
+                  """Rejects requests without the static bearer token, except discovery and health."""
+
+                  OPEN_PATHS = {AGENT_CARD_WELL_KNOWN_PATH, "/health"}
+
+                  def __init__(self, app):
+                      self.app = app
+
+                  async def __call__(self, scope, receive, send):
+                      if scope["type"] == "http" and scope["path"] not in self.OPEN_PATHS:
+                          headers = dict(scope["headers"])
+                          if headers.get(b"authorization", b"").decode() != f"Bearer {AUTH_TOKEN}":
+                              response = JSONResponse({"error": "unauthorized"}, status_code=401)
+                              await response(scope, receive, send)
+                              return
+                      await self.app(scope, receive, send)
+
+
+              routes = [Route("/health", health, methods=["GET"])]
+              routes += create_agent_card_routes(card)
+              routes += create_jsonrpc_routes(handler, "/", enable_v0_3_compat=True)
+              routes += create_rest_routes(handler, enable_v0_3_compat=True, path_prefix="/rest")
+              app = Starlette(routes=routes)
+              if AUTH_TOKEN:
+                  app = BearerAuth(app)
+
+              if __name__ == "__main__":
+                  uvicorn.run(app, host="0.0.0.0", port=PORT)
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: a2a-agent
+            labels:
+              app: a2a-agent
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: a2a-agent
+            template:
+              metadata:
+                labels:
+                  app: a2a-agent
+              spec:
+                # Service links would inject A2A_AGENT_* variables into the
+                # pod, next to the A2A_* settings the agent reads.
+                enableServiceLinks: false
+                containers:
+                  - name: a2a-agent
+                    image: "{{ .imageRepository }}:{{ .imageTag }}"
+                    command: ["sh", "-c"]
+                    args:
+                      - pip install --no-cache-dir --quiet "a2a-sdk[http-server]=={{ .a2aSdkVersion }}" uvicorn && exec python /app/server.py
+                    env:
+                      - name: A2A_AGENT_NAME
+                        value: "{{ .agentName }}"
+                      - name: A2A_PUBLIC_URL
+                        value: "{{ .publicUrl }}"
+                      - name: A2A_AUTH_TOKEN
+                        value: "{{ .authToken }}"
+                    ports:
+                      - containerPort: 8000
+                        name: http
+                    startupProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                      periodSeconds: 2
+                      failureThreshold: 90
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8000
+                    volumeMounts:
+                      - name: server
+                        mountPath: /app
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 128Mi
+                      limits:
+                        cpu: 500m
+                        memory: 512Mi
+                volumes:
+                  - name: server
+                    configMap:
+                      name: a2a-agent
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: a2a-agent
+            labels:
+              app: a2a-agent
+          spec:
+            type: NodePort
+            ports:
+              - port: 8000
+                targetPort: 8000
+                nodePort: 30803
+                name: http
+            selector:
+              app: a2a-agent

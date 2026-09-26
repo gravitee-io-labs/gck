@@ -1,0 +1,17 @@
+---
+title: A2A Test Agent
+endpoints:
+  - name: A2A Agent
+    url: http://localhost:30803
+    note: JSON-RPC at /, HTTP+JSON at /rest
+---
+Card      GET /.well-known/agent-card.json
+Keywords  message, stream <n>, slow <seconds>, ask, fail; anything else is echoed
+Auth      disabled; recreate with --set authToken=<token> to require a bearer
+
+Health    GET /health
+
+  curl -s http://localhost:30803/ \
+    -H 'Content-Type: application/json' \
+    -H 'A2A-Version: 1.0' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"SendMessage","params":{"message":{"role":"ROLE_USER","messageId":"1","parts":[{"text":"hello"}]}}}'
