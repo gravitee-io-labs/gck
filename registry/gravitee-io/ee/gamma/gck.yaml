@@ -412,8 +412,11 @@ components:
               value: "false"
             - name: gravitee_gamma_enabled
               value: "true"
-            - name: portal.entrypoint
-              value: "http://apim-gateway.gravitee.gck.local/"
+            # portal.entrypoint, the gateway URL APIM and the AIM module hand
+            # out. Gravitee reads env vars only as gravitee_* with dots as _:
+            # a plain `portal.entrypoint` variable is ignored.
+            - name: gravitee_portal_entrypoint
+              value: "http://apim-gateway.gravitee.gck.local"
           extraVolumes: |
             - name: graviteeio-license
               secret:
