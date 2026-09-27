@@ -170,7 +170,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 		}
 	}
 	applyAlternatives(resolved, alternatives)
-	if err := checkPins(contextPath, parsed.Use, resolved); err != nil {
+	if err := checkPins(contextPath, parsed.Use, ownFlags, resolved); err != nil {
 		return nil, err
 	}
 	if err := checkImplied(contextPath, resolved); err != nil {

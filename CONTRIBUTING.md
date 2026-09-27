@@ -670,7 +670,9 @@ templating and must be literal.
 
 **Pinning**: a context that composes another and only works with one of its
 alternatives pins it with `use`. The group is no longer offered to users of
-the composing context, and passing another member is an error:
+the composing context, and passing another member is an error. `use` only
+reaches composed contexts: naming one of the context's own alternatives is an
+error, since the group's `default` already says which member applies:
 
 ```yaml
 # registry/gravitee-io/gamma/gck.yaml

@@ -150,7 +150,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 		return nil, fmt.Errorf("context %s: %w", contextPath, err)
 	}
 	applyAlternatives(resolved, alternatives)
-	if err := checkPins(contextPath, ctxCfg.Use, resolved); err != nil {
+	if err := checkPins(contextPath, ctxCfg.Use, ownFlags, resolved); err != nil {
 		return nil, err
 	}
 	if err := checkImplied(contextPath, resolved); err != nil {
