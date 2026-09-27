@@ -40,7 +40,7 @@ func runInfo(cmd *cobra.Command, _ []string) error {
 		if len(fromPaths) > 0 {
 			return fmt.Errorf("pass contexts as arguments or with --from, not both")
 		}
-		cfg.From = args
+		overrideFrom(args)
 	}
 	resolved, err := resolveContextConfig()
 	if err != nil {
