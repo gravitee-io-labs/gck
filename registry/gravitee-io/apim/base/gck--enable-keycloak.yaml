@@ -1,0 +1,98 @@
+description: "Deploy Keycloak and configure APIM OIDC security provider"
+conflicts:
+  - use-dbless
+images:
+  preload:
+    refs:
+      - quay.io/keycloak/keycloak:26.2.5
+components:
+  - name: keycloak
+    type: k8s
+    namespace: gravitee
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: keycloak
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: keycloak
+            labels:
+              app: keycloak
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: keycloak
+            template:
+              metadata:
+                labels:
+                  app: keycloak
+              spec:
+                containers:
+                  - name: keycloak
+                    image: quay.io/keycloak/keycloak:26.2.5
+                    args: ["start-dev"]
+                    ports:
+                      - containerPort: 8080
+                        name: http
+                    env:
+                      - name: KEYCLOAK_ADMIN
+                        value: admin
+                      - name: KEYCLOAK_ADMIN_PASSWORD
+                        value: admin
+                      - name: JAVA_OPTS_APPEND
+                        value: "-Xmx256m"
+                    resources:
+                      requests:
+                        cpu: 250m
+                        memory: 512Mi
+                      limits:
+                        cpu: "1"
+                        memory: 1Gi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: keycloak
+            labels:
+              app: keycloak
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 8080
+                targetPort: 8080
+                name: http
+            selector:
+              app: keycloak
+  - name: apim
+    requires:
+      - component: keycloak
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: keycloak
+        timeout: 10m
+    helm:
+      values:
+        api:
+          env:
+            - name: gravitee_security_providers_0_type
+              value: oidc
+            - name: gravitee_security_providers_0_clientId
+              value: gravitee
+            - name: gravitee_security_providers_0_clientSecret
+              value: gravitee-secret
+            - name: gravitee_security_providers_0_tokenEndpoint
+              value: "http://keycloak:8080/realms/master/protocol/openid-connect/token"
+            - name: gravitee_security_providers_0_userInfoEndpoint
+              value: "http://keycloak:8080/realms/master/protocol/openid-connect/userinfo"
+            - name: gravitee_security_providers_0_accessTokenUri
+              value: "http://keycloak:8080/realms/master/protocol/openid-connect/token"
+            - name: gravitee_security_providers_0_authorizationUri
+              value: "http://keycloak:8080/realms/master/protocol/openid-connect/auth"
+            - name: gravitee_security_providers_0_userLogoutUri
+              value: "http://keycloak:8080/realms/master/protocol/openid-connect/logout"

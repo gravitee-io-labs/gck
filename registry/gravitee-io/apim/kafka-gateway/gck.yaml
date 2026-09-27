@@ -1,0 +1,19 @@
+# Composed by --enable-kafka-gateway (gck--enable-kafka-gateway.yaml): the
+# notes that replace the broker's own instructions, and the certificate the
+# gateway presents to Kafka clients. The apim values live in the flag itself,
+# which is applied after apim/base.
+abstract: true
+components:
+  - name: kafka-tls
+    type: k8s
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: kafka-tls
+          type: kubernetes.io/tls
+          data:
+            tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJUakNCOWFBREFnRUNBZ2tBcjlCRzhhVVZIMUF3Q2dZSUtvWkl6ajBFQXdJd0hERWFNQmdHQTFVRUF3d1IKS2k1cllXWnJZUzV6WlhjdWJHOWpZV3d3SGhjTk1qWXdNekl3TVRjMU56QTBXaGNOTXpZd016RTNNVGMxTnpBMApXakFjTVJvd0dBWURWUVFEREJFcUxtdGhabXRoTG5ObGR5NXNiMk5oYkRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJPRU9Lc1Rwc0RJYWUyZDRhcG1BY2t3N3JDMWZjZmZoRFI1MDQ5ZEVVTnNkb0R1TTlkV3cKVElWYlBRSHZkM2JldmZNOWVobCtRS2FZaDVHd2JGVGxPQVdqSURBZU1Cd0dBMVVkRVFRVk1CT0NFU291YTJGbQphMkV1YzJWM0xteHZZMkZzTUFvR0NDcUdTTTQ5QkFNQ0EwZ0FNRVVDSVFEYjIyL2JINWRtTTh1TkRYMXlBdUJDCkd4SExEM2tneVV5WWlhOUNBY24wY1FJZ2Exazd5ZWF3S1lyTCs1SEtTa3N0dm55K3Q2YlZmT2MzVk0xMHpkQzcKK0FVPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+            tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZzBxNzAvVGRXME5Nd0NlQTIKdTFodWIwbmoyRlFaQUo4U0VFQ0hkTStHeHZpaFJBTkNBQVRoRGlyRTZiQXlHbnRuZUdxWmdISk1PNnd0WDNIMwo0UTBlZE9QWFJGRGJIYUE3alBYVnNFeUZXejBCNzNkMjNyM3pQWG9aZmtDbW1JZVJzR3hVNVRnRgotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==

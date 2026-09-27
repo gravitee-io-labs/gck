@@ -98,18 +98,53 @@ type ContextFlag struct {
 	Name        string
 	Description string
 	Dir         string // directory containing the gck--{name}.yaml file
+
+	// Group is set on alternatives (use-* flags): mutually exclusive
+	// implementations of the same concern, exactly one of which is always
+	// applied. Empty for plain flags.
+	Group string
+	// Default marks the alternative applied when no member of its group is
+	// selected.
+	Default bool
+	// Pinned is set on every member of a group whose selection was fixed by
+	// a composing context's use: block. Pinned groups are not offered to
+	// users.
+	Pinned bool
+	// Requires lists the flags or alternatives that must be active for this
+	// flag to be applied.
+	Requires []string
+	// Conflicts lists the flags or alternatives that must not be active
+	// alongside this flag.
+	Conflicts []string
+	// Implies, on an alternative, lists the plain flags turned on whenever it
+	// is selected (e.g. use-embedded implies disable-ui).
+	Implies []string
+	// Disables, on a plain flag, lists the alternative groups of which no
+	// member is applied while the flag is active (e.g. disable-metrics
+	// disables the metrics group).
+	Disables []string
+}
+
+// IsAlternative reports whether the flag is a member of an alternative group.
+func (f ContextFlag) IsAlternative() bool {
+	return f.Group != ""
 }
 
 // ResolvedContext is a fully resolved context with all referenced files in Dir.
 type ResolvedContext struct {
-	Repos         []Repo
-	Components    []Component
-	Dir           string
-	Kind          KindConfig
-	Features      FeaturesConfig
-	Images        ImagesConfig
-	Notes         ResolvedNotes
-	Abstract      bool
-	Flags         []ContextFlag
+	Repos      []Repo
+	Components []Component
+	Dir        string
+	Kind       KindConfig
+	Features   FeaturesConfig
+	Images     ImagesConfig
+	Notes      ResolvedNotes
+	Abstract   bool
+	Flags      []ContextFlag
+	// Selected maps each alternative group in the composition to the name of
+	// the applied member (e.g. "database" -> "use-postgres").
+	Selected map[string]string
+	// Implied lists the plain flags turned on by the selected alternatives.
+	Implied       []string
 	EffectiveVars map[string]string
 }

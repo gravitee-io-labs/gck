@@ -13,7 +13,7 @@ Every developer on the team had their own approach: a shell script here, a Kind 
 We wanted a single command that would produce a known-good cluster from a known-good definition. That's the core idea behind **registry contexts** -- curated stack descriptions that capture everything: Kind configuration, Helm charts, raw manifests, port mappings, networking. Pick one and deploy it:
 
 ```bash
-gck create --from gravitee-io/oss/apim
+gck create --from gravitee-io/apim
 ```
 
 No scripts, no "follow the README and hope it's up to date."

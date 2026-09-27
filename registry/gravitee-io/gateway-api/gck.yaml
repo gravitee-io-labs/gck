@@ -1,0 +1,87 @@
+from:
+  - gravitee-io/gko
+vars:
+  clusterName:
+    default: "gravitee"
+    description: "Name of the Kind cluster"
+  imagePrefix:
+    default: "graviteeio"
+    description: "Docker image prefix for Gravitee components"
+  imageTag:
+    default: "latest"
+    description: "Docker image tag for the APIM gateway"
+images:
+  preload:
+    mode: replace
+    refs:
+      - "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}-debian"
+      - "{{ .imagePrefix }}/kubernetes-operator:latest"
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 80
+          hostPort: 80
+        - containerPort: 443
+          hostPort: 443
+        - containerPort: 9092
+          hostPort: 9092
+features:
+  lb:
+    enabled: true
+  dns:
+    enabled: true
+components:
+  - name: gko
+    helm:
+      values:
+        gatewayAPI:
+          controller:
+            enabled: true
+            applycRDs: true
+  - name: gateway-class-parameters
+    type: k8s
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: gravitee.io/v1alpha1
+          kind: GatewayClassParameters
+          metadata:
+            name: gravitee-gateway
+          spec:
+            kubernetes:
+              deployment:
+                template:
+                  spec:
+                    containers:
+                      - name: gateway
+                        image: "{{ .imagePrefix }}/apim-gateway:{{ .imageTag }}-debian"
+                    securityContext:
+                      runAsNonRoot: true
+                      runAsUser: 1001
+    requires:
+      - component: gko
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            control-plane: controller-manager
+  - name: gateway-class
+    type: k8s
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: gateway.networking.k8s.io/v1
+          kind: GatewayClass
+          metadata:
+            name: gravitee-gateway
+          spec:
+            controllerName: apim.gravitee.io/gateway
+            parametersRef:
+              kind: GatewayClassParameters
+              group: gravitee.io
+              name: gravitee-gateway
+              namespace: gravitee
+    requires:
+      - component: gateway-class-parameters

@@ -33,12 +33,13 @@ var upCmd = &cobra.Command{
 	Short: "Create the cluster and install the context",
 	Long: `Create the cluster and install the context defined in gck.yaml.
 
-Contexts may define optional flags that customize the deployment.
-Flags are passed directly on the command line:
+Contexts may define optional flags that customize the deployment, and
+alternatives (--use-* flags) that pick one implementation per group, such
+as the datasource. Both are passed directly on the command line:
 
-  gck create --disable-es --disable-portal
+  gck create --use-postgres --disable-ui
 
-Run "gck info" to see available flags for your context.`,
+Run "gck info" to see the alternatives and flags of your context.`,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 	RunE:               runUp,
 }
@@ -102,6 +103,16 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 	fmt.Println()
 	for _, w := range featWarnings {
 		logger.Warn("%s", w)
+	}
+
+	registry.MergeComponents(resolved, cfg.Components, cfg.Dir)
+	resolved.Repos = registry.MergeRepos(resolved.Repos, cfg.Helm.Repos)
+
+	// Local files and env vars behind secrets and config maps are read only
+	// when their component installs; check them now so a missing one fails
+	// before the cluster exists rather than halfway through the install.
+	if err := installer.PreflightLocalResources(resolved.Components); err != nil {
+		return err
 	}
 
 	exists, err := kind.Exists(cfg.Kind.Name)
@@ -246,9 +257,6 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 			}
 		}
 	}
-
-	registry.MergeComponents(resolved, cfg.Components, cfg.Dir)
-	resolved.Repos = registry.MergeRepos(resolved.Repos, cfg.Helm.Repos)
 
 	if gatewayEnabled {
 		injectGatewayComponents(resolved)

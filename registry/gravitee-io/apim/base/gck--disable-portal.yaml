@@ -1,0 +1,11 @@
+description: "Disable the developer portal UI"
+components:
+  - name: apim
+    helm:
+      values:
+        portal:
+          enabled: false
+images:
+  preload:
+    skip:
+      - "{{ .imagePrefix }}/apim-portal-ui:{{ .imageTag }}"

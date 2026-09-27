@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 type gckConfig struct {
 	Abstract   bool           `yaml:"abstract"`
 	From       []string       `yaml:"from"`
+	Use        []string       `yaml:"use"`
 	Kind       gckKind        `yaml:"kind"`
 	Components []gckComponent `yaml:"components"`
 }
@@ -26,7 +28,8 @@ type gckKind struct {
 }
 
 type gckComponent struct {
-	Name string `yaml:"name"`
+	Name    string `yaml:"name"`
+	Enabled *bool  `yaml:"enabled"`
 }
 
 type readmeFrontmatter struct {
@@ -38,6 +41,33 @@ type readmeFrontmatter struct {
 type flagInfo struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
+	// Source is the registry path of the context that declares the flag.
+	// The CLI resolves a flag through that context, so it does not apply an
+	// inherited alternative a second time.
+	Source    string   `yaml:"source,omitempty"`
+	Group     string   `yaml:"group,omitempty"`
+	Default   bool     `yaml:"default,omitempty"`
+	Requires  []string `yaml:"requires,omitempty"`
+	Conflicts []string `yaml:"conflicts,omitempty"`
+	Implies   []string `yaml:"implies,omitempty"`
+
+	from     []string
+	disables []string
+	pinned   bool
+}
+
+// altGroup is an alternative group offered on a context page: the mutually
+// exclusive --use-* flags that pick one implementation.
+type altGroup struct {
+	Name    string     `yaml:"name"`
+	Options []flagInfo `yaml:"options"`
+}
+
+// componentInfo is a component that only some alternatives bring in.
+type componentInfo struct {
+	Name   string   `yaml:"name"`
+	Use    []string `yaml:"use,omitempty"`
+	Unless []string `yaml:"unless,omitempty"`
 }
 
 type varInfo struct {
@@ -45,6 +75,11 @@ type varInfo struct {
 	Default     string `yaml:"default"`
 	Description string `yaml:"description,omitempty"`
 	Origin      string `yaml:"origin,omitempty"`
+	// Use lists the alternatives under which this variable exists with this
+	// default; one of them must be selected. Unless lists the ones under
+	// which it does not. Both empty means always.
+	Use    []string `yaml:"use,omitempty"`
+	Unless []string `yaml:"unless,omitempty"`
 }
 
 type endpointInfo struct {
@@ -55,22 +90,33 @@ type endpointInfo struct {
 	// Requires lists the context flags that must all be passed for this
 	// endpoint to exist. Empty means a plain "gck create" exposes it.
 	Requires []string `yaml:"requires,omitempty"`
+	// Use lists the alternatives under which this endpoint exists; one of
+	// them must be selected (a default member counts). Unless lists the ones
+	// that hide it. Both empty means always.
+	Use    []string `yaml:"use,omitempty"`
+	Unless []string `yaml:"unless,omitempty"`
 }
 
 type componentPage struct {
-	Title       string     `yaml:"title"`
-	Layout      string     `yaml:"layout"`
-	Path        string     `yaml:"path"`
-	Context     bool       `yaml:"context"`
-	Description string     `yaml:"description,omitempty"`
-	Tags        []string   `yaml:"tags,omitempty"`
-	From        []string   `yaml:"from,omitempty"`
-	Components  []string   `yaml:"components,omitempty"`
-	Flags       []flagInfo     `yaml:"flags,omitempty"`
-	Vars        []varInfo      `yaml:"vars,omitempty"`
-	Endpoints   []endpointInfo `yaml:"endpoints,omitempty"`
-	Icon        string         `yaml:"icon,omitempty"`
-	Type        string         `yaml:"type"`
+	Title       string   `yaml:"title"`
+	Layout      string   `yaml:"layout"`
+	Path        string   `yaml:"path"`
+	Context     bool     `yaml:"context"`
+	Description string   `yaml:"description,omitempty"`
+	Tags        []string `yaml:"tags,omitempty"`
+	From        []string `yaml:"from,omitempty"`
+	Components  []string `yaml:"components,omitempty"`
+	// ComponentTable lists every component with the alternatives it depends
+	// on. It is only set when at least one component depends on one;
+	// Components always holds the plain names.
+	ComponentTable []componentInfo `yaml:"component_table,omitempty"`
+	// Flags lists every context flag: alternatives first, grouped, then the
+	// plain flags.
+	Flags     []flagInfo     `yaml:"flags,omitempty"`
+	Vars      []varInfo      `yaml:"vars,omitempty"`
+	Endpoints []endpointInfo `yaml:"endpoints,omitempty"`
+	Icon      string         `yaml:"icon,omitempty"`
+	Type      string         `yaml:"type"`
 }
 
 type sectionPage struct {
@@ -141,20 +187,22 @@ func main() {
 		if readmeTitle != "" {
 			title = readmeTitle
 		}
+		components, componentTable := resolveComponents(relDir, configs, registryDir)
 		page := componentPage{
-			Title:       title,
-			Layout:      "detail",
-			Path:        relDir,
-			Context:     true,
-			Description: description,
-			Tags:        tags,
-			From:        config.From,
-			Components:  resolveComponents(relDir, configs),
-			Flags:       resolveFlags(relDir, configs, registryDir),
-			Vars:        resolveVars(relDir, configs, registryDir),
-			Endpoints:   resolveEndpoints(relDir, configs, registryDir),
-			Icon:        resolveIcon(registryDir, relDir),
-			Type:        "registry",
+			Title:          title,
+			Layout:         "detail",
+			Path:           relDir,
+			Context:        true,
+			Description:    description,
+			Tags:           tags,
+			From:           config.From,
+			Components:     components,
+			ComponentTable: componentTable,
+			Flags:          pageFlags(relDir, configs, registryDir),
+			Vars:           resolveVars(relDir, configs, registryDir),
+			Endpoints:      resolveEndpoints(relDir, configs, registryDir),
+			Icon:           resolveIcon(registryDir, relDir),
+			Type:           "registry",
 		}
 
 		outDir := filepath.Join(contentDir, relDir)
@@ -210,27 +258,306 @@ func main() {
 	fmt.Println("done")
 }
 
-func resolveComponents(relDir string, configs map[string]*gckConfig) []string {
-	seen := map[string]bool{}
-	var result []string
-	var walk func(string)
-	walk = func(dir string) {
+// selection maps an alternative group to the selected member's flag name.
+// Groups it does not mention take their default member.
+type selection map[string]string
+
+// chainLevel is one context visited while walking a composition, with the
+// alternatives it declares that are selected.
+type chainLevel struct {
+	dir          string
+	flags        []flagInfo // every flag the context declares
+	alternatives []flagInfo // the selected member of each of its groups
+}
+
+// walkChain lists the contexts composed by relDir in merge order, the way
+// the CLI resolver does: a context's selected alternatives' from entries come
+// ahead of its own, then the context itself. A composing context's use: block
+// pins the alternatives of everything below it.
+func walkChain(relDir string, configs map[string]*gckConfig, registryDir string, sel selection) []chainLevel {
+	return walkChainWith(relDir, configs, registryDir, sel, nil)
+}
+
+// walkChainWith is walkChain with plain flags turned on: an active flag that
+// declares from composes those contexts after the alternatives' (as the CLI
+// resolver does), and one that disables a group keeps its members out.
+func walkChainWith(relDir string, configs map[string]*gckConfig, registryDir string, sel selection, active map[string]bool) []chainLevel {
+	visited := map[string]bool{}
+	var levels []chainLevel
+	var walk func(dir string, pins map[string]bool)
+	walk = func(dir string, pins map[string]bool) {
 		config, ok := configs[dir]
-		if !ok {
+		if !ok || visited[dir] {
 			return
 		}
-		for _, parent := range config.From {
-			walk(parent)
+		visited[dir] = true
+
+		flags := discoverLocalFlags(registryDir, dir)
+		selected := selectAlternatives(flags, pins, sel, active)
+		pinnedGroups := map[string]bool{}
+		for _, a := range selected {
+			if a.pinned {
+				pinnedGroups[a.Group] = true
+			}
 		}
-		for _, c := range config.Components {
-			if !seen[c.Name] {
-				seen[c.Name] = true
-				result = append(result, c.Name)
+		for i := range flags {
+			flags[i].pinned = pinnedGroups[flags[i].Group]
+		}
+
+		childPins := pins
+		if len(config.Use) > 0 {
+			childPins = make(map[string]bool, len(pins)+len(config.Use))
+			for k := range pins {
+				childPins[k] = true
+			}
+			for _, u := range config.Use {
+				childPins[alternativeName(u)] = true
+			}
+		}
+		for _, alt := range selected {
+			for _, parent := range alt.from {
+				walk(parent, childPins)
+			}
+		}
+		for _, f := range flags {
+			if f.Group == "" && active[f.Name] {
+				for _, parent := range f.from {
+					walk(parent, childPins)
+				}
+			}
+		}
+		for _, parent := range config.From {
+			walk(parent, childPins)
+		}
+		levels = append(levels, chainLevel{dir: dir, flags: flags, alternatives: selected})
+	}
+	walk(relDir, nil)
+	return levels
+}
+
+func alternativeName(member string) string {
+	if strings.HasPrefix(member, "use-") {
+		return member
+	}
+	return "use-" + member
+}
+
+// selectAlternatives picks one member per alternative group among the flags
+// of one context: a pinned member, else the one in sel, else the default.
+// Members of pinned groups are marked pinned. A group switched off by a flag
+// the other chosen members imply (use-embedded implies disable-metrics) gets
+// no member, as in the CLI resolver. Groups come in name order.
+func selectAlternatives(flags []flagInfo, pins map[string]bool, sel selection, active map[string]bool) []flagInfo {
+	byGroup := map[string][]flagInfo{}
+	var groups []string
+	for _, f := range flags {
+		if f.Group == "" {
+			continue
+		}
+		if _, ok := byGroup[f.Group]; !ok {
+			groups = append(groups, f.Group)
+		}
+		byGroup[f.Group] = append(byGroup[f.Group], f)
+	}
+	sort.Strings(groups)
+
+	var selected []flagInfo
+	for _, g := range groups {
+		var pinned, chosen, def *flagInfo
+		for i := range byGroup[g] {
+			f := &byGroup[g][i]
+			if pins[f.Name] {
+				pinned = f
+			}
+			if sel[g] == f.Name {
+				chosen = f
+			}
+			if f.Default {
+				def = f
+			}
+		}
+		pick := def
+		switch {
+		case pinned != nil:
+			pick = pinned
+			pick.pinned = true
+		case chosen != nil:
+			pick = chosen
+		}
+		if pick != nil {
+			selected = append(selected, *pick)
+		}
+	}
+
+	byName := map[string]flagInfo{}
+	for _, f := range flags {
+		byName[f.Name] = f
+	}
+	disabled := map[string]bool{}
+	for name := range active {
+		for _, g := range byName[name].disables {
+			disabled[g] = true
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, a := range selected {
+			if disabled[a.Group] {
+				continue
+			}
+			for _, implied := range a.Implies {
+				for _, g := range byName[implied].disables {
+					if !disabled[g] {
+						disabled[g] = true
+						changed = true
+					}
+				}
 			}
 		}
 	}
-	walk(relDir)
-	return result
+	kept := selected[:0]
+	for _, a := range selected {
+		if !disabled[a.Group] {
+			kept = append(kept, a)
+		}
+	}
+	return kept
+}
+
+// altViews holds the compositions of a context worth rendering: the defaults
+// first, then each non-default member of each selectable group swapped in on
+// its own.
+type altViews struct {
+	sels     []selection
+	levels   [][]chainLevel
+	defaults map[string]string // group -> default member
+}
+
+func newAltViews(relDir string, configs map[string]*gckConfig, registryDir string) *altViews {
+	v := &altViews{sels: []selection{{}}, defaults: map[string]string{}}
+	for _, g := range resolveAlternatives(relDir, configs, registryDir) {
+		for _, o := range g.Options {
+			if o.Default {
+				v.defaults[g.Name] = o.Name
+			} else {
+				v.sels = append(v.sels, selection{g.Name: o.Name})
+			}
+		}
+	}
+	for _, sel := range v.sels {
+		v.levels = append(v.levels, walkChain(relDir, configs, registryDir, sel))
+	}
+	return v
+}
+
+// flagsIn returns the alternatives selected in view i and the flags they
+// imply, for notes guards.
+func (v *altViews) flagsIn(i int) []string {
+	var out []string
+	for _, l := range v.levels[i] {
+		for _, a := range l.alternatives {
+			out = append(out, a.Name)
+			out = append(out, a.Implies...)
+		}
+	}
+	return out
+}
+
+// gate returns the alternatives a row depends on, given the row keys each
+// view produced. A group gates the row when its members disagree about it.
+// When the row exists under fewer members than not, those members go to use
+// ("with --use-x"); otherwise the members that hide it go to unless ("not
+// with --use-x"). Both empty means always there.
+func (v *altViews) gate(keysByView []map[string]bool, key string) (use, unless []string) {
+	for g, def := range v.defaults {
+		present := map[string]bool{def: keysByView[0][key]}
+		for i, sel := range v.sels {
+			if m, ok := sel[g]; ok {
+				present[m] = keysByView[i][key]
+			}
+		}
+		var with, without []string
+		for m, ok := range present {
+			if ok {
+				with = append(with, m)
+			} else {
+				without = append(without, m)
+			}
+		}
+		switch {
+		case len(without) == 0:
+		case len(with) <= len(without):
+			use = append(use, with...)
+		default:
+			unless = append(unless, without...)
+		}
+	}
+	sort.Strings(use)
+	sort.Strings(unless)
+	return use, unless
+}
+
+// resolveComponents lists the component names of relDir across every
+// alternative view, and, when some of them depend on an alternative, a table
+// of every component with the alternatives it needs or is dropped by.
+func resolveComponents(relDir string, configs map[string]*gckConfig, registryDir string) ([]string, []componentInfo) {
+	collect := func(levels []chainLevel) []string {
+		seen := map[string]bool{}
+		var names []string
+		add := func(comps []gckComponent) {
+			for _, c := range comps {
+				if c.Enabled != nil && !*c.Enabled {
+					if seen[c.Name] {
+						seen[c.Name] = false
+						names = slices.DeleteFunc(names, func(n string) bool { return n == c.Name })
+					}
+					continue
+				}
+				if !seen[c.Name] {
+					seen[c.Name] = true
+					names = append(names, c.Name)
+				}
+			}
+		}
+		for _, l := range levels {
+			add(configs[l.dir].Components)
+			for _, a := range l.alternatives {
+				if cfg, err := parseGckConfig(filepath.Join(registryDir, a.Source, "gck--"+a.Name+".yaml")); err == nil {
+					add(cfg.Components)
+				}
+			}
+		}
+		return names
+	}
+
+	views := newAltViews(relDir, configs, registryDir)
+	var order []string
+	seen := map[string]bool{}
+	keysByView := make([]map[string]bool, len(views.sels))
+	for i := range views.sels {
+		keysByView[i] = map[string]bool{}
+		for _, name := range collect(views.levels[i]) {
+			keysByView[i][name] = true
+			if !seen[name] {
+				seen[name] = true
+				order = append(order, name)
+			}
+		}
+	}
+
+	var names []string
+	var table []componentInfo
+	gated := false
+	for _, name := range order {
+		use, unless := views.gate(keysByView, name)
+		gated = gated || len(use)+len(unless) > 0
+		names = append(names, name)
+		table = append(table, componentInfo{Name: name, Use: use, Unless: unless})
+	}
+	if !gated {
+		table = nil
+	}
+	return names, table
 }
 
 // resolveEndpoints walks the from chain for relDir, collecting each level's
@@ -238,29 +565,22 @@ func resolveComponents(relDir string, configs map[string]*gckConfig) []string {
 // declared on an abstract base surfaces on every concrete context that
 // composes it -- attributed, via Origin, to the context that declared it.
 //
-// Rows a plain "gck create" exposes come first. Rows that only exist behind a
-// context flag follow, each carrying the flags that reveal it -- see
-// requiredFlags.
+// The composition is walked once per alternative view (see altViews): rows
+// that only some members of a group bring in carry those members in Use and
+// follow the unconditional ones. Rows that only exist behind a context flag
+// come last, each carrying the flags that reveal it -- see requiredFlags.
 func resolveEndpoints(relDir string, configs map[string]*gckConfig, registryDir string) []endpointInfo {
-	visited := map[string]bool{}
-	var layers []notes.Layer
-	var walk func(string)
-	walk = func(dir string) {
-		config, ok := configs[dir]
-		if !ok || visited[dir] {
-			return
+	layersOf := func(levels []chainLevel) []notes.Layer {
+		var layers []notes.Layer
+		for _, l := range levels {
+			data, err := os.ReadFile(filepath.Join(registryDir, l.dir, "notes.create"))
+			if err != nil {
+				continue
+			}
+			layers = append(layers, notes.Layer{Source: l.dir, Raw: string(data)})
 		}
-		visited[dir] = true
-		for _, parent := range config.From {
-			walk(parent)
-		}
-		data, err := os.ReadFile(filepath.Join(registryDir, dir, "notes.create"))
-		if err != nil {
-			return
-		}
-		layers = append(layers, notes.Layer{Source: dir, Raw: string(data)})
+		return layers
 	}
-	walk(relDir)
 
 	toInfo := func(ep notes.Endpoint, requires []string) endpointInfo {
 		return endpointInfo{
@@ -272,28 +592,58 @@ func resolveEndpoints(relDir string, configs map[string]*gckConfig, registryDir 
 		}
 	}
 
-	var result []endpointInfo
+	views := newAltViews(relDir, configs, registryDir)
+	var order []notes.Endpoint
 	shown := map[string]bool{}
-	for _, ep := range visibleWith(relDir, layers, nil) {
-		shown[ep.Name] = true
-		result = append(result, toInfo(ep, nil))
+	keysByView := make([]map[string]bool, len(views.sels))
+	for i := range views.sels {
+		keysByView[i] = map[string]bool{}
+		for _, ep := range visibleWith(relDir, layersOf(views.levels[i]), views.flagsIn(i)) {
+			keysByView[i][ep.Name] = true
+			if !shown[ep.Name] {
+				shown[ep.Name] = true
+				order = append(order, ep)
+			}
+		}
 	}
+	// Rows every alternative exposes come first, then the ones tied to an
+	// alternative, each group in the order the composition declares them.
+	var result, gated []endpointInfo
+	for _, ep := range order {
+		info := toInfo(ep, nil)
+		if info.Use, info.Unless = views.gate(keysByView, ep.Name); len(info.Use)+len(info.Unless) > 0 {
+			gated = append(gated, info)
+		} else {
+			result = append(result, info)
+		}
+	}
+	result = append(result, gated...)
 
 	// Anything the full flag set reveals but the default view does not is
 	// gated; work out which flags each of those rows actually needs.
 	var flagNames []string
-	for _, f := range resolveFlags(relDir, configs, registryDir) {
+	for _, f := range plainFlags(resolveFlags(relDir, configs, registryDir)) {
 		flagNames = append(flagNames, f.Name)
 	}
 	if len(flagNames) == 0 {
 		return result
 	}
-	for _, ep := range visibleWith(relDir, layers, flagNames) {
+	// Flags that compose contexts change the layers, not just the guards, so
+	// the layers are rebuilt for each flag set.
+	layersFor := func(flags []string) []notes.Layer {
+		active := make(map[string]bool, len(flags))
+		for _, f := range flags {
+			active[f] = true
+		}
+		return layersOf(walkChainWith(relDir, configs, registryDir, selection{}, active))
+	}
+	selected := views.flagsIn(0)
+	for _, ep := range visibleWith(relDir, layersFor(flagNames), append(append([]string{}, selected...), flagNames...)) {
 		if shown[ep.Name] {
 			continue
 		}
 		shown[ep.Name] = true
-		result = append(result, toInfo(ep, requiredFlags(relDir, layers, flagNames, ep.Name)))
+		result = append(result, toInfo(ep, requiredFlags(relDir, layersFor, selected, flagNames, ep.Name)))
 	}
 	return result
 }
@@ -311,17 +661,19 @@ func visibleWith(relDir string, layers []notes.Layer, flags []string) []notes.En
 // requiredFlags determines which of the active flags a gated endpoint actually
 // depends on, by leaving each one out in turn: if dropping a flag hides the
 // row, the row needs it. This reads the guard's behaviour rather than parsing
-// its expression, so an `and` of two flags reports both.
-func requiredFlags(relDir string, layers []notes.Layer, allFlags []string, name string) []string {
+// its expression, so an `and` of two flags reports both. The selected
+// alternatives stay active throughout.
+func requiredFlags(relDir string, layersFor func([]string) []notes.Layer, selected, allFlags []string, name string) []string {
 	var required []string
 	for _, candidate := range allFlags {
-		without := make([]string, 0, len(allFlags)-1)
+		var others []string
 		for _, f := range allFlags {
 			if f != candidate {
-				without = append(without, f)
+				others = append(others, f)
 			}
 		}
-		if !containsEndpoint(visibleWith(relDir, layers, without), name) {
+		without := append(append([]string{}, selected...), others...)
+		if !containsEndpoint(visibleWith(relDir, layersFor(others), without), name) {
 			required = append(required, candidate)
 		}
 	}
@@ -543,6 +895,8 @@ func generateFlagsManifests(registryDir, staticDir string, configs map[string]*g
 		manifest := struct {
 			Flags []flagInfo `yaml:"flags"`
 		}{Flags: flags}
+		// The manifest also lists inherited flags so tools can show them;
+		// each entry's source tells the CLI which context declares it.
 		data, err := yaml.Marshal(manifest)
 		if err != nil {
 			return fmt.Errorf("marshal flags for %s: %w", relDir, err)
@@ -557,10 +911,7 @@ func generateFlagsManifests(registryDir, staticDir string, configs map[string]*g
 			if _, err := os.Stat(destPath); err == nil {
 				continue
 			}
-			srcPath := findFlagSource(relDir, f.Name, configs, registryDir)
-			if srcPath == "" {
-				continue
-			}
+			srcPath := filepath.Join(registryDir, f.Source, flagFile)
 			srcData, err := os.ReadFile(srcPath)
 			if err != nil {
 				return fmt.Errorf("read flag source %s: %w", srcPath, err)
@@ -576,8 +927,10 @@ func generateFlagsManifests(registryDir, staticDir string, configs map[string]*g
 	return nil
 }
 
-func discoverLocalFlags(dir string) []flagInfo {
-	matches, err := filepath.Glob(filepath.Join(dir, "gck--*.yaml"))
+// discoverLocalFlags reads the flags a context declares in its own
+// directory, alternatives included.
+func discoverLocalFlags(registryDir, relDir string) []flagInfo {
+	matches, err := filepath.Glob(filepath.Join(registryDir, relDir, "gck--*.yaml"))
 	if err != nil || len(matches) == 0 {
 		return nil
 	}
@@ -586,41 +939,45 @@ func discoverLocalFlags(dir string) []flagInfo {
 	for _, path := range matches {
 		name := strings.TrimPrefix(filepath.Base(path), "gck--")
 		name = strings.TrimSuffix(name, ".yaml")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var meta struct {
+			Description string   `yaml:"description"`
+			Group       string   `yaml:"group"`
+			Default     bool     `yaml:"default"`
+			Requires    []string `yaml:"requires"`
+			Conflicts   []string `yaml:"conflicts"`
+			Implies     []string `yaml:"implies"`
+			Disables    []string `yaml:"disables"`
+			From        []string `yaml:"from"`
+		}
+		_ = yaml.Unmarshal(data, &meta)
 		flags = append(flags, flagInfo{
 			Name:        name,
-			Description: readFlagDescription(path),
+			Description: meta.Description,
+			Source:      relDir,
+			Group:       meta.Group,
+			Default:     meta.Default,
+			Requires:    meta.Requires,
+			Conflicts:   meta.Conflicts,
+			Implies:     meta.Implies,
+			from:        meta.From,
+			disables:    meta.Disables,
 		})
 	}
 	return flags
 }
 
-func readFlagDescription(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	var partial struct {
-		Description string `yaml:"description"`
-	}
-	_ = yaml.Unmarshal(data, &partial)
-	return partial.Description
-}
-
-// resolveFlags walks the from chain for relDir, discovering flags at each
-// level and merging them (child overrides parent for the same name).
+// resolveFlags walks the default composition of relDir, discovering flags at
+// each level and merging them (child overrides parent for the same name).
+// Alternatives are included, with the members of pinned groups marked.
 func resolveFlags(relDir string, configs map[string]*gckConfig, registryDir string) []flagInfo {
 	seen := map[string]int{}
 	var result []flagInfo
-	var walk func(string)
-	walk = func(dir string) {
-		config, ok := configs[dir]
-		if !ok {
-			return
-		}
-		for _, parent := range config.From {
-			walk(parent)
-		}
-		for _, f := range discoverLocalFlags(filepath.Join(registryDir, dir)) {
+	for _, l := range walkChain(relDir, configs, registryDir, nil) {
+		for _, f := range l.flags {
 			if idx, ok := seen[f.Name]; ok {
 				result[idx] = f
 			} else {
@@ -629,67 +986,110 @@ func resolveFlags(relDir string, configs map[string]*gckConfig, registryDir stri
 			}
 		}
 	}
-	walk(relDir)
 	return result
 }
 
-// resolveVars walks the from chain for relDir, extracting var definitions
-// from each gck.yaml and merging them (child overrides parent for same name).
-func resolveVars(relDir string, configs map[string]*gckConfig, registryDir string) []varInfo {
-	seen := map[string]int{}
-	var result []varInfo
-	var walk func(string)
-	walk = func(dir string) {
-		if _, ok := configs[dir]; !ok {
-			return
-		}
-		for _, parent := range configs[dir].From {
-			walk(parent)
-		}
-		path := filepath.Join(registryDir, dir, "gck.yaml")
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return
-		}
-		defs, err := gcktmpl.ExtractVarDefs(data)
-		if err != nil {
-			return
-		}
-		for _, d := range defs {
-			vi := varInfo{Name: d.Name, Default: d.Default, Description: d.Description, Origin: dir}
-			if idx, ok := seen[d.Name]; ok {
-				result[idx] = vi
-			} else {
-				seen[d.Name] = len(result)
-				result = append(result, vi)
-			}
+// pageFlags lists the flags a page offers: the selectable alternatives,
+// grouped and in group-name order, then the plain flags. Pinned groups are
+// left out.
+func pageFlags(relDir string, configs map[string]*gckConfig, registryDir string) []flagInfo {
+	var out []flagInfo
+	for _, g := range resolveAlternatives(relDir, configs, registryDir) {
+		out = append(out, g.Options...)
+	}
+	return append(out, plainFlags(resolveFlags(relDir, configs, registryDir))...)
+}
+
+// plainFlags drops the alternatives from flags.
+func plainFlags(flags []flagInfo) []flagInfo {
+	var out []flagInfo
+	for _, f := range flags {
+		if f.Group == "" {
+			out = append(out, f)
 		}
 	}
-	walk(relDir)
-	return result
+	return out
 }
 
-// findFlagSource locates the gck--{flagName}.yaml file by walking the
-// from chain of relDir, returning the first match.
-func findFlagSource(relDir, flagName string, configs map[string]*gckConfig, registryDir string) string {
-	var find func(string) string
-	find = func(dir string) string {
-		path := filepath.Join(registryDir, dir, "gck--"+flagName+".yaml")
-		if _, err := os.Stat(path); err == nil {
-			return path
+// resolveAlternatives groups the alternatives a user can select on relDir,
+// in group-name order. Groups pinned by a composing context are left out.
+func resolveAlternatives(relDir string, configs map[string]*gckConfig, registryDir string) []altGroup {
+	byGroup := map[string]int{}
+	var groups []altGroup
+	for _, f := range resolveFlags(relDir, configs, registryDir) {
+		if f.Group == "" || f.pinned {
+			continue
 		}
-		config, ok := configs[dir]
+		idx, ok := byGroup[f.Group]
 		if !ok {
-			return ""
+			idx = len(groups)
+			byGroup[f.Group] = idx
+			groups = append(groups, altGroup{Name: f.Group})
 		}
-		for _, parent := range config.From {
-			if src := find(parent); src != "" {
-				return src
+		groups[idx].Options = append(groups[idx].Options, f)
+	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i].Name < groups[j].Name })
+	return groups
+}
+
+// resolveVars walks the composition of relDir, extracting var definitions
+// from each gck.yaml and from the alternatives selected at each level, and
+// merging them (child overrides parent for same name; an alternative
+// overrides the context that declares it). Variables that only some
+// alternatives declare, or declare with their own default, carry those
+// alternatives in Use.
+func resolveVars(relDir string, configs map[string]*gckConfig, registryDir string) []varInfo {
+	collect := func(levels []chainLevel) []varInfo {
+		seen := map[string]int{}
+		var result []varInfo
+		add := func(path, origin string) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return
+			}
+			defs, err := gcktmpl.ExtractVarDefs(data)
+			if err != nil {
+				return
+			}
+			for _, d := range defs {
+				vi := varInfo{Name: d.Name, Default: d.Default, Description: d.Description, Origin: origin}
+				if idx, ok := seen[d.Name]; ok {
+					result[idx] = vi
+				} else {
+					seen[d.Name] = len(result)
+					result = append(result, vi)
+				}
 			}
 		}
-		return ""
+		for _, l := range levels {
+			add(filepath.Join(registryDir, l.dir, "gck.yaml"), l.dir)
+			for _, a := range l.alternatives {
+				add(filepath.Join(registryDir, a.Source, "gck--"+a.Name+".yaml"), a.Source)
+			}
+		}
+		return result
 	}
-	return find(relDir)
+
+	key := func(v varInfo) string { return v.Name + "\x00" + v.Default + "\x00" + v.Origin }
+
+	views := newAltViews(relDir, configs, registryDir)
+	var order []varInfo
+	seen := map[string]bool{}
+	keysByView := make([]map[string]bool, len(views.sels))
+	for i := range views.sels {
+		keysByView[i] = map[string]bool{}
+		for _, v := range collect(views.levels[i]) {
+			keysByView[i][key(v)] = true
+			if !seen[key(v)] {
+				seen[key(v)] = true
+				order = append(order, v)
+			}
+		}
+	}
+	for i := range order {
+		order[i].Use, order[i].Unless = views.gate(keysByView, key(order[i]))
+	}
+	return order
 }
 
 func fatalf(format string, args ...any) {

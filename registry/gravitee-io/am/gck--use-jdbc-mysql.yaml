@@ -1,0 +1,85 @@
+description: "Store AM data in MySQL over JDBC"
+group: datasource
+from:
+  - mysql/standalone
+vars:
+  mysql:
+    standalone:
+      mysqlDatabase:
+        default: "am"
+      imageTag:
+        default: "8.0"
+      imageRepository:
+        default: "mysql"
+  jdbcDriver:
+    default: "mysql"
+    description: "JDBC driver identifier"
+  jdbcHost:
+    default: "mysql"
+    description: "Database hostname"
+  jdbcPort:
+    default: "3306"
+    description: "Database port"
+  jdbcDatabase:
+    default: "am"
+    description: "Database name"
+  jdbcUsername:
+    default: "root"
+    description: "JDBC username"
+  jdbcPassword:
+    default: "mysql"
+    description: "JDBC password"
+images:
+  preload:
+    skip:
+      - "mysql:9"
+    refs:
+      - "mysql:8.0"
+components:
+  - name: mysql
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mysql
+            labels:
+              app: mysql
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 3306
+                targetPort: 3306
+                name: mysql
+            selector:
+              app: mysql
+  - name: am
+    requires:
+      - component: mysql
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: mysql
+        timeout: 15m
+    helm:
+      values:
+        management:
+          type: jdbc
+        oauth2:
+          type: jdbc
+        gateway:
+          type: jdbc
+          liquibase:
+            enabled: true
+        jdbc:
+          driver: "{{ .jdbcDriver }}"
+          host: "{{ .jdbcHost }}"
+          port: "{{ .jdbcPort }}"
+          database: "{{ .jdbcDatabase }}"
+          username: "{{ .jdbcUsername }}"
+          password: "{{ .jdbcPassword }}"
+          drivers:
+            - https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.22/mysql-connector-java-8.0.22.jar
+            - https://repo1.maven.org/maven2/io/asyncer/r2dbc-mysql/1.0.2/r2dbc-mysql-1.0.2.jar

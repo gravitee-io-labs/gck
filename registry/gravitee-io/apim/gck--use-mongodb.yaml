@@ -1,0 +1,55 @@
+description: "Store APIM data in MongoDB"
+group: datasource
+from:
+  - mongodb/standalone
+vars:
+  mongodb:
+    standalone:
+      imageTag:
+        default: "7"
+      imageRepository:
+        default: "mongo"
+components:
+  - name: mongodb
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mongodb
+            labels:
+              app: mongodb
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 27017
+                targetPort: 27017
+                name: mongodb
+            selector:
+              app: mongodb
+  - name: apim
+    requires:
+      - component: mongodb
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: mongodb
+        timeout: 15m
+    helm:
+      values:
+        mongo:
+          uri: mongodb://mongodb:27017/apim?connectTimeoutMS=30000
+        api:
+          ingress:
+            management:
+              enabled: false
+            portal:
+              enabled: false
+          service:
+            type: NodePort
+            nodePort: 30083
+          env:
+            - name: MANAGEMENT_MONGODB_TRANSACTIONAL
+              value: "false"

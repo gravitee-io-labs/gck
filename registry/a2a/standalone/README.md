@@ -113,7 +113,7 @@ context and point the API's endpoint at
 `http://a2a-agent.default.svc.cluster.local:8000`:
 
 ```bash
-gck create --from gravitee-io/ee/apim/mongodb --from a2a/standalone
+gck create --from gravitee-io/apim --from a2a/standalone --use-mongodb
 ```
 
 Testing push notifications? Compose with MockServer and use it as the

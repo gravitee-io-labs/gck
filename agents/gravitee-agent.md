@@ -8,45 +8,33 @@ paths:
 
 These instructions apply when working on contexts under `registry/gravitee-io/`.
 
-## OSS vs EE
+## No edition directories
 
-- Open-source products live under `oss/` (e.g. `gravitee-io/oss/apim/`).
-- Enterprise Edition products live under `ee/` (e.g. `gravitee-io/ee/apim/`).
-- Never place an EE-only feature in an `oss/` context.
+Each Gravitee product has one context directory, directly under
+`gravitee-io/` (`gravitee-io/apim`, `gravitee-io/am`, `gravitee-io/gamma`,
+...). There are no `oss/` or `ee/` segments: whether a deployment is
+licensed is decided by the license file on the user's machine, not by the
+path they compose.
 
-## License handling (EE only)
+- A feature that needs a license is an `enable-*` context flag on the
+  product (e.g. `--enable-kafka-gateway`, `--enable-alert-engine`), never a
+  separate context.
+- A product that only exists with a license (Gamma, Edge Stack) still lives
+  directly under `gravitee-io/`.
 
-Every context under `ee/` requires a valid Gravitee license key. EE
-contexts are configured to automatically pick up the license from the
-conventional path:
+## License handling
 
-```
-$HOME/opt/gravitee/license.key
-```
-
-> In gck.yaml files, reference this path using the `env` template function:
-> `{{ env "HOME" }}/opt/gravitee/license.key`.
-
-If you place your license at this location, there is nothing else to
-do -- gck will automatically mount it into the cluster as a Kubernetes
-Secret and wire it into the gateway and API components.
-
-If you store your license at a different location, you can override the
-path from your own project-level `gck.yaml` without modifying the
-registry context (see [Overriding the license
-path](#overriding-the-license-path) below).
-
-### gck.yaml requirements
-
-The license must be mounted as a Kubernetes Secret with `onMissing: ignore`
-so the context still works (gracefully degraded) when the file is absent.
-
-Every Gravitee-platform EE context `gck.yaml` (APIM, AM, etc.) or its
-abstract base must include the following components exactly as shown.
-Products with their own license format (e.g. Edge Stack) document their
-own pattern in their product agent file.
+The license is mounted **when the file exists**, with no flag to pass.
+Every Gravitee-platform product base (APIM, AM) declares a `licenseFile`
+var, the `license` component, and optional mounts on the gateway and
+management API. Products with their own license format (e.g. Edge Stack)
+document their own pattern in their product agent file.
 
 ```yaml
+vars:
+  licenseFile:
+    default: '{{ env "HOME" }}/opt/gravitee/license.key'
+    description: "Gravitee license key file, mounted into the gateway and management API when it exists"
 components:
   - name: license
     type: k8s
@@ -54,24 +42,30 @@ components:
     k8s:
       secrets:
         - name: gravitee-license
-          fromFile: '{{ env "HOME" }}/opt/gravitee/license.key'
+          fromFile: "{{ .licenseFile }}"
           onMissing: ignore
 ```
 
-Both the **gateway** and **api** components must mount the license volume:
+Mount the secret through `extraVolumes` with `optional: true`, so pods
+start without a license. Because an optional volume does not hold the pod
+back, the chart component must also declare `requires: [{component: license}]`
+(ordering only, like `tls-server`): Gravitee reads the license at startup, and
+a pod that starts before the secret exists runs unlicensed even once the
+secret appears. Do not set the chart's `license.name`: the APIM
+and AM charts only use it together with `license.key` (inline base64), so
+it does nothing here.
 
 ```yaml
 components:
   - name: apim
     helm:
       values:
-        license:
-          name: gravitee-license
         gateway:
           extraVolumes: |
             - name: graviteeio-license
               secret:
                 secretName: gravitee-license
+                optional: true
           extraVolumeMounts: |
             - name: graviteeio-license
               mountPath: /opt/graviteeio-gateway/license
@@ -81,51 +75,52 @@ components:
             - name: graviteeio-license
               secret:
                 secretName: gravitee-license
+                optional: true
           extraVolumeMounts: |
             - name: graviteeio-license
               mountPath: /opt/graviteeio-management-api/license
               readOnly: true
 ```
 
-### Overriding the license path
+AM uses `/opt/graviteeio-am-gateway/license` and
+`/opt/graviteeio-am-management-api/license`.
 
-If you keep your license at a different location, you can override it
-in your own `gck.yaml` without touching the registry. The `license`
-component is merged by name, so only the `fromFile` field needs to be
-set:
+### Licensed features
+
+A flag for a licensed feature redeclares the license secret, same name,
+with `onMissing: fail`. Secrets merge by name, so the flag tightens the
+base's entry, and gck's pre-flight check stops before creating the cluster
+when the file is missing:
 
 ```yaml
-# user gck.yaml
+# gck--enable-kafka-gateway.yaml
 components:
   - name: license
     k8s:
       secrets:
         - name: gravitee-license
-          fromFile: '/custom/path/to/license.key'
+          fromFile: "{{ .licenseFile }}"
+          onMissing: fail
 ```
+
+Say so in the flag's `description` ("licensed feature, needs the license
+file").
 
 ### README requirements
 
-Every EE context README must include a **License** section with the
-following content (copy-paste verbatim to keep all EE READMEs
+Every Gravitee-platform product README must include a **License** section
+with the following content (copy-paste verbatim to keep all READMEs
 consistent):
 
 ```markdown
 ## License
 
-This is an Enterprise Edition (EE) context. Place your Gravitee license
-key at `$HOME/opt/gravitee/license.key` and gck will automatically mount
-it into the cluster. If the file is missing, the license component is
-silently skipped (`onMissing: ignore`).
+Place your Gravitee license key at `$HOME/opt/gravitee/license.key` and gck
+mounts it into the cluster; without it, everything that does not need a
+license runs as usual. Licensed features (flags marked as such) refuse to
+start without the file. To use another path, set it at creation time:
 
-To use a different path, override it in your `gck.yaml`:
-
-\```yaml
-components:
-  - name: license
-    k8s:
-      secrets:
-        - name: gravitee-license
-          fromFile: '/custom/path/to/license.key'
+\```bash
+gck create --from <context-path> --set licenseFile=/path/to/license.key
 \```
 ```

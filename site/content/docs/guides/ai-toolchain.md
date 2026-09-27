@@ -82,12 +82,12 @@ These instructions apply when working on contexts under registry/mycompany/.
 
 Product instructions should cover domain knowledge that an agent wouldn't otherwise have:
 
-- **Organizational rules** -- how contexts are structured (e.g. `oss/` vs `ee/` splits, naming conventions).
+- **Organizational rules** -- how contexts are structured (e.g. one context per product, naming conventions).
 - **Required patterns** -- things every context in this product must include (license handling, specific Helm values, mandatory components).
 - **Override conventions** -- how users are expected to customize the product (which fields to override, which to leave alone).
 - **README requirements** -- what sections or content must appear in each context's README for consistency.
 
-For example, the Gravitee product instructions cover the OSS/EE split, how license keys are mounted as Kubernetes Secrets with `onMissing: ignore`, the required Helm values for license volumes, and the verbatim README section every EE context must include.
+For example, the Gravitee product instructions cover why there are no edition directories, how license keys are mounted as Kubernetes Secrets with `onMissing: ignore`, how a licensed feature flag makes the license mandatory, and the verbatim README section every product must include.
 
 ### Keeping the table in sync
 

@@ -67,6 +67,15 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 		return r.resolveWithVars(ctx, filepath.Join(contextPath, name), childOverrides, set)
 	}
 
+	ownFlags, err := DiscoverFlags(dir)
+	if err != nil {
+		return nil, fmt.Errorf("discovering flags: %w", err)
+	}
+	alternatives, err := selectAlternatives(ctx, contextPath, ownFlags)
+	if err != nil {
+		return nil, err
+	}
+
 	tree, err := gcktmpl.ExtractVarsTree(data)
 	if err != nil {
 		return nil, fmt.Errorf("extracting vars from %s: %w", contextPath, err)
@@ -76,6 +85,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	for _, d := range tree.Defs {
 		ownDefaults[d.Name] = d.Default
 	}
+	overrides := addAlternativeVars(alternatives, ownDefaults, tree.Overrides)
 
 	myOverrides := make(map[string]string)
 	if childOverrides != nil {
@@ -87,7 +97,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	}
 
 	// Collect path-scoped overrides declared by this context for its parents.
-	parentOverrides := mergeOverrideMaps(childOverrides, tree.Overrides)
+	parentOverrides := mergeOverrideMaps(childOverrides, overrides)
 
 	// Apply scoped --set to this context.
 	scopedForMe := make(map[string]string)
@@ -113,37 +123,45 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	if err := yaml.Unmarshal(rendered, &ctxCfg); err != nil {
 		return nil, fmt.Errorf("parsing context file %s: %w", contextPath, err)
 	}
+	ctxCfg.From = alternativeFrom(alternatives, ctxCfg.From)
 
+	var resolved *config.ResolvedContext
 	if len(ctxCfg.From) > 0 {
-		resolved, err := r.resolveFromWithVars(ctx, ctxCfg, dir, contextPath, selfRegistry, parentOverrides, set)
+		resolved, err = r.resolveFromWithVars(withPins(ctx, contextPath, ctxCfg.Use), ctxCfg, dir, contextPath, selfRegistry, parentOverrides, set, ownFlags)
 		if err != nil {
 			return nil, err
 		}
 		resolved.EffectiveVars = mergeVarMaps(resolved.EffectiveVars, effectiveVars)
-		return resolved, nil
+	} else {
+		resolved = &config.ResolvedContext{
+			Repos:         ctxCfg.Helm.Repos,
+			Components:    ctxCfg.Components,
+			Dir:           dir,
+			Kind:          ctxCfg.Kind,
+			Features:      ctxCfg.Features,
+			Images:        ctxCfg.Images,
+			Notes:         readNotes(dir, contextPath),
+			Abstract:      ctxCfg.Abstract,
+			Flags:         ownFlags,
+			EffectiveVars: effectiveVars,
+		}
 	}
-
-	flags, err := DiscoverFlags(dir)
-	if err != nil {
-		return nil, fmt.Errorf("discovering flags: %w", err)
+	if err := renderAlternatives(alternatives, resolved.EffectiveVars); err != nil {
+		return nil, fmt.Errorf("context %s: %w", contextPath, err)
 	}
-
-	return &config.ResolvedContext{
-		Repos:         ctxCfg.Helm.Repos,
-		Components:    ctxCfg.Components,
-		Dir:           dir,
-		Kind:          ctxCfg.Kind,
-		Features:      ctxCfg.Features,
-		Images:        ctxCfg.Images,
-		Notes:         readNotes(dir, contextPath),
-		Abstract:      ctxCfg.Abstract,
-		Flags:         flags,
-		EffectiveVars: effectiveVars,
-	}, nil
+	applyAlternatives(resolved, alternatives)
+	if err := checkPins(contextPath, ctxCfg.Use, resolved); err != nil {
+		return nil, err
+	}
+	if err := checkImplied(contextPath, resolved); err != nil {
+		return nil, err
+	}
+	return resolved, nil
 }
 
 // resolveFromWithVars resolves all from entries with two-pass var resolution.
-func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, childPath, selfRegistryURL string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
+// childFlags are the flags declared in childDir.
+func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, childPath, selfRegistryURL string, overrides map[string]map[string]string, set SetOverrides, childFlags []config.ContextFlag) (*config.ResolvedContext, error) {
 	registryURL := selfRegistryURL
 	if childCfg.Registry != "" {
 		registryURL = resolveRegistryURL(childCfg.Registry, childDir)
@@ -188,9 +206,8 @@ func (r *FSResolver) resolveFromWithVars(ctx context.Context, childCfg config.Co
 	acc.Notes = appendNotes(acc.Notes, readNotes(childDir, childPath))
 	acc.Abstract = childCfg.Abstract
 
-	childFlags, err := DiscoverFlags(childDir)
-	if err != nil {
-		return nil, fmt.Errorf("discovering flags: %w", err)
+	if err := checkInheritedAlternatives(childPath, acc.Flags, childFlags); err != nil {
+		return nil, err
 	}
 	acc.Flags = MergeFlags(acc.Flags, childFlags)
 

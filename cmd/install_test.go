@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/registry"
 )
 
 func boolPtr(v bool) *bool { return &v }
@@ -97,5 +98,28 @@ func TestFilterDisabledComponents_DoesNotMutateOriginal(t *testing.T) {
 	filterDisabledComponents(components)
 	if len(components[1].Requires) != originalLen {
 		t.Fatal("expected original slice not mutated")
+	}
+}
+
+// A flag that disables components by name across alternatives (e.g.
+// --disable-analytics turning off both elasticsearch and opensearch) patches
+// a component the selected alternative never brought in. The patch is
+// appended as a disabled stub and must be dropped, not deployed.
+func TestFilterDisabledComponents_DropsDisabledStubForAbsentComponent(t *testing.T) {
+	resolved := &config.ResolvedContext{Components: []config.Component{
+		{Name: "elasticsearch", Helm: &config.HelmSpec{Chart: "elastic/elasticsearch"}},
+		{Name: "apim", Helm: &config.HelmSpec{Chart: "graviteeio/apim"}, Requires: []config.Requirement{{Component: "elasticsearch"}}},
+	}}
+	registry.MergeComponents(resolved, []config.Component{
+		{Name: "elasticsearch", Enabled: boolPtr(false)},
+		{Name: "opensearch", Enabled: boolPtr(false)},
+	}, "")
+
+	got := filterDisabledComponents(resolved.Components)
+	if len(got) != 1 || got[0].Name != "apim" {
+		t.Fatalf("expected only apim to remain, got %v", got)
+	}
+	if len(got[0].Requires) != 0 {
+		t.Fatalf("expected the requirement on the disabled component to be pruned, got %v", got[0].Requires)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/registry"
 	internalschema "github.com/gravitee-io-labs/gck/internal/schema"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
@@ -82,11 +83,16 @@ func TestRegistryFlagValidation(t *testing.T) {
 		t.Skip("no flag files found in registry/")
 	}
 
+	dirs := make(map[string]bool)
 	for _, file := range files {
+		dirs[filepath.Dir(file)] = true
 		rel, _ := filepath.Rel(registryDir, file)
 		t.Run(rel, func(t *testing.T) {
 			if err := internalschema.ValidateFile(sch, file); err != nil {
 				t.Errorf("schema validation failed:\n%v", err)
+			}
+			if _, err := registry.ReadFlag(file); err != nil {
+				t.Error(err)
 			}
 			data, err := os.ReadFile(file)
 			if err != nil {
@@ -102,6 +108,13 @@ func TestRegistryFlagValidation(t *testing.T) {
 				t.Error("flag file must have a non-empty 'description' field")
 			}
 		})
+	}
+
+	// Alternative group rules (one default per group) span a directory.
+	for dir := range dirs {
+		if _, err := registry.DiscoverFlags(dir); err != nil {
+			t.Error(err)
+		}
 	}
 }
 

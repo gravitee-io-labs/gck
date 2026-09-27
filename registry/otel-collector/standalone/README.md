@@ -64,7 +64,7 @@ cluster. Compose it alongside any APIM or AM context and pass
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from otel-collector/base \
   --enable-otel-collector
 ```
@@ -82,7 +82,7 @@ and points the collector's trace pipeline at Tempo:
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from grafana/base \
   --enable-otel-collector
 ```

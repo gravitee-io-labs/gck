@@ -1,0 +1,170 @@
+abstract: true
+vars:
+  clusterName:
+    default: "gravitee"
+    description: "Name of the Kind cluster"
+  imagePrefix:
+    default: "graviteeio"
+    description: "Docker image prefix for all AM components"
+  helmVersion:
+    default: ""
+    description: "Helm chart version constraint"
+  imageTag:
+    default: "latest"
+    description: "Docker image tag for all AM components"
+  licenseFile:
+    default: '{{ env "HOME" }}/opt/gravitee/license.key'
+    description: "Gravitee license key file, mounted into the AM gateway and management API when it exists"
+images:
+  preload:
+    refs:
+      - "{{ .imagePrefix }}/am-gateway:{{ .imageTag }}"
+      - "{{ .imagePrefix }}/am-management-api:{{ .imageTag }}"
+      - "{{ .imagePrefix }}/am-management-ui:{{ .imageTag }}"
+      - alpine:latest
+kind:
+  name: "{{ .clusterName }}"
+  nodes:
+    - role: control-plane
+      extraPortMappings:
+        - containerPort: 30090
+          hostPort: 30090
+        - containerPort: 30092
+          hostPort: 30092
+        - containerPort: 30093
+          hostPort: 30093
+helm:
+  repos:
+    - name: graviteeio
+      url: https://helm.gravitee.io
+components:
+  # Mounted when the file exists, skipped otherwise: the volumes below are
+  # optional, so an unlicensed AM starts normally.
+  - name: license
+    type: k8s
+    namespace: gravitee
+    k8s:
+      secrets:
+        - name: gravitee-license
+          fromFile: "{{ .licenseFile }}"
+          onMissing: ignore
+  - name: tls-server
+    type: k8s
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: tls-server
+            namespace: gravitee
+          type: kubernetes.io/tls
+          data:
+            tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN2VENDQWFXZ0F3SUJBZ0lKQU53UHpncTNCeVlaTUEwR0NTcUdTSWIzRFFFQkN3VUFNQTR4RERBS0JnTlYKQkFNTUEwZExUekFlRncweU5qQTJNamN4TlRFek5UVmFGdzB6TmpBMk1qUXhOVEV6TlRWYU1BNHhEREFLQmdOVgpCQU1NQTBkTFR6Q0NBU0l3RFFZSktvWklodmNOQVFFQkJRQURnZ0VQQURDQ0FRb0NnZ0VCQUpWaExzd0xPU1UvCnZYcmdVN1ZIaVpVRWlKR1BrNVdRdGo0MlU2d0psRHBzNmxXQ3huL25PYUN5c2VtbmJmSHdPK25KbXhsOGVZVmcKY2JwWDJRYVNzdWx4Y3k2aFh6VXhmS0ZPRzRHMjdMTUowdGhvZDB5UE5vM2V6ZjFtTmNwMmt1TUxHaUpxTHpmQwpTTEZyUldEc1BIUlM3ODYxOHB4emxUQmY1amc0azY5T0h4VnJxNTllRWNoRmtlOXlXNTlOODd0b29Yd2taWnZDCk9obXowZDd4Q2VYaU85dVVLbTVBRmk0QVBpTGpiMFFGRDFOeTlkUzRTWmpjVXJYWnBSN1c0WW83WGhmQWczOGIKRVJUQXF5OWZFbzJYSmNCd2pYTjU3eGpKMm9kVDZkZkV2L1NtY3AyNHVKdXliSlZwbUVOUXBRTVZSeWR3dm1lRgpsaXI4M3lIekFTOENBd0VBQWFNZU1Cd3dHZ1lEVlIwUkJCTXdFWUlKYkc5allXeG9iM04waHdSL0FBQUJNQTBHCkNTcUdTSWIzRFFFQkN3VUFBNElCQVFCUlFDbVJkK0hVcEVPc1MwY1dBVWJYWERoR3UxOTROR2lhOUpaYkc0cDAKTzNKS3cyWUJsZGszYXZjc1VETDRrdURMSzVVZVE1a0wzR1BvL05kRFJBSlZ0aTJSS1pWdjdheXEvbHpFK002dApuUEZxMWN3bEhVQkdzYzY2VW1HTHpheHpVbWp0NU5weXM4YStGNWNCQktnYTVCUTNDakh5Tm12YnY2NWVMY0ZUCmJ3djRkOXBJUENxcmJUNWVDT25FNGwxV2d4Y0xPSUV0eUJjWU1jbUQ4QmZ1RWRRbGxYUHREdVVVbHUwaVFZYWoKd0hDRlhUWWpxQ0t1a0N6OVVZZWdSMGZoZHo1NmtLbUQxRGtkUTk5KzlRTitvNU1COEwwRy8yMm1yZkR5NkhULwprMDZvaVd6d25rbjdqU0hoSlUva0lqSVdtKzVYZlhsSnZERVRXd3g4N3d0NQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+            tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRQ1ZZUzdNQ3prbFA3MTYKNEZPMVI0bVZCSWlSajVPVmtMWStObE9zQ1pRNmJPcFZnc1ovNXptZ3NySHBwMjN4OER2cHlac1pmSG1GWUhHNgpWOWtHa3JMcGNYTXVvVjgxTVh5aFRodUJ0dXl6Q2RMWWFIZE1qemFOM3MzOVpqWEtkcExqQ3hvaWFpODN3a2l4CmEwVmc3RHgwVXUvT3RmS2NjNVV3WCtZNE9KT3ZUaDhWYTZ1ZlhoSElSWkh2Y2x1ZlRmTzdhS0Y4SkdXYndqb1oKczlIZThRbmw0anZibENwdVFCWXVBRDRpNDI5RUJROVRjdlhVdUVtWTNGSzEyYVVlMXVHS08xNFh3SU4vR3hFVQp3S3N2WHhLTmx5WEFjSTF6ZWU4WXlkcUhVK25YeEwvMHBuS2R1TGlic215VmFaaERVS1VERlVjbmNMNW5oWllxCi9OOGg4d0V2QWdNQkFBRUNnZ0VCQUlrUkZtYWwrYmFqS1JNaDJjMWlLZTB4cnJxWjJ0c0hZU0h1cVpJWGJBcTgKTzcxZzlSRVJzMEF3RjY0Rk1vNG9XR0ZwMjBaa2dBRVJnT2x5aURKTzA1bit2cWpQNjlPY1ovWisvQ0JuSUFRYwpoSHFNU01OWU9iK3Q3S2VTYk5NdFFCVFM4QlVhQjkrTEJ6YTg3bmxENnlqMW5STzR3amdxbW44N3o3eFF0YnJKCmRqWVZRUHozTzdMcVZzam1pcm5haDEvelBKNTYyL1ZrNmRDNlpoUG92cERWZkNweGU5Q1pXTXhXUkVPcWtHK1IKUitqSDVLR0VxT0VwaVR1emhSNXNIR1krcU9RaEpWVURKSm1kdm5UdGlmcGFYQk1HOUIrTm9pRmxIN3ZUSUFMNAo0aDVybmdzYzhzRWxObGkvbllWcjRqelR2L1JHeDRXc1hzR21Gd09xdjRFQ2dZRUF4aXVyRWFtMFpKUENyOSsrCkd5MnRzR0RwcFpiTTRHOTZNSXgxNXZHczBWSkgyNk9lWDIxeFVRUlJyWDhvVXY5L3pGa0xzdmp4ZjZFdXZvWE8KU0ZXL2ZzWTdXMlpOeVlURjB6R3BhRXhaZnpncnJRNkJ1Qy9oc1U3S3hzOEJxK0RhOUxVV2p3akQ0c3FnWWt3ZgpZcjR5TDc0ZTJ6WThvSDJtS3BSSDVSSk9kTzhDZ1lFQXdQaVdHU3hhU0lkVEFUNVZ1WVNjanZkQ3ZVOHlWQk1zCmMxTXFidzZZa3J3bjVPelVDWlQ5OHlVZEg0OFBLRjJoUy9vMFFWZGFzeVJKU3Y2YWhsc3hrbWpSTlIrZkZtN0EKK1NoTUFJVXJoeUloQkhaTnhRNGVRWDh4cXUrdVdFZ0tnVWpLNVA4UmtBZWpVZG8wb1BTNnhvcnRpYnpKaFMwRApBT0ZrMmZBcXQ4RUNnWUVBbXdWZ0RqSW1KcU9jSWI2eVZVcDNXOG1FSFFBSmh1eE50cHE2UkkzN3RjZGE1UXRxCmdaWDRsZnI5OWUzSjJwdDZHcDN4MC9CLzRtcHhTYU1jaW1OaHFNZGplWTFlL214NTRFc3lEWi9rUnV2bTVycTUKYVI4enUyTTZweWthVXAxVVN5YzUzV3hxNkFmQVRRVGxiSFlDaG15QWNOVk51Zkp3d1ZBN3FZdVhpa3NDZ1lBQwpQbUd3WlQyZmZrTk96bVM4eFhmMGlaZHpFQXFydzVWT3VmYlNWNzhhWmFtcEZiL1paS3dYT2FVL0NyREliVjVFCnZlSUJxSHhiZk42RlNyU05QMTR5TDVuUEhsRUJOOFJ5b1M5UkNqdFpWT0pCWlFhK2RjMlFRV1JZY25UNmZjdngKZU9FekRHd3Qyb2pobU1IbjVUQ093bXJFb1RkT254bGIxME1PN2FYeGdRS0JnR0daSVA1QkpDTGhhSTB6eEFXNQo0OFgrYXkrTXRqcnltM0pXcEczMEw3ZXNOSG0xMnd5SlNoU1dObk5hNUdNNWNWNmN3SGR5blQra09hZG93MnkwCmRzSWltb2pXVGN6alNBNjUvb3gzZ1JQMkhyUko2Y1dJdk9GRUZTR1dqQlAyZjRxSTkrM3FsZUJGZVpmMFU0UnMKdjZXRUh2ZjdDRkxBRFRtZlB1Rmx1MUFmCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+  - name: am
+    type: helm
+    namespace: gravitee
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: am
+    requires:
+      - component: tls-server
+      # The license volume is optional, so the pods start either way; they
+      # only read it at startup, which is why the secret must exist first.
+      - component: license
+    helm:
+      chart: graviteeio/am
+      version: "{{ .helmVersion }}"
+      values:
+        ui:
+          image:
+            repository: "{{ .imagePrefix }}/am-management-ui"
+            tag: "{{ .imageTag }}"
+          baseURL: http://localhost:30093/management
+          ingress:
+            enabled: false
+        gateway:
+          extraVolumes: |
+            - name: graviteeio-license
+              secret:
+                secretName: gravitee-license
+                optional: true
+          extraVolumeMounts: |
+            - name: graviteeio-license
+              mountPath: /opt/graviteeio-am-gateway/license
+              readOnly: true
+          image:
+            repository: "{{ .imagePrefix }}/am-gateway"
+            tag: "{{ .imageTag }}"
+          ingress:
+            enabled: false
+        api:
+          extraVolumes: |
+            - name: graviteeio-license
+              secret:
+                secretName: gravitee-license
+                optional: true
+          extraVolumeMounts: |
+            - name: graviteeio-license
+              mountPath: /opt/graviteeio-am-management-api/license
+              readOnly: true
+          image:
+            repository: "{{ .imagePrefix }}/am-management-api"
+            tag: "{{ .imageTag }}"
+          ingress:
+            enabled: false
+          automation:
+            enabled: true
+            entrypoint: /automation
+          env:
+            - name: gravitee_http_api_automation_enabled
+              value: "true"
+  - name: am-nodeports
+    type: k8s
+    namespace: gravitee
+    requires:
+      - component: am
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: am-ui-nodeport
+          spec:
+            type: NodePort
+            ports:
+              - port: 8080
+                targetPort: 8080
+                nodePort: 30090
+            selector:
+              app.kubernetes.io/instance: am
+              app.kubernetes.io/component: management-ui
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: am-gateway-nodeport
+          spec:
+            type: NodePort
+            ports:
+              - port: 8092
+                targetPort: 8092
+                nodePort: 30092
+            selector:
+              app.kubernetes.io/instance: am
+              app.kubernetes.io/component: gateway
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: am-api-nodeport
+          spec:
+            type: NodePort
+            ports:
+              - port: 8093
+                targetPort: 8093
+                nodePort: 30093
+            selector:
+              app.kubernetes.io/instance: am
+              app.kubernetes.io/component: management-api

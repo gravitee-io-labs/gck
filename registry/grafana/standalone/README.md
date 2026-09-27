@@ -117,7 +117,7 @@ pass `--enable-otel-collector` to point the gateway's exporter at the collector:
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from grafana/base \
   --enable-otel-collector
 ```

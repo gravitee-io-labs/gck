@@ -181,10 +181,15 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 		}
 	}
 
+	cliUse, cliFlags := extractCLIFlags(os.Args)
+	use := append(append([]string{}, cfg.Use...), inheritedUse...)
+	ctx := registry.WithUse(context.Background(), append(use, cliUse...))
+	ctx = registry.WithFlags(ctx, append(append([]string{}, inheritedFlags...), cliFlags...))
+
 	acc := &config.ResolvedContext{}
 	for _, ref := range cfg.From {
 		resolver := registry.NewResolver(regURL, gckHome, setOverrides)
-		resolved, err := resolver.Resolve(context.Background(), ref)
+		resolved, err := resolver.Resolve(ctx, ref)
 		if err != nil {
 			return nil, fmt.Errorf("resolving context %q: %w", ref, err)
 		}
@@ -192,6 +197,9 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 			return nil, fmt.Errorf("context %q is abstract and cannot be deployed directly; compose it via 'from' in another context", ref)
 		}
 		registry.MergeInto(acc, resolved)
+	}
+	if err := checkConfigUse(cfg.Use, acc); err != nil {
+		return nil, err
 	}
 
 	cfg.Kind.MergeWithContext(&acc.Kind)
@@ -201,9 +209,65 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 	return acc, nil
 }
 
+// inheritedUse and inheritedFlags hold the alternatives and plain flags a
+// patched cluster was created with, so the context re-resolves to the same
+// composition.
+var (
+	inheritedUse   []string
+	inheritedFlags []string
+)
+
+// extractCLIFlags returns the --name tokens passed on the command line, split
+// into alternatives (--use-*) and everything else. Both must be known before
+// the context is resolved: alternatives are applied during resolution, and a
+// plain flag can switch an alternative group off (--disable-metrics).
+// Resolvers only act on names that match a flag of the context, so Cobra's own
+// flags in the second list are harmless; unknown names are rejected later by
+// extractActiveFlags.
+func extractCLIFlags(args []string) (use, plain []string) {
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		name, ok := strings.CutPrefix(arg, "--")
+		if !ok || name == "" {
+			continue
+		}
+		if idx := strings.IndexByte(name, '='); idx >= 0 {
+			name = name[:idx]
+		}
+		if strings.HasPrefix(name, registry.AlternativePrefix) {
+			use = append(use, name)
+		} else {
+			plain = append(plain, name)
+		}
+	}
+	return use, plain
+}
+
+// checkConfigUse verifies that the alternatives listed in the user's
+// gck.yaml use: block exist in the resolved composition.
+func checkConfigUse(use []string, resolved *config.ResolvedContext) error {
+	for _, n := range use {
+		name := registry.AlternativeFlagName(n)
+		found := false
+		for _, f := range resolved.Flags {
+			if f.IsAlternative() && f.Name == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("use: %s matches no alternative of the context (run \"gck info\" to list them)", n)
+		}
+	}
+	return nil
+}
+
 // applyContextFlags extracts context-specific flags from the CLI arguments
-// and applies their patch files to the resolved context. It returns the list
-// of active flag names (for use in notes rendering) and any error. Returns
+// and applies their patch files to the resolved context. It returns the flags
+// in force -- the selected alternatives, defaults included, followed by the
+// active plain flags -- for notes rendering and cluster state. Returns
 // nil, nil when no context flags are relevant.
 func applyContextFlags(cmd *cobra.Command, resolved *config.ResolvedContext) ([]string, error) {
 	if resolved == nil || len(resolved.Flags) == 0 {
@@ -216,7 +280,7 @@ func applyContextFlags(cmd *cobra.Command, resolved *config.ResolvedContext) ([]
 	if err := registry.ApplyFlags(resolved, active, setOverrides); err != nil {
 		return nil, err
 	}
-	return active, nil
+	return registry.EffectiveFlags(resolved, active), nil
 }
 
 // extractActiveFlags walks args looking for --flag-name tokens that are not

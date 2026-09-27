@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
@@ -58,12 +60,13 @@ func TestInheritClusterState_ReusesCreateContext(t *testing.T) {
 	// Patch-time inputs: bump imageTag only, no --from / --registry.
 	setOverrides = map[string]string{"imageTag": "master-latest"}
 	cfg = &config.Config{}
+	inheritedUse, inheritedFlags = nil, nil
 
 	st := &state.ClusterState{
 		Name:     "gravitee",
 		Registry: "file:///registry",
-		From:     []string{"gravitee-io/oss/apim/mongodb"},
-		Flags:    []string{"disable-es", "disable-portal"},
+		From:     []string{"gravitee-io/apim"},
+		Flags:    []string{"use-elasticsearch", "use-mongodb", "disable-portal"},
 		Set:      map[string]string{"imagePrefix": "graviteeio.azurecr.io", "imageTag": "4.11.x-latest"},
 	}
 	if err := state.Save(filepath.Join(gckHome, "clusters"), st); err != nil {
@@ -74,7 +77,7 @@ func TestInheritClusterState_ReusesCreateContext(t *testing.T) {
 	if got == nil {
 		t.Fatal("expected the loaded state to be returned")
 	}
-	if len(cfg.From) != 1 || cfg.From[0] != "gravitee-io/oss/apim/mongodb" {
+	if len(cfg.From) != 1 || cfg.From[0] != "gravitee-io/apim" {
 		t.Errorf("cfg.From = %v, want the create-time from inherited", cfg.From)
 	}
 	if cfg.Registry != "file:///registry" {
@@ -86,8 +89,31 @@ func TestInheritClusterState_ReusesCreateContext(t *testing.T) {
 	if setOverrides["imageTag"] != "master-latest" {
 		t.Errorf("imageTag = %q, want master-latest (patch-time wins)", setOverrides["imageTag"])
 	}
-	if len(got.Flags) != 2 {
-		t.Errorf("expected 2 inherited flags, got %v", got.Flags)
+	if len(got.Flags) != 3 {
+		t.Errorf("expected 3 inherited flags, got %v", got.Flags)
+	}
+	// The selected alternatives are re-selected so the context resolves to
+	// the same implementations it was created with.
+	if want := []string{"use-elasticsearch", "use-mongodb"}; !slices.Equal(inheritedUse, want) {
+		t.Errorf("inheritedUse = %v, want %v", inheritedUse, want)
+	}
+	if want := []string{"disable-portal"}; !slices.Equal(inheritedFlags, want) {
+		t.Errorf("inheritedFlags = %v, want %v", inheritedFlags, want)
+	}
+}
+
+func TestCheckPatchUse(t *testing.T) {
+	st := &state.ClusterState{Name: "gravitee", Flags: []string{"use-elasticsearch", "use-jdbc-postgres"}}
+
+	if err := checkPatchUse(st, []string{"use-jdbc-postgres"}); err != nil {
+		t.Errorf("re-selecting the create-time alternative: %v", err)
+	}
+	if err := checkPatchUse(nil, []string{"use-mongodb"}); err != nil {
+		t.Errorf("a cluster without state must not be checked: %v", err)
+	}
+	err := checkPatchUse(st, []string{"use-mongodb"})
+	if err == nil || !strings.Contains(err.Error(), "recreate it to switch") {
+		t.Errorf("expected switching alternative on patch to be refused, got %v", err)
 	}
 }
 

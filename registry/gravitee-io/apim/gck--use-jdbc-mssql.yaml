@@ -1,0 +1,79 @@
+description: "Store APIM data in Microsoft SQL Server over JDBC"
+group: datasource
+from:
+  - mssql/standalone
+vars:
+  mssql:
+    standalone:
+      imageTag:
+        default: "2022-latest"
+      imageRepository:
+        default: "mcr.microsoft.com/mssql/server"
+  jdbcUrl:
+    default: "jdbc:sqlserver://mssql:1433;databaseName=gravitee;encrypt=false"
+    description: "JDBC connection URL"
+  jdbcDriver:
+    default: "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre11/mssql-jdbc-12.8.1.jre11.jar"
+    description: "JDBC driver download URL"
+  jdbcUsername:
+    default: "SA"
+    description: "JDBC username"
+  jdbcPassword:
+    default: "Password1!"
+    description: "JDBC password"
+components:
+  - name: mssql
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mssql
+            labels:
+              app: mssql
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 1433
+                targetPort: 1433
+                name: mssql
+            selector:
+              app: mssql
+  - name: mssql-init
+    namespace: gravitee
+  - name: apim
+    requires:
+      - component: mssql
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: mssql
+        timeout: 15m
+      - component: mssql-init
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            job-name: mssql-init
+        timeout: 5m
+    helm:
+      values:
+        management:
+          type: jdbc
+        jdbc:
+          url: "{{ .jdbcUrl }}"
+          driver: "{{ .jdbcDriver }}"
+          username: "{{ .jdbcUsername }}"
+          password: "{{ .jdbcPassword }}"
+        gateway:
+          env:
+            - name: gravitee_ratelimit_type
+              value: jdbc
+            - name: gravitee_ratelimit_jdbc_uri
+              value: "{{ .jdbcUrl }}"
+            - name: gravitee_ratelimit_jdbc_username
+              value: "{{ .jdbcUsername }}"
+            - name: gravitee_ratelimit_jdbc_password
+              value: "{{ .jdbcPassword }}"

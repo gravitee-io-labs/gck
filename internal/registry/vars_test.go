@@ -8,7 +8,7 @@ func TestSplitSetOverrides(t *testing.T) {
 	raw := map[string]string{
 		"imageTag":                    "latest",
 		"mysql.standalone.imageTag":   "8.4",
-		"gravitee-io.oss.am.helmVer": "4.0",
+		"gravitee-io.am.helmVer": "4.0",
 	}
 	s := SplitSetOverrides(raw)
 	if len(s.Broadcast) != 1 || s.Broadcast["imageTag"] != "latest" {
@@ -32,7 +32,7 @@ func TestSplitSetOverrides_Empty(t *testing.T) {
 func TestResolveScopedOverride_Match(t *testing.T) {
 	known := map[string]bool{
 		"mysql/standalone":         true,
-		"gravitee-io/oss/apim/base": true,
+		"gravitee-io/apim/base": true,
 	}
 
 	path, varName := resolveScopedOverride("mysql.standalone.imageTag", known)
@@ -40,9 +40,9 @@ func TestResolveScopedOverride_Match(t *testing.T) {
 		t.Errorf("expected mysql/standalone + imageTag, got %q + %q", path, varName)
 	}
 
-	path, varName = resolveScopedOverride("gravitee-io.oss.apim.base.imageTag", known)
-	if path != "gravitee-io/oss/apim/base" || varName != "imageTag" {
-		t.Errorf("expected gravitee-io/oss/apim/base + imageTag, got %q + %q", path, varName)
+	path, varName = resolveScopedOverride("gravitee-io.apim.base.imageTag", known)
+	if path != "gravitee-io/apim/base" || varName != "imageTag" {
+		t.Errorf("expected gravitee-io/apim/base + imageTag, got %q + %q", path, varName)
 	}
 }
 

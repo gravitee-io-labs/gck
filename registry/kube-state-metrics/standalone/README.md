@@ -59,7 +59,7 @@ so the stack you compose it onto keeps naming the cluster:
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from kube-state-metrics/base
 ```
 

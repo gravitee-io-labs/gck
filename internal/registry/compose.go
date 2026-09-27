@@ -55,6 +55,8 @@ func MergeInto(acc, src *config.ResolvedContext) {
 	acc.Images = config.MergeImages(acc.Images, src.Images)
 	acc.Notes = appendNotes(acc.Notes, src.Notes)
 	acc.Flags = MergeFlags(acc.Flags, src.Flags)
+	acc.Selected = mergeVarMaps(acc.Selected, src.Selected)
+	acc.Implied = appendUnique(acc.Implied, src.Implied...)
 	acc.EffectiveVars = mergeVarMaps(acc.EffectiveVars, src.EffectiveVars)
 }
 

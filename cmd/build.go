@@ -32,7 +32,8 @@ When called without arguments, all entries are built. Pass one or more
 names to build a subset.
 
 Use --create to automatically create the cluster if it does not exist.
-Context flags (e.g. --disable-es) are forwarded to the creation flow.`,
+Context flags and alternatives (e.g. --disable-ui, --use-postgres)
+are forwarded to the creation flow.`,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 	RunE:               runBuild,
 }

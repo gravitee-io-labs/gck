@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -93,48 +95,123 @@ func TestResolveEndpoints_HonoursWhenGuards(t *testing.T) {
 		t.Errorf("Grafana requires = %v, want none", grafana.Requires)
 	}
 
-	// dbless runs the gateway alone and gates off everything else apim/base
-	// declares, so it exposes exactly one endpoint out of the box. It still
-	// inherits apim/base's flags, hence the check on unconditional rows only.
-	var dblessDefault []string
-	for _, ep := range resolveEndpoints("gravitee-io/oss/apim/dbless", configs, registryDir) {
-		if len(ep.Requires) == 0 {
-			dblessDefault = append(dblessDefault, ep.Name)
+	// --use-dbless runs the gateway alone: it implies --disable-ui and
+	// --disable-analytics and hides the management API, so those rows are
+	// marked as absent under it while the gateway row stays unconditional.
+	apim := resolveEndpoints("gravitee-io/apim", configs, registryDir)
+	for _, name := range []string{"APIM Console", "APIM Portal", "APIM API", "APIM Gateway (TLS)"} {
+		ep, ok := endpointByName(apim, name)
+		if !ok || !slices.Equal(ep.Unless, []string{"use-dbless"}) {
+			t.Errorf("%s = %+v, want unless [use-dbless]", name, ep)
 		}
 	}
-	if len(dblessDefault) != 1 || dblessDefault[0] != "APIM Gateway" {
-		t.Errorf("dbless default endpoints = %v, want only APIM Gateway", dblessDefault)
+	if gw, _ := endpointByName(apim, "APIM Gateway"); len(gw.Use)+len(gw.Unless)+len(gw.Requires) != 0 {
+		t.Errorf("APIM Gateway = %+v, want unconditional", gw)
+	}
+	// dbless disables the analytics group altogether: no Elasticsearch.
+	if es, _ := endpointByName(apim, "Elasticsearch"); !slices.Equal(es.Use, []string{"use-elasticsearch"}) || !slices.Equal(es.Unless, []string{"use-dbless"}) {
+		t.Errorf("Elasticsearch = %+v, want use [use-elasticsearch] unless [use-dbless]", es)
 	}
 
-	// The EE stack fronts Kafka with the gateway, so the broker row is gated off.
-	ee := resolveEndpoints("gravitee-io/ee/apim/jdbc/postgres", configs, registryDir)
-	if _, ok := endpointByName(ee, "Kafka"); ok {
-		t.Error("expected the inherited Kafka row to be suppressed in the EE stack")
+	// --enable-kafka-gateway composes a broker and fronts it with the gateway,
+	// so the broker's own row is suppressed and the gateway's is flag-gated.
+	if _, ok := endpointByName(apim, "Kafka"); ok {
+		t.Error("expected the composed Kafka row to be suppressed")
 	}
-	if _, ok := endpointByName(ee, "Kafka Gateway"); !ok {
-		t.Errorf("expected the Kafka Gateway row, got %+v", ee)
+	gw, ok := endpointByName(apim, "Kafka Gateway")
+	if !ok || !slices.Equal(gw.Requires, []string{"enable-kafka-gateway"}) {
+		t.Errorf("expected the Kafka Gateway row behind --enable-kafka-gateway, got %+v", gw)
 	}
 }
 
 // TestResolveEndpoints_IncludesComposedDatastores guards the drift that the
 // hand-written README tables all shared: a product context binds its
-// datastore's host ports, so those endpoints belong on its page.
+// datastore's host ports, so those endpoints belong on its page -- marked with
+// the alternative that brings each datastore in.
 func TestResolveEndpoints_IncludesComposedDatastores(t *testing.T) {
 	registryDir, configs := loadRegistry(t)
 
-	eps := resolveEndpoints("gravitee-io/oss/apim/jdbc/postgres", configs, registryDir)
-	for name, wantOrigin := range map[string]string{
-		"PostgreSQL":    "postgresql/standalone",
-		"Elasticsearch": "elastic/elasticsearch/standalone",
-		"APIM Gateway":  "gravitee-io/oss/apim/base",
+	eps := resolveEndpoints("gravitee-io/apim", configs, registryDir)
+	for name, want := range map[string]struct {
+		origin string
+		use    []string
+	}{
+		"PostgreSQL":    {"postgresql/standalone", []string{"use-jdbc-postgres"}},
+		"MySQL":         {"mysql/standalone", []string{"use-jdbc-mysql"}},
+		"MongoDB":       {"mongodb/standalone", []string{"use-mongodb"}},
+		"Elasticsearch": {"elastic/elasticsearch/standalone", []string{"use-elasticsearch"}},
+		"OpenSearch":    {"opensearch/standalone", []string{"use-opensearch"}},
+		"APIM Gateway":  {"gravitee-io/apim/base", nil},
 	} {
 		ep, ok := endpointByName(eps, name)
 		if !ok {
 			t.Errorf("expected a %q row, got %+v", name, eps)
 			continue
 		}
-		if ep.Origin != wantOrigin {
-			t.Errorf("%s origin = %q, want %q", name, ep.Origin, wantOrigin)
+		if ep.Origin != want.origin {
+			t.Errorf("%s origin = %q, want %q", name, ep.Origin, want.origin)
 		}
+		if !slices.Equal(ep.Use, want.use) {
+			t.Errorf("%s use = %v, want %v", name, ep.Use, want.use)
+		}
+	}
+}
+
+// TestResolveAlternatives lists the groups a user can pick from, and hides
+// the ones a composing context pins.
+func TestResolveAlternatives(t *testing.T) {
+	registryDir, configs := loadRegistry(t)
+
+	groups := resolveAlternatives("gravitee-io/apim", configs, registryDir)
+	var names []string
+	defaults := map[string]string{}
+	for _, g := range groups {
+		names = append(names, g.Name)
+		for _, o := range g.Options {
+			if o.Default {
+				defaults[g.Name] = o.Name
+			}
+			if o.Source != "gravitee-io/apim" {
+				t.Errorf("--%s source = %q, want the declaring context gravitee-io/apim", o.Name, o.Source)
+			}
+		}
+	}
+	if !slices.Equal(names, []string{"analytics", "datasource"}) {
+		t.Errorf("groups = %v, want [analytics datasource]", names)
+	}
+	if defaults["datasource"] != "use-jdbc-postgres" || defaults["analytics"] != "use-elasticsearch" {
+		t.Errorf("defaults = %v", defaults)
+	}
+
+	if g := resolveAlternatives("gravitee-io/gamma", configs, registryDir); len(g) != 0 {
+		t.Errorf("gamma pins its datasource; expected no selectable groups, got %+v", g)
+	}
+}
+
+// TestResolveVars_GatesAlternativeVars marks the variables only some
+// alternatives declare, and keeps the rest unconditional.
+func TestResolveVars_GatesAlternativeVars(t *testing.T) {
+	registryDir, configs := loadRegistry(t)
+
+	var pgURL, mysqlURL, imagePrefix *varInfo
+	vars := resolveVars("gravitee-io/apim", configs, registryDir)
+	for i, v := range vars {
+		switch {
+		case v.Name == "jdbcUrl" && strings.Contains(v.Default, "postgresql"):
+			pgURL = &vars[i]
+		case v.Name == "jdbcUrl" && strings.Contains(v.Default, "mysql"):
+			mysqlURL = &vars[i]
+		case v.Name == "imagePrefix":
+			imagePrefix = &vars[i]
+		}
+	}
+	if pgURL == nil || !slices.Equal(pgURL.Use, []string{"use-jdbc-postgres"}) {
+		t.Errorf("postgres jdbcUrl = %+v, want gated by use-jdbc-postgres", pgURL)
+	}
+	if mysqlURL == nil || !slices.Equal(mysqlURL.Use, []string{"use-jdbc-mysql"}) {
+		t.Errorf("mysql jdbcUrl = %+v, want gated by use-jdbc-mysql", mysqlURL)
+	}
+	if imagePrefix == nil || len(imagePrefix.Use) != 0 {
+		t.Errorf("imagePrefix = %+v, want unconditional", imagePrefix)
 	}
 }

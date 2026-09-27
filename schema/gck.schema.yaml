@@ -38,9 +38,79 @@ properties:
     description: >-
       List of registry paths to compose from. Each referenced context
       is merged in order, allowing reuse of shared building blocks
-      (databases, message brokers, etc.).
+      (databases, message brokers, etc.). In a flag file, the contexts
+      the flag brings in when it is selected or active, composed ahead of
+      the declaring context's own from. It is read before templating and
+      must be literal.
     items:
       type: string
+
+  use:
+    type: array
+    description: >-
+      Alternatives to select in the composed contexts, by member name
+      without the "use-" prefix (e.g. mongodb for --use-mongodb).
+      In a registry context, pins the group: the choice is no longer
+      offered to users. In your own gck.yaml, selects the member as the
+      matching --use-* flag would.
+    items:
+      type: string
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+  group:
+    type: string
+    description: >-
+      Alternative flag files only (gck--use-*.yaml): the group of
+      mutually exclusive implementations this alternative belongs to
+      (e.g. database). Exactly one member of a group is applied.
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+  default:
+    type: boolean
+    description: >-
+      Alternative flag files only: marks the member applied when no
+      member of the group is selected. Each group has exactly one
+      default.
+    default: false
+
+  requires:
+    type: array
+    description: >-
+      Plain flag files only: flags or alternatives (full names, e.g.
+      use-postgres) that must be active for this flag to apply.
+    items:
+      type: string
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+  conflicts:
+    type: array
+    description: >-
+      Plain flag files only: flags or alternatives (full names, e.g.
+      use-embedded) that must not be active alongside this flag.
+    items:
+      type: string
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+  implies:
+    type: array
+    description: >-
+      Alternative flag files only: plain flags turned on whenever this
+      alternative is selected, as if they had been passed (e.g.
+      use-embedded implies disable-ui).
+    items:
+      type: string
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+  disables:
+    type: array
+    description: >-
+      Plain flag files only: alternative groups of which no member is
+      applied while this flag is active. The group's members are left
+      out of the composition entirely (e.g. disable-metrics disables
+      the metrics group, so no metrics backend is composed).
+    items:
+      type: string
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
 
   abstract:
     type: boolean

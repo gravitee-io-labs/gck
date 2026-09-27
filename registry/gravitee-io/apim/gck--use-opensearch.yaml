@@ -1,0 +1,37 @@
+description: "Store analytics in OpenSearch"
+group: analytics
+from:
+  - opensearch/standalone
+vars:
+  opensearch:
+    standalone:
+      imageTag:
+        default: "3.0.0"
+      imageRepository:
+        default: "opensearchproject/opensearch"
+components:
+  - name: opensearch
+    namespace: gravitee
+    helm:
+      values:
+        service:
+          type: ClusterIP
+          nodePort: null
+  - name: apim
+    requires:
+      - component: opensearch
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: opensearch
+        timeout: 15m
+    helm:
+      values:
+        es:
+          endpoints:
+            - http://opensearch-cluster-master:9200
+        gateway:
+          reporters:
+            elasticsearch:
+              enabled: true

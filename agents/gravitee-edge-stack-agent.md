@@ -1,12 +1,12 @@
 ---
 product: Gravitee Edge Stack
 paths:
-  - registry/gravitee-io/ee/edge-stack/
+  - registry/gravitee-io/edge-stack/
 ---
 
 # Gravitee Edge Stack product rules
 
-These instructions apply when working on contexts under `registry/gravitee-io/ee/edge-stack/`.
+These instructions apply when working on contexts under `registry/gravitee-io/edge-stack/`.
 
 ## Upstream repository
 
@@ -21,7 +21,7 @@ Refer to this repository when you need to:
 
 ## License handling
 
-Edge Stack uses a different license layout than other Gravitee EE
+Edge Stack uses a different license layout than other Gravitee
 products. Do **not** apply the APIM license template from
 `gravitee-agent.md` to edge-stack contexts.
 
@@ -89,7 +89,7 @@ the following content:
 ```markdown
 ## License
 
-This is an Enterprise Edition (EE) context. Place your Edge Stack license
+Edge Stack requires a license. Place your Edge Stack license
 at `$HOME/opt/gravitee/edge-stack/license.jwt` and gck will automatically
 mount it into the cluster as the `ambassador-edge-stack` Secret. If the
 file is missing, the license component is silently skipped

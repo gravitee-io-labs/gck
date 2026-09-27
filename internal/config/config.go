@@ -14,17 +14,18 @@ type HelmConfig struct {
 }
 
 type Config struct {
-	Vars        yaml.Node `yaml:"vars,omitempty"`
-	Description string            `yaml:"description,omitempty"`
-	Registry    string            `yaml:"registry"`
-	From        []string          `yaml:"from,omitempty"`
-	Abstract    bool              `yaml:"abstract,omitempty"`
-	Kind        KindConfig        `yaml:"kind"`
-	Features    FeaturesConfig    `yaml:"features,omitempty"`
-	Images      ImagesConfig      `yaml:"images,omitempty"`
-	Helm        HelmConfig        `yaml:"helm,omitempty"`
-	Components  []Component       `yaml:"components,omitempty"`
-	Builds      []Build           `yaml:"builds,omitempty"`
+	Vars        yaml.Node      `yaml:"vars,omitempty"`
+	Description string         `yaml:"description,omitempty"`
+	Registry    string         `yaml:"registry"`
+	From        []string       `yaml:"from,omitempty"`
+	Abstract    bool           `yaml:"abstract,omitempty"`
+	Use         []string       `yaml:"use,omitempty"`
+	Kind        KindConfig     `yaml:"kind"`
+	Features    FeaturesConfig `yaml:"features,omitempty"`
+	Images      ImagesConfig   `yaml:"images,omitempty"`
+	Helm        HelmConfig     `yaml:"helm,omitempty"`
+	Components  []Component    `yaml:"components,omitempty"`
+	Builds      []Build        `yaml:"builds,omitempty"`
 
 	// Dir is set by Load to resolve relative paths in component value files.
 	Dir string `yaml:"-"`
@@ -55,6 +56,9 @@ func Merge(base, override *Config) {
 	}
 	if len(override.From) > 0 {
 		base.From = override.From
+	}
+	if len(override.Use) > 0 {
+		base.Use = override.Use
 	}
 	if override.Dir != "" {
 		base.Dir = override.Dir

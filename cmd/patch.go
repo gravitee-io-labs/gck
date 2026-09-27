@@ -71,6 +71,10 @@ func runPatch(cmd *cobra.Command, args []string) error {
 		inheritName = cfg.Kind.Name
 	}
 	inherited := inheritClusterState(inheritName)
+	patchUse, _ := extractCLIFlags(os.Args)
+	if err := checkPatchUse(inherited, patchUse); err != nil {
+		return err
+	}
 
 	resolved, err := resolveContextConfig()
 	if err != nil {
@@ -146,6 +150,16 @@ func runPatch(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	var toCheck []config.Component
+	for _, c := range resolved.Components {
+		if filter == nil || filter(c) {
+			toCheck = append(toCheck, c)
+		}
+	}
+	if err := installer.PreflightLocalResources(toCheck); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	if !patchDryRun && !patchSkipPreload {
@@ -205,7 +219,33 @@ func inheritClusterState(clusterName string) *state.ClusterState {
 		cfg.Registry = st.Registry
 	}
 	setOverrides = mergeSet(st.Set, setOverrides)
+	for _, f := range st.Flags {
+		if strings.HasPrefix(f, registry.AlternativePrefix) {
+			inheritedUse = append(inheritedUse, f)
+		} else {
+			inheritedFlags = append(inheritedFlags, f)
+		}
+	}
 	return st
+}
+
+// checkPatchUse refuses --use-* flags that differ from the alternatives the
+// cluster was created with: switching implementation (e.g. the datasource)
+// changes what the stack is and cannot be done by upgrading components.
+func checkPatchUse(inherited *state.ClusterState, use []string) error {
+	if inherited == nil {
+		return nil
+	}
+	created := make(map[string]bool, len(inherited.Flags))
+	for _, f := range inherited.Flags {
+		created[f] = true
+	}
+	for _, name := range use {
+		if !created[name] {
+			return fmt.Errorf("--%s: cluster %q was not created with this alternative; recreate it to switch (gck delete, then gck create --%s)", name, inherited.Name, name)
+		}
+	}
+	return nil
 }
 
 // mergeSet overlays overrides on top of inherited --set values, with overrides
@@ -224,6 +264,7 @@ func mergeSet(inherited, overrides map[string]string) map[string]string {
 // applyPatchFlags applies context flags to the resolved context, combining the
 // flags inherited from the cluster's create-time state with any passed on the
 // patch command line (deduplicated). Patch-time flags are additive.
+// Alternatives were already applied at resolution, from the inherited state.
 func applyPatchFlags(cmd *cobra.Command, resolved *config.ResolvedContext, inherited *state.ClusterState) error {
 	if resolved == nil || len(resolved.Flags) == 0 {
 		return nil

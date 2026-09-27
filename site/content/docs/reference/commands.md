@@ -18,6 +18,8 @@ gck resolves the config chain (user-level `$GCK_HOME/gck.yaml` merged with your 
 
 When features like load balancers, Gateway API, or DNS are enabled, gck sets them up automatically after the cluster is ready.
 
+Before creating anything, gck checks the local files and environment variables that secrets and config maps are built from. A missing input that is not marked `onMissing: ignore` stops the command right away, naming the component and resource, instead of failing once the cluster is half installed. `gck patch` runs the same check on the components it upgrades.
+
 ### Flags
 
 | Flag | Description |
@@ -32,45 +34,70 @@ When features like load balancers, Gateway API, or DNS are enabled, gck sets the
 Contexts can define optional flags that customize the deployment. These are extra `--flag-name` options defined by the context maintainer as `gck--{flag-name}.yaml` patch files.
 
 ```bash
-gck create --from gravitee-io/oss/apim --disable-portal --disable-ui --disable-es
+gck create --from gravitee-io/apim --disable-portal --disable-ui --disable-analytics
 ```
 
 Each flag merges a patch on top of the resolved context before deployment. Flags are cumulative -- you can combine as many as needed. Passing an unknown flag produces an error listing the available flags for that context.
 
 See [Context Format -- Context flags]({{< ref "/docs/reference/context-format#context-flags" >}}) for how to author flag files.
 
+### Alternatives
+
+`--use-*` flags pick one implementation per group, such as the datasource and the analytics backend of APIM. The default member of each group applies when you pass none:
+
+```bash
+gck create --from gravitee-io/apim --use-mongodb --use-opensearch
+```
+
+Passing two members of the same group fails (`--use-mongodb and --use-jdbc-mysql are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members.
+
+A member can turn other flags on. `--use-dbless` runs the APIM gateway without a database and implies `--disable-ui` and `--disable-analytics`, so no console, portal or Elasticsearch is deployed; flags that need the management API, such as `--enable-bridge`, fail alongside it. `gck info` marks implied and conflicting flags for the current selection.
+
+See [Context Format -- Alternatives]({{< ref "/docs/reference/context-format#alternatives" >}}) for how to author them.
+
 ## gck info
 
-Show information about the resolved context without creating a cluster. Displays the component list, available context flags, and enabled features. Use this to discover what flags a context supports before running `gck create`.
+Show information about the resolved context without creating a cluster. Displays the component list, the alternatives with their defaults, available context flags, and enabled features. Use this to discover what a context supports before running `gck create`. Pass `--use-*` flags to see the components of another selection; the selected member of each group is marked `*`.
 
 ```bash
 gck info
-gck info --from gravitee-io/oss/apim/jdbc/postgres
+gck info --from gravitee-io/apim --use-mongodb
 ```
 
 ### Example output
 
 ```
 Context
-  Path: gravitee-io/oss/apim/jdbc/postgres
+  Path: gravitee-io/apim
 
 Components
-  - postgresql
   - elasticsearch
+  - mongodb
+  - tls-server
   - apim
 
+Alternatives
+  analytics
+  * --use-elasticsearch  Store analytics in Elasticsearch (default)
+    --use-opensearch     Store analytics in OpenSearch
+  datasource
+    --use-jdbc-mssql     Store APIM data in Microsoft SQL Server over JDBC
+    --use-jdbc-mysql     Store APIM data in MySQL over JDBC
+    --use-jdbc-postgres  Store APIM data in PostgreSQL over JDBC (default)
+  * --use-mongodb        Store APIM data in MongoDB
+
 Flags
-  --disable-es       Disable Elasticsearch and analytics reporters
-  --disable-ui       Disable both Console and Portal UIs
-  --disable-portal   Disable the developer portal UI
+  --disable-portal     Disable the developer portal UI
+  --disable-ui         Disable both Console and Portal UIs
+  --disable-analytics  Disable analytics: no Elasticsearch or OpenSearch, no analytics reporters
 
 Features
-  lb:      enabled
-  gateway: enabled
-  dns:     enabled (domain: gck.local, port: 15353)
+  lb:      disabled
+  gateway: disabled
+  dns:     disabled
 
 Usage
-  gck create --from gravitee-io/oss/apim/jdbc/postgres
+  gck create --from gravitee-io/apim
 ```
 
 ## gck build
@@ -116,17 +143,19 @@ gck patch upgrade.yaml --set imageTag=4.11.0
 
 ### Inherited context
 
-`gck patch` reuses the context the cluster was created with, so you only pass what changes. The `from` contexts, `--registry`, the context flags (e.g. `--disable-es`), and the `--set` overrides captured at `gck create` are read back from the saved cluster state (`~/.gck/clusters/<name>.yaml`) and applied automatically. Patch-time inputs take priority: `--from` / `--registry` override the stored values, per-key `--set` overrides win, and context flags passed to `patch` are added to the inherited ones.
+`gck patch` reuses the context the cluster was created with, so you only pass what changes. The `from` contexts, `--registry`, the context flags (e.g. `--disable-analytics`), the selected alternatives (defaults included), and the `--set` overrides captured at `gck create` are read back from the saved cluster state (`~/.gck/clusters/<name>.yaml`) and applied automatically. Patch-time inputs take priority: `--from` / `--registry` override the stored values, per-key `--set` overrides win, and context flags passed to `patch` are added to the inherited ones.
+
+Alternatives are the exception: a patch cannot switch implementation. Passing a `--use-*` flag the cluster was not created with fails -- delete the cluster and create it again with the new selection.
 
 This keeps an upgrade small -- it only needs the deltas:
 
 ```bash
-gck create --from gravitee-io/oss/apim/mongodb --disable-es \
+gck create --from gravitee-io/apim --use-mongodb --disable-analytics \
   --set imagePrefix=ghcr.io/acme --set imageTag=4.11 --set helmVersion=4.11.0
 gck patch --name gravitee --set imageTag=4.12 --set helmVersion=4.12.0
 ```
 
-The patch above keeps `--disable-es`, `imagePrefix`, and the `from` context from create. A cluster created by an older gck (no saved state) falls back to the previous behaviour, where flags and `--set` must be repeated on every `patch`.
+The patch above keeps `--use-mongodb`, `--disable-analytics`, `imagePrefix`, and the `from` context from create. A cluster created by an older gck (no saved state) falls back to the previous behaviour, where flags and `--set` must be repeated on every `patch`.
 
 ### How it works
 
@@ -193,7 +222,7 @@ When the registry context uses template variables (see [Composing Contexts -- Te
 
 ```bash
 # Create the cluster at version 4.10
-gck create --from gravitee-io/oss/apim/jdbc/postgres \
+gck create --from gravitee-io/apim \
   --set imageTag=4.10.0 --set helmVersion=4.10.0
 
 # Upgrade to 4.11 -- no patch file needed
@@ -305,14 +334,14 @@ List all gck-managed clusters with their status.
 gck list
 ```
 
-Shows a table with the cluster name, creation date, context paths, active context flags, and whether the cluster is currently running.
+Shows a table with the cluster name, creation date, context paths, active context flags (selected alternatives first, defaults included), and whether the cluster is currently running.
 
 ### Example output
 
 ```
-NAME                 CREATED            FROM                                  FLAGS              STATUS
-kind-gravitee-apim   2026-03-23 14:00   gravitee-io/oss/apim/jdbc/postgres    --disable-es       running
-kind-gravitee-apim   2026-03-22 10:30   gravitee-io/ee/apim/jdbc/postgres     -                  stopped
+NAME                 CREATED            FROM                   FLAGS                                                   STATUS
+kind-gravitee-apim   2026-03-23 14:00   gravitee-io/apim   --use-elasticsearch, --use-mongodb, --disable-analytics running
+kind-gravitee-apim   2026-03-22 10:30   gravitee-io/apim    --use-elasticsearch, --use-jdbc-postgres                stopped
 ```
 
 ## gck describe
@@ -345,8 +374,8 @@ When no name is given and only one cluster exists, it is selected automatically.
 Cluster
   Name:    gio-apim
   Created: 2026-03-23 14:00
-  From:    gravitee-io/oss/apim/jdbc/postgres
-  Flags:   --disable-es
+  From:    gravitee-io/apim
+  Flags:   --use-elasticsearch, --use-jdbc-postgres, --disable-analytics
 
 Features
   lb:      enabled

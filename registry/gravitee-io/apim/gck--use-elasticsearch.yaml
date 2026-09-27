@@ -1,0 +1,39 @@
+description: "Store analytics in Elasticsearch"
+group: analytics
+default: true
+from:
+  - elastic/elasticsearch/standalone
+vars:
+  elastic:
+    elasticsearch:
+      standalone:
+        imageTag:
+          default: "9.3.1"
+        imageRepository:
+          default: "docker.elastic.co/elasticsearch/elasticsearch"
+components:
+  - name: elasticsearch
+    namespace: gravitee
+    helm:
+      values:
+        service:
+          type: ClusterIP
+          nodePort: null
+  - name: apim
+    requires:
+      - component: elasticsearch
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: elasticsearch-master
+        timeout: 15m
+    helm:
+      values:
+        es:
+          endpoints:
+            - http://elasticsearch-master:9200
+        gateway:
+          reporters:
+            elasticsearch:
+              enabled: true

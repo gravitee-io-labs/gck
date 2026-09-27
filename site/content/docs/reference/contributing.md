@@ -73,7 +73,7 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 feat: add DNS wildcard support
 fix: expand env vars in fromFile paths
 docs: document values deep merge behavior
-refactor: reorganize APIM registry under oss/ee groups
+refactor: flatten Gravitee registry paths
 style: improve terminal output
 ```
 
@@ -86,46 +86,25 @@ style: improve terminal output
 ## Registry structure
 
 The registry is a tree of **context** directories under `registry/`, following
-the convention `org/edition/product/variant`:
+the convention `org/product/variant`:
 
 ```
 registry/
 ├── elastic/
 │   └── elasticsearch/          # standalone context
 ├── gravitee-io/
-│   ├── oss/
-│   │   ├── am/
-│   │   │   ├── base/           # abstract shared config
-│   │   │   ├── mongodb/        # concrete variant
-│   │   │   └── jdbc/
-│   │   │       ├── base/       # abstract JDBC config
-│   │   │       ├── postgres/   # concrete variant
-│   │   │       └── mysql/      # concrete variant
-│   │   ├── apim/
-│   │   │   ├── base/           # abstract shared config
-│   │   │   ├── dbless/
-│   │   │   ├── gateway/
-│   │   │   ├── mongodb/        # concrete variant
-│   │   │   ├── jdbc/
-│   │   │   │   ├── base/       # abstract JDBC config
-│   │   │   │   ├── postgres/   # concrete variant
-│   │   │   │   ├── mysql/      # concrete variant
-│   │   │   │   └── mssql/      # concrete variant
-│   │   │   └── opensearch/
-│   │   │       ├── base/       # abstract OpenSearch config
-│   │   │       └── mongodb/    # concrete variant
-│   │   └── gko/                # standalone GKO deployment
-│   ├── internal/
-│   │   └── mockpit/            # abstract, CI-only: Cockpit mock for multi-tenant AM and APIM
-│   └── ee/
-│       ├── apim/
-│       │   ├── base/           # abstract EE config (flags: Kafka, Alert Engine)
-│       │   ├── mongodb/        # concrete variant
-│       │   └── jdbc/
-│       │       ├── postgres/   # concrete variant
-│       │       ├── mysql/      # concrete variant
-│       │       └── mssql/      # concrete variant
-│       └── edge-stack/         # Ambassador Edge Stack
+│   ├── am/                     # concrete; datasource picked with --use-* alternatives
+│   │   └── base/               # abstract shared config, license
+│   ├── apim/                   # concrete; datasource (or DB-less) and analytics picked with --use-*,
+│   │   │                       #   licensed features as flags (--enable-kafka-gateway, --enable-alert-engine)
+│   │   ├── base/               # abstract shared config, license
+│   │   └── kafka-gateway/      # abstract, composed by --enable-kafka-gateway
+│   ├── gateway-api/            # GKO as a Gateway API controller
+│   ├── gko/                    # standalone GKO deployment
+│   ├── gamma/                  # composes am, pinned to MongoDB
+│   ├── edge-stack/             # Ambassador Edge Stack
+│   └── internal/
+│       └── mockpit/            # abstract, CI-only: Cockpit mock for multi-tenant AM and APIM
 ├── kafka/
 │   └── standalone/
 ├── keycloak/
@@ -143,21 +122,25 @@ registry/
 | File | Purpose |
 |---|---|
 | `gck.yaml` | Component definitions, Helm repos, Kind config, features, images |
-| `gck--{flag}.yaml` | Context flag patch file (optional, see [Context flags](#context-flags)) |
+| `gck--{flag}.yaml` | Context flag patch file, or an alternative when named `gck--use-{member}.yaml` (optional, see [Context flags](#context-flags) and [Alternatives](#alternatives)) |
 | `README.md` | Human-readable documentation with Hugo YAML frontmatter |
 | `notes.create` | Endpoints and instructions merged into what `gck create` prints (see [notes.create](#notescreate)) |
 | `.default` | Points to the default child variant (one variant name per file) |
 
 ### `.default` files
 
-When a user specifies a partial path (e.g. `gravitee-io/oss/apim`), gck walks
+When a user specifies a partial path (e.g. `postgresql`), gck walks
 `.default` files to resolve the full path. Each `.default` file contains a
 single line with the name of the default child directory:
 
 ```
-# registry/gravitee-io/oss/apim/.default
-postgres
+# registry/postgresql/.default
+standalone
 ```
+
+A directory with its own `gck.yaml` is a context: gck resolves it directly and
+ignores any `.default` next to it, even when it also holds child contexts
+(`gravitee-io/apim` holds `base/` and `gateway/`).
 
 ## Authoring a good context
 
@@ -282,9 +265,10 @@ each context's body under its own title. This is why a context declares only
 what it owns:
 
 - Write the note where the port is mapped, **including in an abstract base**.
-  `gravitee-io/oss/apim/base` declares the APIM rows once; `apim/jdbc/postgres`
-  has no `notes.create` at all and still prints them, alongside PostgreSQL's and
-  Elasticsearch's.
+  `gravitee-io/apim/base` declares the APIM rows once; `gravitee-io/apim`
+  has no `notes.create` at all and still prints them, alongside the rows of the
+  datasource and analytics backend its alternatives compose (PostgreSQL's and
+  Elasticsearch's by default).
 - Do not repeat a parent's endpoints, and do not open with "Your cluster is
   ready" -- gck prints that line itself.
 
@@ -315,10 +299,10 @@ API"; composing them collapsed the two into one row, which is why they are now
 "APIM API" and "AM API".
 
 A later context replaces an inherited row by declaring the same `name` --
-`gravitee-io/ee/gamma` restates `AM Console` with a hostname instead of a host
-port. Setting `when: false` on the replacement hides the row instead, which is
-how `gravitee-io/oss/apim/dbless` suppresses the console and portal it does not
-deploy. Prose bodies work the same way, keyed by `title`.
+`gravitee-io/gamma` restates `AM Console` with a hostname instead of a host
+port. Setting `when: false` on the replacement hides the row instead, for a
+service a later layer stops exposing. Prose bodies work the same way, keyed by
+`title`.
 
 #### Conditional endpoints
 
@@ -429,7 +413,7 @@ contexts:
 from:
   - mongodb/standalone
   - elastic/elasticsearch/standalone
-  - gravitee-io/oss/apim/base
+  - gravitee-io/apim/base
 ```
 
 When a child needs a different default for a parent's variable (e.g. a
@@ -505,9 +489,28 @@ components:
     k8s:
       secrets:
         - name: gravitee-license
-          fromFile: '{{ env "HOME" }}/opt/gravitee/license.key'
+          fromFile: "{{ .licenseFile }}"
           onMissing: ignore
 ```
+
+Secrets and config maps merge **by name** across the composition, so a later
+layer can redeclare one to change it. A flag for a feature that cannot work
+without the file redeclares it with `onMissing: fail`:
+
+```yaml
+# gck--enable-kafka-gateway.yaml
+components:
+  - name: license
+    k8s:
+      secrets:
+        - name: gravitee-license
+          fromFile: "{{ .licenseFile }}"
+          onMissing: fail
+```
+
+`gck create` (and `gck patch`) check every resource that is not `ignore`
+before touching the cluster, so a missing file or env var stops the command
+in seconds instead of halfway through the install.
 
 ### Context flags
 
@@ -530,15 +533,27 @@ components:
 **Naming convention**: flag names must be lowercase kebab-case
 (`^[a-z0-9]+(-[a-z0-9]+)*$`). The `description` field is required
 and is displayed on the registry site and in validation output.
-Use the `disable-` prefix for flags that remove a default component
-(e.g. `--disable-es`, `--disable-portal`) and the `enable-` prefix for
-flags that add an optional component that is off by default
-(e.g. `--enable-hc-vault`).
+Use the `disable-` prefix for flags that remove a default feature
+(e.g. `--disable-analytics`, `--disable-portal`) and the `enable-` prefix for
+flags that add an optional feature that is off by default
+(e.g. `--enable-hc-vault`). The `use-` prefix is reserved for
+[alternatives](#alternatives).
 
 **Inheritance**: flags placed on an abstract context are automatically
 inherited by every concrete context that composes from it via `from`.
 A child can override an inherited flag by providing its own file with
 the same name.
+
+**Requirements**: a flag that only makes sense with a given implementation
+lists it in `requires`. gck refuses the flag when a required flag or
+alternative is not active:
+
+```yaml
+# gck--enable-kibana.yaml
+description: "Deploy Kibana alongside Elasticsearch"
+requires:
+  - use-elasticsearch
+```
 
 Flags can also fully exclude a component from deployment by setting
 `enabled: false`. Any `requires` entries referencing a disabled
@@ -550,18 +565,147 @@ components:
     enabled: false
 ```
 
-**When to use flags vs separate contexts**:
+### Alternatives
 
-- **Can a user toggle this on or off without changing the stack's identity?** Use a **flag**. Examples: `--disable-es` disables Elasticsearch, `--disable-portal` hides the portal UI, `--enable-hc-vault` adds a HashiCorp Vault instance. The stack is still "APIM with Postgres" regardless.
-- **Does this change the storage backend, networking model, or deployment topology?** Use a **separate context directory**. Examples: `mongodb/` vs `jdbc/` (different persistence models), `dbless/` vs `gateway/` (fundamentally different gateway modes).
-- **Is there shared config used by multiple sibling variants?** Extract it into an **abstract base** (`abstract: true`) and have variants compose from it via `from`. Example: `oss/apim/base/` holds the shared Helm repo, component skeleton, and port mappings; `oss/apim/jdbc/base/` adds JDBC persistence; `oss/apim/jdbc/postgres/` and `oss/apim/jdbc/mysql/` extend it with database-specific config.
-- **Does a feature layer apply across multiple existing contexts?** Create a **composable abstract context** that stacks on top via `from`, using flags for optional features. Example: `ee/apim/base/` adds Kafka Gateway and license handling with flags for Alert Engine; `ee/apim/mongodb/` and `ee/apim/jdbc/postgres/` compose it with the corresponding OSS DB context.
+An alternative is a flag that picks one implementation among several: the
+datasource, the analytics backend. The members of a group are mutually
+exclusive, and exactly one is always applied -- the default when the user
+passes none. Name the file `gck--use-{member}.yaml` and declare its `group`;
+mark one member of each group `default: true`:
+
+```yaml
+# registry/gravitee-io/apim/gck--use-jdbc-mysql.yaml
+description: "Store APIM data in MySQL over JDBC"
+group: datasource
+from:
+  - mysql/standalone
+vars:
+  mysql:
+    standalone:
+      imageTag:
+        default: "8.0"
+  jdbcUrl:
+    default: "jdbc:mysql://mysql:3306/gravitee"
+    description: "JDBC connection URL"
+components:
+  - name: apim
+    helm:
+      values:
+        management:
+          type: jdbc
+        jdbc:
+          url: "{{ .jdbcUrl }}"
+```
+
+An alternative may declare `from` (so may a plain flag, see below): selecting it composes
+those contexts ahead of the declaring context's own `from`, and its `vars`
+(including path-scoped overrides for those parents) join the context's. The
+result is exactly what a dedicated variant context with
+`from: [mysql/standalone, <the context's from>...]` would have produced. The
+members that are not selected are never composed, so there is nothing to
+undo.
+
+Alternatives are applied while the context is resolved, before plain flags.
+A plain flag therefore always wins over the selected implementation:
+`--disable-analytics` turns analytics off whichever `--use-*` analytics
+backend is selected.
+
+Rules, enforced by `gck validate` and at resolution:
+
+- `use-*` files must declare a `group`; other flag files must not declare
+  `group`, `default` or `implies`.
+- Only plain flags may declare `requires`, `conflicts` or `disables`.
+- Each group has exactly one `default: true` member in the context that
+  declares it.
+- A context cannot redeclare an alternative, or a group, that it inherits.
+
+**Flags that compose**: a plain flag may declare `from` too. While it is
+active, its contexts are composed ahead of the declaring context (after the
+selected alternatives'), and its path-scoped var overrides reach them; its own
+patch is still applied with the other flags, after resolution. Keep values
+that override the declaring context's in the flag's patch: a composed parent
+merges *before* the context and would lose to it.
+
+**Cascading**: when a member makes other features meaningless, say so in the
+files rather than leaving users to pass the right flags:
+
+- `implies` on an alternative turns plain flags on whenever it is selected, as
+  if the user had passed them. The flags are applied, saved with the cluster,
+  and visible to `hasFlag` in notes.
+- `disables` on a plain flag switches alternative groups off: no member of the
+  group is composed while the flag is in force, so nothing it brings (a
+  datastore, its host port, its notes) remains.
+- `conflicts` on a plain flag lists flags or alternatives it cannot be combined
+  with; gck refuses the combination.
+
+APIM without a database is the canonical example. `--use-dbless` implies the
+flags that remove what has no datasource to run on, and `disable-analytics`
+takes the whole analytics group with it:
+
+```yaml
+# registry/gravitee-io/apim/gck--use-dbless.yaml
+description: "No datasource: the gateway runs DB-less, configured from Kubernetes resources through GKO"
+group: datasource
+from:
+  - gravitee-io/gko
+implies:
+  - disable-ui
+  - disable-analytics
+```
+
+```yaml
+# registry/gravitee-io/apim/gck--disable-analytics.yaml
+description: "Disable analytics: no Elasticsearch or OpenSearch, no analytics reporters"
+disables:
+  - analytics
+```
+
+```yaml
+# registry/gravitee-io/apim/base/gck--enable-bridge.yaml
+description: "Enable bridge architecture: management API serves as bridge, gateway syncs through it"
+conflicts:
+  - use-dbless
+```
+
+Alternative files are rendered with the composition's effective vars, like
+plain flag files, so a member can use a var its context inherits (e.g.
+`{{ .imagePrefix }}` from `apim/base`). Their `from` is read before
+templating and must be literal.
+
+**Pinning**: a context that composes another and only works with one of its
+alternatives pins it with `use`. The group is no longer offered to users of
+the composing context, and passing another member is an error:
+
+```yaml
+# registry/gravitee-io/gamma/gck.yaml
+from:
+  - gravitee-io/am
+  - elastic/elasticsearch/standalone
+use:
+  - mongodb
+```
+
+Users select alternatives on the command line, or with `use` in their own
+`gck.yaml`:
+
+```bash
+gck create --from gravitee-io/apim --use-mongodb --use-opensearch
+```
+
+### Flags, alternatives or separate contexts
+
+- **Can a user toggle this on or off without changing the stack's identity?** Use a **flag**. Examples: `--disable-analytics` turns analytics off, `--disable-portal` hides the portal UI, `--enable-hc-vault` adds a HashiCorp Vault instance.
+- **Does it swap one implementation of something the stack always has for another?** Use an **alternative group** on the product context. Examples: the APIM datasource (`--use-jdbc-postgres`, `--use-mongodb`, ...) and analytics backend (`--use-elasticsearch`, `--use-opensearch`). Do not create one context directory per backend.
+- **Does it change the deployment topology or networking model?** Use a **separate context directory**. Example: `gateway-api/` runs GKO as a Gateway API controller instead of the APIM chart. Running APIM without a database is not one: it is the `--use-dbless` member of the `datasource` group.
+- **Is there shared config used by multiple sibling contexts?** Extract it into an **abstract base** (`abstract: true`) and have them compose from it via `from`. Example: `apim/base/` holds the shared Helm repo, component skeleton, port mappings, license and flags of `apim`.
+- **Does an optional feature need other contexts (a broker, a datastore)?** Use a **flag that declares `from`**: when the flag is active, those contexts are composed ahead of the declaring context, exactly as for an alternative, and the flag's own patch is applied afterwards. Example: `--enable-kafka-gateway` composes `kafka/standalone` and the abstract `apim/kafka-gateway` (the notes and the TLS secret), and patches the gateway itself.
+- **Is it a licensed or edition-only feature?** Use a **flag** too, not an `ee/`-style directory: the edition is a property of the deployment, not of the path.
 - **When in doubt**: prefer a flag. Flags are cheaper to add, don't create new directories, and inherit automatically through `from`. A flag can always be promoted to a separate context later if the divergence grows.
 
 Users activate flags on the command line:
 
 ```bash
-gck create --from gravitee-io/oss/apim --disable-portal --enable-hc-vault
+gck create --from gravitee-io/apim --disable-portal --enable-hc-vault
 ```
 
 ## Template variables
@@ -595,13 +739,15 @@ gck create --set imageTag=4.12.0
 ### Path-scoped overrides
 
 A child context can override a parent's variables by nesting them under
-the parent's registry path segments in its own `vars` block:
+the parent's registry path segments in its own `vars` block. The same works
+in an alternative for the contexts its `from` brings in:
 
 ```yaml
-# gravitee-io/oss/am/jdbc/mysql/gck.yaml
+# gravitee-io/am/gck--use-jdbc-mysql.yaml
+description: "Store AM data in MySQL over JDBC"
+group: datasource
 from:
   - mysql/standalone
-  - gravitee-io/oss/am/jdbc/base
 
 vars:
   jdbcDriver:
@@ -625,10 +771,10 @@ matching:
 
 ```bash
 # Override mysql/standalone's imageTag only
-gck create --from gravitee-io/oss/am/jdbc/mysql --set mysql.standalone.imageTag=8.4
+gck create --from gravitee-io/am --use-jdbc-mysql --set mysql.standalone.imageTag=8.4
 
 # Broadcast to all contexts declaring imageTag
-gck create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
+gck create --from gravitee-io/am --use-jdbc-mysql --set imageTag=4.6.0
 ```
 
 ### Conventions

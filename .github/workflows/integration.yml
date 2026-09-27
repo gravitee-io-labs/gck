@@ -22,7 +22,7 @@ jobs:
           restore-keys: gck-mirrors-
 
       - name: Create cluster
-        run: ./gck create --config gck.local.yaml --from gravitee-io/oss/apim/dbless
+        run: ./gck create --config gck.local.yaml --from gravitee-io/apim --use-dbless
 
       - name: Verify
         run: ./gck describe gravitee
