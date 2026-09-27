@@ -40,7 +40,7 @@ func TestCompose_MergesEndpointsFromEveryLayer(t *testing.T) {
 func TestCompose_LaterLayerReplacesRowInPlace(t *testing.T) {
 	out := compose(t, []Layer{
 		layer("am/base", "---\nendpoints:\n  - name: AM Console\n    url: http://localhost:30090\n  - name: AM API\n    url: http://localhost:30093\n---\n"),
-		layer("ee/gamma", "---\nendpoints:\n  - name: AM Console\n    url: http://am-console.gck.local\n---\n"),
+		layer("acme/suite", "---\nendpoints:\n  - name: AM Console\n    url: http://am-console.gck.local\n---\n"),
 	}, nil)
 
 	if strings.Contains(out, "localhost:30090") {
@@ -57,7 +57,7 @@ func TestCompose_LaterLayerReplacesRowInPlace(t *testing.T) {
 func TestCompose_LaterLayerHidesInheritedRow(t *testing.T) {
 	out := compose(t, []Layer{
 		layer("kafka/standalone", "---\nendpoints:\n  - name: Kafka\n    url: localhost:30092\n---\n"),
-		layer("ee/apim/base", "---\nendpoints:\n  - name: Kafka\n    when: false\n---\n"),
+		layer("acme/app/base", "---\nendpoints:\n  - name: Kafka\n    when: false\n---\n"),
 	}, nil)
 
 	if strings.Contains(out, "Kafka") {
@@ -100,7 +100,7 @@ func TestMerge_RowsCarryTheirOrigin(t *testing.T) {
 func TestMerge_ReplacedRowTakesTheReplacingOrigin(t *testing.T) {
 	merged, err := Merge([]Layer{
 		layer("am/base", "---\nendpoints:\n  - name: AM Console\n    url: http://localhost:30090\n---\n"),
-		layer("ee/gamma", "---\nendpoints:\n  - name: AM Console\n    url: http://am-console.gck.local\n---\n"),
+		layer("acme/suite", "---\nendpoints:\n  - name: AM Console\n    url: http://am-console.gck.local\n---\n"),
 	}, nil, nil)
 	if err != nil {
 		t.Fatalf("Merge: %v", err)
@@ -109,7 +109,7 @@ func TestMerge_ReplacedRowTakesTheReplacingOrigin(t *testing.T) {
 	if len(merged.Endpoints) != 1 {
 		t.Fatalf("expected one row, got %+v", merged.Endpoints)
 	}
-	if got := merged.Endpoints[0].Origin; got != "ee/gamma" {
+	if got := merged.Endpoints[0].Origin; got != "acme/suite" {
 		t.Errorf("origin = %q, want ee/gamma -- the layer that supplied the content", got)
 	}
 }
@@ -135,7 +135,7 @@ func TestMerge_VisibleEndpointsAppliesGuards(t *testing.T) {
 func TestCompose_BodyReplacedBySameTitle(t *testing.T) {
 	out := compose(t, []Layer{
 		layer("kafka/standalone", "---\ntitle: Kafka\n---\nconnect with kcat"),
-		layer("ee/apim/base", "---\ntitle: Kafka\n---\nconnect through the gateway"),
+		layer("acme/app/base", "---\ntitle: Kafka\n---\nconnect through the gateway"),
 	}, nil)
 
 	if strings.Contains(out, "kcat") {

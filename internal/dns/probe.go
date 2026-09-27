@@ -14,7 +14,7 @@ import (
 const (
 	// probeLabel stands in for the first label of a wildcard record. Lookup
 	// (records.go) replaces the first label with "*" before matching, so a
-	// wildcard like "*.kafka.gck.local" is never itself a queryable name —
+	// wildcard like "*.app.gck.local" is never itself a queryable name —
 	// something has to occupy that position. Fixed rather than random so the
 	// log line is stable between runs.
 	probeLabel = "gck-probe"

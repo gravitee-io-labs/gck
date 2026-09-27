@@ -96,7 +96,7 @@ func TestSaveAndLoadSetAndFlags(t *testing.T) {
 	cs := &ClusterState{
 		Name:      "gio-apim",
 		CreatedAt: time.Date(2026, 3, 18, 14, 0, 0, 0, time.UTC),
-		Flags:     []string{"disable-es", "disable-portal"},
+		Flags:     []string{"disable-metrics", "disable-portal"},
 		Set:       map[string]string{"imagePrefix": "graviteeio.azurecr.io", "imageTag": "4.11.x-latest"},
 	}
 
@@ -109,8 +109,8 @@ func TestSaveAndLoadSetAndFlags(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if len(loaded.Flags) != 2 || loaded.Flags[0] != "disable-es" || loaded.Flags[1] != "disable-portal" {
-		t.Errorf("Flags = %v, want [disable-es disable-portal]", loaded.Flags)
+	if len(loaded.Flags) != 2 || loaded.Flags[0] != "disable-metrics" || loaded.Flags[1] != "disable-portal" {
+		t.Errorf("Flags = %v, want [disable-metrics disable-portal]", loaded.Flags)
 	}
 	if loaded.Set["imagePrefix"] != "graviteeio.azurecr.io" {
 		t.Errorf("Set[imagePrefix] = %q, want graviteeio.azurecr.io", loaded.Set["imagePrefix"])

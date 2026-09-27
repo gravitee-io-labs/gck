@@ -1104,127 +1104,126 @@ components: []
 	}
 }
 
-// TestFSResolver_NamespacePropagatesThroughAbstractComposition mirrors the
-// real ee/kafka composition chain:
+// TestFSResolver_NamespacePropagatesThroughAbstractComposition covers a
+// namespace set by an abstract context reaching a component it composes:
 //
-//	kafka/standalone (type: k8s, no namespace)
+//	broker/standalone (type: k8s, no namespace)
 //	  ↑ from
-//	ee/kafka/base (abstract, sets kafka namespace: gravitee)
-//	  ↑ from (with oss/jdbc/postgres)
-//	ee/kafka/jdbc/postgres (concrete, via .default chain)
+//	suite/streaming/base (abstract, sets broker namespace: acme)
+//	  ↑ from (with app/postgres)
+//	suite/streaming/postgres (concrete, via .default chain)
 //	  ↑ .default
-//	ee/kafka
+//	suite/streaming
 //
-// The test asserts the kafka component in the final resolved context has
-// namespace "gravitee".
+// The test asserts the broker component in the final resolved context has
+// namespace "acme".
 func TestFSResolver_NamespacePropagatesThroughAbstractComposition(t *testing.T) {
 	root := t.TempDir()
 	gckHome := t.TempDir()
 
-	writeFile(t, filepath.Join(root, "kafka", "standalone", "gck.yaml"), `
+	writeFile(t, filepath.Join(root, "broker", "standalone", "gck.yaml"), `
 components:
-  - name: kafka
+  - name: broker
     type: k8s
     k8s:
       manifests:
         - apiVersion: apps/v1
           kind: Deployment
           metadata:
-            name: kafka
+            name: broker
             labels:
-              app: kafka
+              app: broker
           spec:
             replicas: 1
             selector:
               matchLabels:
-                app: kafka
+                app: broker
             template:
               metadata:
                 labels:
-                  app: kafka
+                  app: broker
               spec:
                 containers:
-                  - name: kafka
-                    image: apache/kafka:latest
+                  - name: broker
+                    image: acme/broker:latest
         - apiVersion: v1
           kind: Service
           metadata:
-            name: kafka
+            name: broker
           spec:
             type: NodePort
             ports:
               - port: 9092
             selector:
-              app: kafka
+              app: broker
 `)
 
-	writeFile(t, filepath.Join(root, "oss", "postgres", "gck.yaml"), `
+	writeFile(t, filepath.Join(root, "app", "postgres", "gck.yaml"), `
 components:
-  - name: apim
+  - name: app
     helm:
-      chart: graviteeio/apim3
+      chart: acme/app
 `)
 
-	writeFile(t, filepath.Join(root, "ee", "kafka", "base", "gck.yaml"), `
+	writeFile(t, filepath.Join(root, "suite", "streaming", "base", "gck.yaml"), `
 abstract: true
 from:
-  - kafka/standalone
+  - broker/standalone
 components:
-  - name: kafka
-    namespace: gravitee
+  - name: broker
+    namespace: acme
     k8s:
       manifests:
         - apiVersion: v1
           kind: Service
           metadata:
-            name: kafka
+            name: broker
           spec:
             type: ClusterIP
             ports:
               - port: 9092
             selector:
-              app: kafka
-  - name: apim
+              app: broker
+  - name: app
     helm:
       values:
-        gateway:
-          kafka:
-            enabled: true
+        broker:
+          enabled: true
 `)
 
-	writeFile(t, filepath.Join(root, "ee", "kafka", "postgres", "gck.yaml"), `
+	writeFile(t, filepath.Join(root, "suite", "streaming", "postgres", "gck.yaml"), `
 from:
-  - oss/postgres
-  - ee/kafka/base
+  - app/postgres
+  - suite/streaming/base
 `)
 
-	writeFile(t, filepath.Join(root, "ee", "kafka", ".default"), `postgres`)
+	writeFile(t, filepath.Join(root, "suite", "streaming", ".default"), `postgres`)
 
 	resolver := &FSResolver{Root: root, GckHome: gckHome}
-	resolved, err := resolver.Resolve(context.Background(), "ee/kafka")
+	resolved, err := resolver.Resolve(context.Background(), "suite/streaming")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var kafkaComp *config.Component
+	var brokerComp *config.Component
 	for i := range resolved.Components {
-		if resolved.Components[i].Name == "kafka" {
-			kafkaComp = &resolved.Components[i]
+		if resolved.Components[i].Name == "broker" {
+			brokerComp = &resolved.Components[i]
 			break
 		}
 	}
-	if kafkaComp == nil {
-		t.Fatal("kafka component not found in resolved context")
+	if brokerComp == nil {
+		t.Fatal("broker component not found in resolved context")
 	}
-	if kafkaComp.Namespace != "gravitee" {
-		t.Fatalf("expected kafka namespace %q, got %q", "gravitee", kafkaComp.Namespace)
+	if brokerComp.Namespace != "acme" {
+		t.Fatalf("expected broker namespace %q, got %q", "acme", brokerComp.Namespace)
 	}
-	if kafkaComp.K8s == nil {
-		t.Fatal("expected kafka component to have K8s spec")
+	if brokerComp.K8s == nil {
+		t.Fatal("expected broker component to have K8s spec")
 	}
 
 	foundClusterIP := false
-	for _, m := range kafkaComp.K8s.Manifests {
+	for _, m := range brokerComp.K8s.Manifests {
 		if m["kind"] == "Service" {
 			spec, _ := m["spec"].(map[string]interface{})
 			if spec != nil && spec["type"] == "ClusterIP" {
@@ -1233,7 +1232,7 @@ from:
 		}
 	}
 	if !foundClusterIP {
-		t.Fatal("expected kafka Service to be overridden to ClusterIP")
+		t.Fatal("expected broker Service to be overridden to ClusterIP")
 	}
 }
 

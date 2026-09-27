@@ -658,18 +658,18 @@ func TestExtractActiveFlags_MultipleContextFlags(t *testing.T) {
 	available := []config.ContextFlag{
 		{Name: "disable-portal"},
 		{Name: "disable-ui"},
-		{Name: "disable-es"},
+		{Name: "disable-metrics"},
 	}
 
 	active, err := extractActiveFlags(
-		[]string{"gck", "create", "--disable-portal", "--disable-es"},
+		[]string{"gck", "create", "--disable-portal", "--disable-metrics"},
 		inherited, local, available,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(active) != 2 || active[0] != "disable-portal" || active[1] != "disable-es" {
-		t.Fatalf("expected [disable-portal disable-es], got %v", active)
+	if len(active) != 2 || active[0] != "disable-portal" || active[1] != "disable-metrics" {
+		t.Fatalf("expected [disable-portal disable-metrics], got %v", active)
 	}
 }
 

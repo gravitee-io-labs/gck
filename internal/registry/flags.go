@@ -176,7 +176,7 @@ func MergeFlags(base, child []config.ContextFlag) []config.ContextFlag {
 
 // flagMergeKey identifies a flag when flag lists are merged. A context
 // cannot redeclare an alternative it inherits, so two alternatives of the
-// same name come from two composed contexts (--use-mongodb of two
+// same name come from two composed contexts (--use-postgres of two
 // products), and both are kept.
 func flagMergeKey(f config.ContextFlag) string {
 	if f.IsAlternative() {

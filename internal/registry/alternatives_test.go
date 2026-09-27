@@ -394,21 +394,21 @@ default: true
 
 func TestAlternatives_InheritedByComposingContext(t *testing.T) {
 	root := writeAltRegistry(t)
-	writeFile(t, filepath.Join(root, "ee", "gck.yaml"), `
+	writeFile(t, filepath.Join(root, "variant", "gck.yaml"), `
 from:
   - product
 components:
-  - name: license
+  - name: extras
     helm:
-      chart: ee/license
+      chart: acme/extras
 `)
 
 	ctx := WithUse(context.Background(), []string{"use-mongo"})
-	resolved, err := (&FSResolver{Root: root}).Resolve(ctx, "ee")
+	resolved, err := (&FSResolver{Root: root}).Resolve(ctx, "variant")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got, want := componentNames(resolved), []string{"mongo", "app", "license"}; !reflect.DeepEqual(got, want) {
+	if got, want := componentNames(resolved), []string{"mongo", "app", "extras"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("components = %v, want %v", got, want)
 	}
 }
@@ -533,11 +533,11 @@ flags:
 	// The site publishes inherited flag files into every child directory and
 	// lists them in the child's manifest; the source keeps the child from
 	// applying the parent's alternatives a second time.
-	writeFile(t, filepath.Join(root, "ee", "gck.yaml"), `
+	writeFile(t, filepath.Join(root, "variant", "gck.yaml"), `
 from:
   - product
 `)
-	writeFile(t, filepath.Join(root, "ee", "gck.flags.yaml"), `
+	writeFile(t, filepath.Join(root, "variant", "gck.flags.yaml"), `
 flags:
   - name: enable-debug
     source: product
@@ -551,13 +551,13 @@ flags:
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, filepath.Join(root, "ee", name), string(data))
+		writeFile(t, filepath.Join(root, "variant", name), string(data))
 	}
 
 	srv := newTestServer(t, root)
 	resolver := newHTTPResolver(t, srv.URL)
 
-	resolved, err := resolver.Resolve(WithUse(context.Background(), []string{"use-mongo"}), "ee")
+	resolved, err := resolver.Resolve(WithUse(context.Background(), []string{"use-mongo"}), "variant")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

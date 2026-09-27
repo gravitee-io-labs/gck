@@ -53,8 +53,8 @@ components:
 
 func TestDiscoverFlags_MultipleFlags(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "gck--disable-es.yaml"), `
-description: "Disable Elasticsearch"
+	writeFile(t, filepath.Join(dir, "gck--disable-metrics.yaml"), `
+description: "Disable metrics"
 components: []
 `)
 	writeFile(t, filepath.Join(dir, "gck--disable-portal.yaml"), `
@@ -77,7 +77,7 @@ components: []
 	for i, f := range flags {
 		names[i] = f.Name
 	}
-	expected := []string{"disable-es", "disable-portal", "disable-ui"}
+	expected := []string{"disable-metrics", "disable-portal", "disable-ui"}
 	for i, name := range names {
 		if name != expected[i] {
 			t.Fatalf("expected sorted order %v, got %v", expected, names)
@@ -173,7 +173,7 @@ func TestMergeFlags_EmptyChild(t *testing.T) {
 func TestMergeFlags_ChildOverridesBase(t *testing.T) {
 	base := []config.ContextFlag{
 		{Name: "disable-portal", Description: "Base description", Dir: "/base"},
-		{Name: "disable-es", Description: "Disable ES", Dir: "/base"},
+		{Name: "disable-metrics", Description: "Disable metrics", Dir: "/base"},
 	}
 	child := []config.ContextFlag{
 		{Name: "disable-portal", Description: "Child description", Dir: "/child"},
@@ -188,8 +188,8 @@ func TestMergeFlags_ChildOverridesBase(t *testing.T) {
 	if result[0].Dir != "/child" {
 		t.Fatalf("expected child dir to win, got %q", result[0].Dir)
 	}
-	if result[1].Name != "disable-es" {
-		t.Fatalf("expected disable-es preserved, got %q", result[1].Name)
+	if result[1].Name != "disable-metrics" {
+		t.Fatalf("expected disable-metrics preserved, got %q", result[1].Name)
 	}
 }
 
@@ -324,13 +324,13 @@ components:
         portal:
           enabled: false
 `)
-	writeFile(t, filepath.Join(dir, "gck--disable-es.yaml"), `
-description: "Disable Elasticsearch"
+	writeFile(t, filepath.Join(dir, "gck--disable-metrics.yaml"), `
+description: "Disable metrics"
 components:
   - name: apim
     helm:
       values:
-        es:
+        metrics:
           enabled: false
 `)
 
@@ -341,31 +341,31 @@ components:
 				Helm: &config.HelmSpec{
 					Chart: "graviteeio/apim",
 					Values: map[string]interface{}{
-						"portal": map[string]interface{}{"enabled": true},
-						"es":     map[string]interface{}{"enabled": true},
+						"portal":  map[string]interface{}{"enabled": true},
+						"metrics": map[string]interface{}{"enabled": true},
 					},
 				},
 			},
 		},
 		Flags: []config.ContextFlag{
 			{Name: "disable-portal", Dir: dir},
-			{Name: "disable-es", Dir: dir},
+			{Name: "disable-metrics", Dir: dir},
 		},
 	}
 
-	err := ApplyFlags(resolved, []string{"disable-portal", "disable-es"}, nil)
+	err := ApplyFlags(resolved, []string{"disable-portal", "disable-metrics"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	vals := resolved.Components[0].Helm.Values
 	portal, _ := vals["portal"].(map[string]interface{})
-	es, _ := vals["es"].(map[string]interface{})
+	metrics, _ := vals["metrics"].(map[string]interface{})
 	if portal["enabled"] != false {
 		t.Fatalf("expected portal disabled, got %v", portal["enabled"])
 	}
-	if es["enabled"] != false {
-		t.Fatalf("expected es disabled, got %v", es["enabled"])
+	if metrics["enabled"] != false {
+		t.Fatalf("expected metrics disabled, got %v", metrics["enabled"])
 	}
 }
 
@@ -466,7 +466,7 @@ func TestFlagNameFromFile_Valid(t *testing.T) {
 	}{
 		{"gck--disable-portal.yaml", "disable-portal"},
 		{"gck--disable-ui.yaml", "disable-ui"},
-		{"gck--disable-es.yaml", "disable-es"},
+		{"gck--disable-metrics.yaml", "disable-metrics"},
 		{"gck--debug.yaml", "debug"},
 		{"gck--v2.yaml", "v2"},
 		{"gck--my-long-flag-name.yaml", "my-long-flag-name"},

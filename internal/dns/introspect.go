@@ -389,9 +389,9 @@ func introspectRESTConfig(clusterName string) (*rest.Config, error) {
 // failing with a bind error that has nothing to do with the cause.
 //
 // The hostnames come from every HTTPRoute in the cluster, which means they come
-// from Helm charts as much as from gck — graviteeio/apim renders
-// apim.example.com as its placeholder host, and no registry context can declare
-// its way out of that. Wildcards ("*.kafka.gck.local") match on the suffix like
+// from Helm charts as much as from gck — a chart can render app.example.com as
+// its placeholder host, and no registry context can declare its way out of
+// that. Wildcards ("*.app.gck.local") match on the suffix like
 // any other name.
 func inDomain(hostname, domain string) bool {
 	h := strings.ToLower(strings.TrimSuffix(hostname, "."))

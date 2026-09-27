@@ -569,9 +569,9 @@ func TestExtractVarsTree_Mixed(t *testing.T) {
 
 func TestExtractVarsTree_DeepPath(t *testing.T) {
 	raw := []byte(`vars:
-  gravitee-io:
-    oss:
-      apim:
+  acme:
+    suite:
+      app:
         base:
           imageTag:
             default: "4.6.0"
@@ -584,8 +584,8 @@ func TestExtractVarsTree_DeepPath(t *testing.T) {
 		t.Fatalf("expected 1 override, got %d", len(tree.Overrides))
 	}
 	o := tree.Overrides[0]
-	if o.ContextPath != "gravitee-io/oss/apim/base" {
-		t.Errorf("expected path gravitee-io/oss/apim/base, got %q", o.ContextPath)
+	if o.ContextPath != "acme/suite/app/base" {
+		t.Errorf("expected path acme/suite/app/base, got %q", o.ContextPath)
 	}
 	if o.Name != "imageTag" || o.Default != "4.6.0" {
 		t.Errorf("unexpected override: %+v", o)

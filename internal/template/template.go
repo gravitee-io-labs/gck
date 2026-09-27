@@ -54,7 +54,7 @@ func RenderWithVars(raw []byte, vars map[string]string) ([]byte, error) {
 }
 
 // renderVarValues renders the template expressions inside var values, so
-// that a default such as '{{ env "HOME" }}/opt/license.key' means what it
+// that a default such as '{{ env "HOME" }}/.config/app/key.pem' means what it
 // says: the document template receives var values as data, and would insert
 // the expression literally.
 //
