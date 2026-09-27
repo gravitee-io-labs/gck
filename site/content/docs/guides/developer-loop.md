@@ -91,7 +91,7 @@ gck build --no-restart aes
 
 ## Creating and building in one step
 
-If you don't have a cluster yet, `--create` creates one before building. When the cluster already exists, the flag is silently ignored:
+If you don't have a cluster yet, `--create` creates one before building, with the context flags passed to `build`. When the cluster already exists, the flag is silently ignored:
 
 ```bash
 gck build --create

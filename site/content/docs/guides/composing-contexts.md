@@ -56,7 +56,7 @@ Contexts in `from` are merged left-to-right: later entries override earlier ones
 
 ## Choosing a backend
 
-Product contexts offer their interchangeable backends as **alternatives**: `--use-*` flags grouped by concern, of which exactly one per group is applied. `gravitee-io/apim` offers a `datasource` group (PostgreSQL over JDBC by default, MySQL, MSSQL, MongoDB) and an `analytics` group (Elasticsearch by default, OpenSearch):
+Product contexts offer their interchangeable backends as **alternatives**: `--use-*` flags grouped by concern, of which exactly one per group is applied, unless a flag such as `--disable-analytics` switches the group off. `gravitee-io/apim` offers a `datasource` group (PostgreSQL over JDBC by default, MySQL, MSSQL, MongoDB) and an `analytics` group (Elasticsearch by default, OpenSearch):
 
 ```bash
 gck create --from gravitee-io/apim --use-mongodb --use-opensearch
@@ -400,7 +400,7 @@ Entries with a `default` key are var declarations; entries without are path segm
 
 ### How --set flows through composition
 
-Each context in the composition chain is rendered with its own effective vars: own defaults, overridden by child path-scoped overrides, overridden by `--set` (broadcast then scoped). Templates use short names (`{{ .imageTag }}`) -- a context's templates can only access its own vars.
+Each context in the composition chain is rendered with its own effective vars: own defaults, overridden by child path-scoped overrides, overridden by `--set` (broadcast then scoped). Templates use short names (`{{ .imageTag }}`) -- a context's `gck.yaml` can only access its own vars. Context flag files see more: an alternative also sees the vars of the contexts its context composes, and a plain flag's patch sees the vars of the whole composition.
 
 ### Template functions
 
@@ -445,8 +445,8 @@ When composing contexts or applying local overrides, gck merges fields following
 | `helm.values` | Deep-merged -- maps recurse, named lists merge by `name`, scalars replace |
 | `k8s.manifestFiles` | Your files are appended |
 | `k8s.manifests` | Union by resource identity; your version wins on conflict |
-| `k8s.secrets` | Your secrets are appended |
-| `k8s.configMaps` | Your configMaps are appended |
+| `k8s.secrets` | Merged by name: yours replaces the entry of the same name, new names are appended |
+| `k8s.configMaps` | Merged by name, as `k8s.secrets` |
 | `requires` | Your requirements are appended (deduplicated by component name) |
 | `conditions` | Your value wins if `ready` is true |
 | `selector` | Your value wins if set |
@@ -467,7 +467,7 @@ gck create \
 ```
 
 ```
-  Cluster "gravitee-apim" is ready.
+  Cluster "gravitee" is ready.
 
   Endpoints
 

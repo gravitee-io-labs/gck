@@ -8,7 +8,7 @@ tags: [networking]
 
 Deploys the Gravitee Kubernetes Operator (GKO) as a standalone Helm release.
 This context is designed to be used on its own for GKO development, or composed
-into other contexts via `from:` (such as `gateway`, or `gravitee-io/apim`
+into other contexts via `from:` (such as `gravitee-io/gateway-api`, or `gravitee-io/apim`
 with `--use-dbless`).
 
 ## Install gck

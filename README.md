@@ -59,7 +59,7 @@ go tool task site:build    # rebuild the doc site after registry/ or site/ chang
 
 ### Context maintainers
 
-Contexts live under `registry/` following the `org/edition/product/variant` convention. Each context has a `gck.yaml` describing Helm repos, components, and features. Refer to the [Context Format](https://gravitee-io-labs.github.io/gck/docs/reference/context-format/) and [AI Toolchain](https://gravitee-io-labs.github.io/gck/docs/guides/ai-toolchain/) docs for authoring guidelines.
+Contexts live under `registry/` following the `org/product/variant` convention. Each context has a `gck.yaml` describing Helm repos, components, and features. Refer to the [Context Format](https://gravitee-io-labs.github.io/gck/docs/reference/context-format/) and [AI Toolchain](https://gravitee-io-labs.github.io/gck/docs/guides/ai-toolchain/) docs for authoring guidelines.
 
 ## License
 

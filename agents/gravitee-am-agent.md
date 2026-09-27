@@ -28,5 +28,5 @@ Refer to this repository when you need to:
 - **Different JDBC Helm values** — AM uses `jdbc.driver` (short database identifier like `postgresql` or `mysql`), `jdbc.host`, `jdbc.port`, `jdbc.database`, and `jdbc.drivers` (array of JAR download URLs including R2DBC). APIM uses `jdbc.url` (full JDBC URL) and `jdbc.driver` (single JAR URL). Do not copy APIM's JDBC values structure into AM contexts.
 - **Image naming** — AM images use the `graviteeio/am-*` prefix (`am-gateway`, `am-management-api`, `am-management-ui`), not `apim-*`.
 - **Helm chart** — `graviteeio/am` (not `graviteeio/apim`).
-- **Port range** — AM uses NodePorts 30090--30093 (APIM uses 30080--30084). See the port allocation convention in CONTRIBUTING.md.
+- **Port range** — AM uses NodePorts 30090--30093 (APIM uses 30080--30085). See the port allocation convention in CONTRIBUTING.md.
 - **No portal** — AM has no developer portal component. The `--disable-portal` flag does not apply to AM contexts.

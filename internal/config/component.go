@@ -104,8 +104,8 @@ type ContextFlag struct {
 	Context string
 
 	// Group is set on alternatives (use-* flags): mutually exclusive
-	// implementations of the same concern, exactly one of which is always
-	// applied. Empty for plain flags.
+	// implementations of the same concern, exactly one of which is applied
+	// unless a plain flag in force disables the group. Empty for plain flags.
 	Group string
 	// Default marks the alternative applied when no member of its group is
 	// selected.

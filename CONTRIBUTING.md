@@ -303,7 +303,9 @@ service a later layer stops exposing. Prose bodies work the same way, keyed by
 #### Conditional endpoints
 
 `when` and the body are both rendered as Go templates with `hasFlag`, which
-returns `true` when the user passed the named [context flag](#context-flags):
+returns `true` when the named [context flag](#context-flags) is in force:
+passed by the user, implied by a selected alternative, or a selected
+alternative itself, defaults included (`hasFlag "use-mongodb"`):
 
 ```yaml
 endpoints:
@@ -342,18 +344,29 @@ composing multiple products or running them side by side:
 | Product / Context     | NodePort range  |
 |-----------------------|-----------------|
 | APIM                  | 30080--30085    |
+| Gamma (on APIM's range) | 30080--30086 (30085 Gamma UI, 30086 Edge Gateway) |
 | AM                    | 30090--30093    |
+| Edge Stack            | 30080 / 30443   |
+| A2A Dummy             | 30803           |
 | Consul                | 30500           |
-| Grafana               | 30300           |
 | FastMCP test server   | 30800           |
 | fast-time-server      | 30801           |
+| Grafana               | 30300           |
+| httpbin               | 31880           |
+| Jaeger (UI)           | 30686           |
 | Keycloak              | 30880           |
+| Kibana / OpenSearch Dashboards | 30601  |
 | llm-d inference sim   | 30802           |
+| MailHog               | 30825 / 31025   |
 | MockServer            | 31080           |
 | OTLP (collector, Tempo, Jaeger) | 30317 (gRPC) / 30318 (HTTP) |
 | Prometheus            | 30909           |
 | Tempo (query API)     | 30200           |
-| Standalone databases  | 30000 + standard port (e.g. PostgreSQL 30432, MySQL 30306, MongoDB 30017, MSSQL 31433) |
+| Vault                 | 30820           |
+| Standalone data stores | 30000 + standard port (e.g. PostgreSQL 30432, MySQL 30306, MongoDB 30017, MSSQL 31433, Redis 30379, Kafka 30092, Elasticsearch 30920; OpenSearch takes 30921, next to Elasticsearch) |
+
+`gravitee-io/gateway-api` is the exception: its Gateway listens on host
+ports 80, 443 and 9092 directly.
 
 When adding a new product, pick the next available range and document it
 here. Last digits should match the internal container port where
@@ -361,10 +374,12 @@ practical (e.g. AM Gateway listens on 8092 → NodePort 30092).
 
 ### Kind cluster name
 
-Gravitee product contexts set `kind.name` to `gravitee-{product}` (e.g.
-`gravitee-apim`, `gravitee-am`). Variants inheriting from a base via
-`from` automatically get the base's `kind.name`, which is typically
-correct — only override it if the variant needs a separate cluster.
+Every context that declares a `kind:` block sets `kind.name` from a
+`clusterName` var. Gravitee contexts default it to `gravitee`, so composed
+Gravitee products share one cluster; other contexts default it to a short
+slug (`pg-standalone`, `kafka-standalone`). Variants inheriting from a base
+via `from` get the base's `clusterName`, which is typically correct — set
+it with `--set clusterName=...` to run two stacks side by side.
 
 ### Images
 
@@ -406,11 +421,15 @@ duplicating configuration. The `from` field composes one or more parent
 contexts:
 
 ```yaml
+# registry/gravitee-io/gamma/gck.yaml
 from:
-  - mongodb/standalone
+  - gravitee-io/am
   - elastic/elasticsearch/standalone
-  - gravitee-io/apim/base
 ```
+
+A product's interchangeable backends are not listed here: each
+[alternative](#alternatives) composes its own through `from`, so
+`gravitee-io/am` brings the datasource the user selects.
 
 When a child needs a different default for a parent's variable (e.g. a
 different image tag), use a path-scoped override in the child's `vars`
@@ -565,8 +584,8 @@ components:
 
 An alternative is a flag that picks one implementation among several: the
 datasource, the analytics backend. The members of a group are mutually
-exclusive, and exactly one is always applied -- the default when the user
-passes none. Name the file `gck--use-{member}.yaml` and declare its `group`;
+exclusive, and exactly one is applied -- the default when the user passes
+none -- unless a plain flag in force `disables` the group. Name the file `gck--use-{member}.yaml` and declare its `group`;
 mark one member of each group `default: true`:
 
 ```yaml
@@ -629,9 +648,9 @@ files rather than leaving users to pass the right flags:
   if the user had passed them. The flags can belong to the context or to one it
   composes. They are applied, saved with the cluster, and visible to `hasFlag`
   in notes.
-- `disables` on a plain flag switches alternative groups off: no member of the
-  group is composed while the flag is in force, so nothing it brings (a
-  datastore, its host port, its notes) remains.
+- `disables` on a plain flag switches alternative groups of the same context
+  off: no member of the group is composed while the flag is in force, so
+  nothing it brings (a datastore, its host port, its notes) remains.
 - `conflicts` on a plain flag lists flags or alternatives it cannot be combined
   with; gck refuses the combination.
 

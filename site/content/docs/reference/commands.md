@@ -49,7 +49,7 @@ See [Context Format -- Context flags]({{< ref "/docs/reference/context-format#co
 gck create --from gravitee-io/apim --use-mongodb --use-opensearch
 ```
 
-Passing two members of the same group fails (`--use-mongodb and --use-jdbc-mysql are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members; a `--use-*` flag on the command line overrides the file's member of its group. A member is selected by name in every group that has one: composing `gravitee-io/apim` and `gravitee-io/am`, whose `datasource` groups both offer MongoDB, `--use-mongodb` puts both on it.
+Passing two members of the same group fails (`--use-jdbc-mysql and --use-mongodb are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members; a `--use-*` flag on the command line overrides the file's member of its group. A member is selected by name in every group that has one: composing `gravitee-io/apim` and `gravitee-io/am`, whose `datasource` groups both offer MongoDB, `--use-mongodb` puts both on it.
 
 A member can turn other flags on. `--use-dbless` runs the APIM gateway without a database and implies `--disable-ui` and `--disable-analytics`, so no console, portal or Elasticsearch is deployed; flags that need the management API, such as `--enable-bridge`, fail alongside it. `gck info` marks implied and conflicting flags for the current selection.
 
@@ -142,7 +142,7 @@ Build entries are defined in the `builds` section of `gck.yaml`. When called wit
 
 | Flag | Description |
 |------|-------------|
-| `--create` | Create the cluster if it doesn't exist, then build. Context flags are forwarded to the creation step. |
+| `--create` | Create the cluster if it doesn't exist, then build. The context flags and `--use-*` alternatives passed to `build` apply to that creation. With an existing cluster, `--create` and the context flags have no effect. |
 | `--skip-pre` | Skip pre-build commands (`pre`), go straight to `docker build`. |
 | `--no-restart` | Build and push but don't restart workloads. |
 | `--name <cluster>` | Target a specific cluster. Defaults to `kind.name` from the resolved config. |
@@ -244,7 +244,7 @@ components:
 
 ### Set-only mode
 
-When the registry context uses template variables (see [Composing Contexts -- Template variable overrides]({{< ref "/docs/guides/composing-contexts#template-variable-overrides" >}})), you can upgrade without a patch file by passing new `--set` values:
+When the registry context uses template variables (see [Composing Contexts -- Overriding variables]({{< ref "/docs/guides/composing-contexts#overriding-variables" >}})), you can upgrade without a patch file by passing new `--set` values:
 
 ```bash
 # Create the cluster at version 4.10
@@ -365,9 +365,9 @@ Shows a table with the cluster name, creation date, context paths, active contex
 ### Example output
 
 ```
-NAME                 CREATED            FROM                   FLAGS                                                   STATUS
-kind-gravitee-apim   2026-03-23 14:00   gravitee-io/apim   --use-elasticsearch, --use-mongodb, --disable-analytics running
-kind-gravitee-apim   2026-03-22 10:30   gravitee-io/apim    --use-elasticsearch, --use-jdbc-postgres                stopped
+NAME            CREATED            FROM                    FLAGS                                                  STATUS
+gravitee        2026-03-23 14:00   gravitee-io/apim        --use-elasticsearch, --use-mongodb, --disable-portal   running
+pg-standalone   2026-03-22 10:30   postgresql/standalone   -                                                      stopped
 ```
 
 ## gck describe
@@ -385,38 +385,42 @@ When no name is given and only one cluster exists, it is selected automatically.
 
 **Cluster** -- The cluster name, creation date, context paths, and any context flags that were active at creation time.
 
-**Features** -- Whether load balancers, Gateway API, and DNS are enabled. For Gateway API, shows the channel (`standard` or `experimental`). For DNS, shows the domain and port.
+**Features** -- Whether load balancers, Gateway API, and DNS are enabled. For Gateway API, shows the channel (`standard` or `experimental`) when the config sets one. For DNS, shows the domain and port.
 
 **Load Balancers** -- Lists active load balancer containers and their IPs. gck queries Docker directly for containers associated with the cluster, so this reflects the actual running state even if the original config is no longer available.
 
-**DNS** -- Three pieces of information:
+**DNS** -- Four pieces of information:
 - **Resolver**: whether OS-level DNS routing is configured (i.e. whether `gck setup dns` has been run)
 - **Server**: whether the local DNS server process is running
+- **Cluster**: whether the cluster's CoreDNS resolves the domain, so pods reach the same hostnames
 - **Records**: all registered hostname-to-IP mappings, grouped by cluster
 
 ### Example output
 
 ```
 Cluster
-  Name:    gio-apim
-  Created: 2026-03-23 14:00
-  From:    gravitee-io/apim
-  Flags:   --use-elasticsearch, --use-jdbc-postgres, --disable-analytics
+  Name:    gravitee
+  Created: 2026-09-27 10:24
+  From:    gravitee-io/gamma
+  Flags:   --use-mongodb
 
 Features
   lb:      enabled
-  gateway: disabled
+  gateway: enabled
   dns:     enabled (domain: gck.local, port: 15353)
 
 Load Balancers
-  gck-lb-gio-apim-1 → 172.18.0.5
+  bc1e32bc2451 → 172.18.0.4
 
 DNS
   resolver: configured for gck.local
   server:   running on 127.0.0.1:15353
+  cluster:  CoreDNS synced for gck.local
   records:
-    console.gck.local → 172.18.0.5 (gio-apim)
-    gateway.gck.local → 172.18.0.5 (gio-apim)
+    am-console.gravitee.gck.local → 172.18.0.4 (gravitee)
+    apim-api.gravitee.gck.local → 172.18.0.4 (gravitee)
+    apim-console.gravitee.gck.local → 172.18.0.4 (gravitee)
+    gamma-console.gravitee.gck.local → 172.18.0.4 (gravitee)
 ```
 
 ## gck validate
@@ -429,13 +433,21 @@ gck validate registry/kafka/standalone/gck.yaml
 gck validate registry/
 ```
 
-When given a directory, gck walks it recursively and validates every `gck.yaml` and `gck--*.yaml` file it finds. Context flag files are additionally checked for a valid naming convention and a non-empty `description` field. When no argument is given, it validates `./gck.yaml` in the current directory.
+When given a directory, gck walks it recursively and validates every `gck.yaml` and `gck--*.yaml` file it finds. When no argument is given, it validates `./gck.yaml` in the current directory.
+
+Context flag files are also checked for:
+
+- A kebab-case name and a non-empty `description`.
+- The fields their kind allows: an alternative (`gck--use-*.yaml`) declares a `group` and may declare `default` and `implies`; a plain flag may declare `requires`, `conflicts` and `disables`. `implies` names plain flags only.
+- Exactly one `default: true` member per alternative group of a directory.
 
 Exit code is non-zero when any file fails validation, making it suitable for CI pipelines and pre-commit checks.
 
 ### Flags
 
-This command has no additional flags beyond the [global flags](#global-flags).
+| Flag | Description |
+|---|---|
+| `--tags <file>` | Also check the `tags` in the front matter of each `README.md` next to a `gck.yaml` against the vocabulary in `<file>`. Skipped when omitted. |
 
 ## gck setup dns
 
@@ -525,4 +537,4 @@ gck patch upgrade.yaml --set imageTag=4.12.0
 
 ### Scope
 
-Templating applies to every gck.yaml in the pipeline: user config, `$GCK_HOME/gck.yaml`, patch files, context flag overlays, and registry context files. Each file is templated independently with its own `vars` defaults merged with the shared `--set` overrides.
+Templating applies to every gck.yaml in the pipeline: user config, `$GCK_HOME/gck.yaml`, patch files, context flag overlays, and registry context files. Each `gck.yaml` is templated with its own `vars` defaults and the `--set` overrides. Registry contexts also take the path-scoped overrides of the contexts composing them, and context flag files see the vars of the composition they apply to (see [Context Format -- Templating in composed contexts]({{< ref "/docs/reference/context-format#templating-in-composed-contexts" >}})).
