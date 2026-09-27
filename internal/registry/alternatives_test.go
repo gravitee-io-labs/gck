@@ -628,6 +628,37 @@ func TestAlternatives_ImpliesCascades(t *testing.T) {
 	}
 }
 
+func TestAlternatives_ImpliedParentFlagDisablesParentGroup(t *testing.T) {
+	root := writeCascadeRegistry(t)
+	writeFile(t, filepath.Join(root, "edge", "gck.yaml"), `
+from:
+  - product
+`)
+	writeFile(t, filepath.Join(root, "edge", "gck--use-full.yaml"), `
+description: "full"
+group: mode
+default: true
+`)
+	writeFile(t, filepath.Join(root, "edge", "gck--use-lite.yaml"), `
+description: "lite"
+group: mode
+implies:
+  - disable-analytics
+`)
+
+	resolved, err := (&FSResolver{Root: root}).Resolve(WithUse(context.Background(), []string{"lite"}), "edge")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// disable-analytics is declared by product, which edge composes.
+	if got, want := componentNames(resolved), []string{"pg", "app"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("components = %v, want %v: the implied flag must disable product's analytics group", got, want)
+	}
+	if _, ok := resolved.Selected["analytics"]; ok {
+		t.Fatalf("Selected = %v, want no analytics entry", resolved.Selected)
+	}
+}
+
 func TestApplyFlags_Conflicts(t *testing.T) {
 	root := writeCascadeRegistry(t)
 	r := &FSResolver{Root: root}

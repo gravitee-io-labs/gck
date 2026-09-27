@@ -408,6 +408,20 @@ func appendUnique(list []string, names ...string) []string {
 	return list
 }
 
+// withImplied returns a context in which the flags implied by the selected
+// members of layers count as turned on for every context they compose, as
+// the user's flags do: an implied flag declared by a parent then disables
+// its groups and composes its from: there.
+func withImplied(ctx context.Context, layers []*alternativeLayer) context.Context {
+	var names []string
+	for _, l := range layers {
+		if !l.composeOnly {
+			names = appendUnique(names, l.flag.Implies...)
+		}
+	}
+	return WithFlags(ctx, names)
+}
+
 // checkImplied verifies that every flag the selected alternatives imply is a
 // plain flag of the composition.
 func checkImplied(contextPath string, resolved *config.ResolvedContext) error {

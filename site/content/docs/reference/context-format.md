@@ -387,7 +387,7 @@ Selecting a member sometimes makes other features meaningless. Three fields expr
 
 | Field | On | Effect |
 |---|---|---|
-| `implies` | alternative | Plain flags turned on whenever the member is selected, as if passed on the CLI. They are applied, saved with the cluster, and visible to `hasFlag`. |
+| `implies` | alternative | Plain flags, of this context or one it composes, turned on whenever the member is selected, as if passed on the CLI. They are applied, saved with the cluster, and visible to `hasFlag`. |
 | `disables` | plain flag | Alternative groups switched off while the flag is in force: no member of the group is composed. |
 | `conflicts` | plain flag | Flags or alternatives the flag cannot be combined with. |
 
