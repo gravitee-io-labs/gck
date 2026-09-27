@@ -70,7 +70,7 @@ Leave a group out to keep its default. `gck info <context>` lists the groups and
 gck create --from gravitee-io/apim --use-dbless
 ```
 
-To pin the selection in a project, list the members in `use` instead of repeating the flags:
+To keep a selection in a project, list the members in `use` instead of repeating the flags:
 
 ```yaml
 from:
@@ -79,6 +79,8 @@ use:
   - mongodb
   - opensearch
 ```
+
+A `--use-*` flag on the command line still wins in its group, the way `--from` and `--registry` override the config file: with the file above, `gck create --use-jdbc-postgres` runs PostgreSQL and keeps OpenSearch.
 
 Plain flags still apply on top of the selection. `--disable-analytics`, for example, turns analytics off whichever analytics backend is selected. A cluster keeps the backend it was created with: `gck patch` refuses a different `--use-*`, so switching datasource means `gck delete` and `gck create` again.
 

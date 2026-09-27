@@ -183,7 +183,7 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 
 	cliUse, cliFlags := extractCLIFlags(os.Args)
 	use := append(append([]string{}, cfg.Use...), inheritedUse...)
-	ctx := registry.WithUse(context.Background(), append(use, cliUse...))
+	ctx := registry.WithUse(registry.WithConfiguredUse(context.Background(), use), cliUse)
 	ctx = registry.WithFlags(ctx, append(append([]string{}, inheritedFlags...), cliFlags...))
 
 	acc := &config.ResolvedContext{}

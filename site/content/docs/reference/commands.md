@@ -49,7 +49,7 @@ See [Context Format -- Context flags]({{< ref "/docs/reference/context-format#co
 gck create --from gravitee-io/apim --use-mongodb --use-opensearch
 ```
 
-Passing two members of the same group fails (`--use-mongodb and --use-jdbc-mysql are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members.
+Passing two members of the same group fails (`--use-mongodb and --use-jdbc-mysql are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members; a `--use-*` flag on the command line overrides the file's member of its group.
 
 A member can turn other flags on. `--use-dbless` runs the APIM gateway without a database and implies `--disable-ui` and `--disable-analytics`, so no console, portal or Elasticsearch is deployed; flags that need the management API, such as `--enable-bridge`, fail alongside it. `gck info` marks implied and conflicting flags for the current selection.
 

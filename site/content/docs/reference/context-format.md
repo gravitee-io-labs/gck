@@ -424,7 +424,7 @@ use:
   - mongodb
 ```
 
-Members are named without the `use-` prefix in `use`. The same field in your own `gck.yaml` selects members the way `--use-*` flags do.
+Members are named with or without the `use-` prefix in `use`. The same field in your own `gck.yaml` selects members the way `--use-*` flags do, without pinning: the groups stay visible, and a `--use-*` flag on the command line overrides the file's member of its group.
 
 ### Flags, alternatives or separate contexts
 

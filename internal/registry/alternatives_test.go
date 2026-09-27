@@ -185,6 +185,50 @@ func TestAlternatives_ConflictWithinGroup(t *testing.T) {
 	}
 }
 
+func TestAlternatives_ConfiguredSelection(t *testing.T) {
+	root := writeAltRegistry(t)
+
+	ctx := WithConfiguredUse(context.Background(), []string{"mongo"})
+	resolved, err := (&FSResolver{Root: root}).Resolve(ctx, "product")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := resolved.Selected["datasource"]; got != "use-mongo" {
+		t.Fatalf("Selected[datasource] = %q, want use-mongo", got)
+	}
+}
+
+// The command line overrides the configuration's use: in the same group,
+// as it overrides --from and --registry.
+func TestAlternatives_CommandLineOverridesConfiguredSelection(t *testing.T) {
+	root := writeAltRegistry(t)
+
+	ctx := WithUse(WithConfiguredUse(context.Background(), []string{"mongo"}), []string{"use-pg"})
+	resolved, err := (&FSResolver{Root: root}).Resolve(ctx, "product")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := resolved.Selected["datasource"]; got != "use-pg" {
+		t.Fatalf("Selected[datasource] = %q, want use-pg from the command line", got)
+	}
+}
+
+func TestAlternatives_ConfiguredConflictWithinGroup(t *testing.T) {
+	root := writeAltRegistry(t)
+
+	ctx := WithConfiguredUse(context.Background(), []string{"pg", "mongo"})
+	_, err := (&FSResolver{Root: root}).Resolve(ctx, "product")
+	if err == nil || !strings.Contains(err.Error(), "use: ") || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected a use: mutually exclusive error, got %v", err)
+	}
+
+	// A command-line choice settles the configuration's conflict.
+	ctx = WithUse(ctx, []string{"use-mongo"})
+	if _, err := (&FSResolver{Root: root}).Resolve(ctx, "product"); err != nil {
+		t.Fatalf("the command line should win over the configuration: %v", err)
+	}
+}
+
 func TestAlternatives_PinHidesGroupAndRejectsOverride(t *testing.T) {
 	root := writeAltRegistry(t)
 	writeFile(t, filepath.Join(root, "app-on-mongo", "gck.yaml"), `
