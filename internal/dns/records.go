@@ -75,7 +75,7 @@ func (s *RecordStore) Load() error {
 // Lookup returns the IP for hostname if any record matches.
 // The lookup is case-insensitive. When no exact match is found, it falls back
 // to wildcard matching per RFC 4592: the first DNS label is replaced with "*"
-// and tried again (e.g. "foo.kafka.gck.local" matches "*.kafka.gck.local").
+// and tried again (e.g. "foo.app.gck.local" matches "*.app.gck.local").
 func (s *RecordStore) Lookup(hostname string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

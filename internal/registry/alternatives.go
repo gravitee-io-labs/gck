@@ -17,7 +17,7 @@ import (
 
 // AlternativePrefix is the flag-name prefix reserved for alternatives: flags
 // that switch between mutually exclusive implementations of the same concern
-// (e.g. --use-mongodb vs --use-jdbc-postgres).
+// (e.g. --use-postgres vs --use-mysql).
 const AlternativePrefix = "use-"
 
 // AlternativeFlagName turns a member name as written in a use: block
@@ -121,7 +121,7 @@ func WithSavedUse(ctx context.Context, saved map[string]string) context.Context 
 
 // WithFlags returns a context carrying the plain flags the user turned on.
 // Resolvers need them before applying alternatives: a flag that disables an
-// alternative group (e.g. --disable-analytics) keeps its members out of the
+// alternative group (e.g. --disable-metrics) keeps its members out of the
 // composition altogether.
 func WithFlags(ctx context.Context, names []string) context.Context {
 	if len(names) == 0 {
@@ -181,7 +181,7 @@ type alternativeLayer struct {
 //
 // A group is skipped altogether while a plain flag of the same context that
 // disables it is active -- turned on by the user, or implied by another
-// selected member (use-dbless implies disable-analytics). A skipped group's
+// selected member (use-embedded implies disable-metrics). A skipped group's
 // own implies do not count. Layers are returned in group-name order.
 func selectAlternatives(ctx context.Context, contextPath string, flags []config.ContextFlag) ([]*alternativeLayer, error) {
 	groups := make(map[string][]int)

@@ -33,7 +33,7 @@ func (c *Condition) UnmarshalYAML(n *yaml.Node) error {
 
 // Endpoint is one row of the merged endpoints table. Name is the merge key,
 // so it must identify the service across every context it can be composed
-// with -- "APIM API" rather than "Management API".
+// with -- "Shop API" rather than "API".
 type Endpoint struct {
 	Name string     `yaml:"name"`
 	URL  string     `yaml:"url"`

@@ -18,7 +18,7 @@ func TestRenderWithFlags_FlagPresent(t *testing.T) {
 
 func TestRenderWithFlags_FlagAbsent(t *testing.T) {
 	tmpl := `{{ if hasFlag "disable-portal" }}hidden{{ else }}visible{{ end }}`
-	out, err := RenderWithFlags(tmpl, nil, []string{"disable-es"})
+	out, err := RenderWithFlags(tmpl, nil, []string{"disable-metrics"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

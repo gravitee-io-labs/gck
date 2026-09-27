@@ -52,7 +52,7 @@ properties:
     type: array
     description: >-
       Alternatives to select in the composed contexts, by member name
-      without the "use-" prefix (e.g. mongodb for --use-mongodb).
+      without the "use-" prefix (e.g. postgres for --use-postgres).
       In a registry context, pins the group: the choice is no longer
       offered to users; a context cannot name its own alternatives, whose
       group default already applies. In your own gck.yaml, selects the
@@ -368,7 +368,7 @@ $defs:
       hostname:
         type: string
         description: >-
-          Hostname pattern to resolve (e.g. "*.kafka.gck.local").
+          Hostname pattern to resolve (e.g. "*.app.gck.local").
       service:
         type: string
         description: >-
@@ -493,7 +493,7 @@ $defs:
         type: string
         description: >-
           Target Docker image tag (e.g.
-          "graviteeio/apim-gateway:latest-debian"). Images listed here
+          "acme/gateway:latest"). Images listed here
           are automatically excluded from preload.
       dir:
         type: string
@@ -737,7 +737,7 @@ $defs:
           Path to a single file whose contents become the resource
           data. Use the {{ env "VAR" }} template function to
           reference environment variables in the path
-          (e.g. '{{ env "HOME" }}/opt/license.key'). Shorthand for
+          (e.g. '{{ env "HOME" }}/.config/app/key.pem'). Shorthand for
           a single-entry resource.
       entries:
         type: array

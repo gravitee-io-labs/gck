@@ -28,7 +28,7 @@ A `gck.yaml` file is a YAML document with the following top-level fields:
 | `kind` | map | Configuration for the Kind (Kubernetes-in-Docker) cluster. |
 | `registry` | string | URL of the registry that from paths resolve against: https:// for a published registry, file:// for a directory. A relative file:// path resolves against the context's directory in a registry context, and against the working directory in your own gck.yaml. Defaults to https://gravitee-io-labs.github.io/gck; --registry overrides it. |
 | `requires` | string[] | Plain flag files only: flags or alternatives (full names, e.g. use-postgres) that must be active for this flag to apply. |
-| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would. |
+| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. postgres for --use-postgres). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would. |
 | `vars` | map | Template variables and path-scoped overrides. Top-level entries with a "default" key (or plain strings) are own var declarations, available as {{ .key }} in the rest of the file. Nested entries (keyed by parent context path segments) override parent vars. Defaults can be overridden at deploy time with --set key=value (broadcast) or --set path.segments.key=value (scoped). |
 
 ---
@@ -53,7 +53,7 @@ Each entry is an object with the following fields:
 | `context` | string | No | Docker build context directory, resolved relative to 'dir'. Default: `.`. |
 | `dir` | string | No | Working directory for pre-build commands and base for relative context/dockerfile paths. Use the {{ env "VAR" }} template function to reference environment variables (e.g. '{{ env "HOME" }}/src/project'). Default: `.`. |
 | `dockerfile` | string | No | Path to the Dockerfile, resolved relative to 'dir'. When omitted, defaults to 'Dockerfile' in the build context. |
-| `image` | string | Yes | Target Docker image tag (e.g. "graviteeio/apim-gateway:latest-debian"). Images listed here are automatically excluded from preload. |
+| `image` | string | Yes | Target Docker image tag (e.g. "acme/gateway:latest"). Images listed here are automatically excluded from preload. |
 | `name` | string | Yes | Short identifier for this build, used to select it in 'gck build <name>'. |
 | `platform` | string | No | Target platform for 'docker build --platform' (e.g. "linux/amd64"). Useful when the base image is only available for a specific architecture. |
 | `pre` | string[] | No | Shell commands executed sequentially before 'docker build' (e.g. compilation, packaging). Each command runs in 'dir' with output streamed to the terminal. |
@@ -124,7 +124,7 @@ A Kubernetes Secret or ConfigMap created from local files or environment variabl
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `entries` | object[] | No | Multiple data entries for the resource, each sourced from a file or environment variable. |
-| `fromFile` | string | No | Path to a single file whose contents become the resource data. Use the {{ env "VAR" }} template function to reference environment variables in the path (e.g. '{{ env "HOME" }}/opt/license.key'). Shorthand for a single-entry resource. |
+| `fromFile` | string | No | Path to a single file whose contents become the resource data. Use the {{ env "VAR" }} template function to reference environment variables in the path (e.g. '{{ env "HOME" }}/.config/app/key.pem'). Shorthand for a single-entry resource. |
 | `name` | string | Yes | Name of the Kubernetes Secret or ConfigMap to create. |
 | `onMissing` | string | No | Behavior when a referenced file or env var is missing. "fail" aborts deployment; "ignore" skips the resource silently. Default: `fail`. Values: `fail`, `ignore`. |
 
@@ -149,7 +149,7 @@ A Kubernetes Secret or ConfigMap created from local files or environment variabl
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `entries` | object[] | No | Multiple data entries for the resource, each sourced from a file or environment variable. |
-| `fromFile` | string | No | Path to a single file whose contents become the resource data. Use the {{ env "VAR" }} template function to reference environment variables in the path (e.g. '{{ env "HOME" }}/opt/license.key'). Shorthand for a single-entry resource. |
+| `fromFile` | string | No | Path to a single file whose contents become the resource data. Use the {{ env "VAR" }} template function to reference environment variables in the path (e.g. '{{ env "HOME" }}/.config/app/key.pem'). Shorthand for a single-entry resource. |
 | `name` | string | Yes | Name of the Kubernetes Secret or ConfigMap to create. |
 | `onMissing` | string | No | Behavior when a referenced file or env var is missing. "fail" aborts deployment; "ignore" skips the resource silently. Default: `fail`. Values: `fail`, `ignore`. |
 
@@ -265,7 +265,7 @@ Maps a hostname (supports wildcards) to a Kubernetes service so the local DNS re
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `hostname` | string | Yes | Hostname pattern to resolve (e.g. "*.kafka.gck.local"). |
+| `hostname` | string | Yes | Hostname pattern to resolve (e.g. "*.app.gck.local"). |
 | `namespace` | string | Yes | Namespace of the target Kubernetes Service. |
 | `service` | string | Yes | Name of the Kubernetes Service to resolve the hostname to. |
 
@@ -428,7 +428,7 @@ Plain flag files only: flags or alternatives (full names, e.g. use-postgres) tha
 
 ## `use`
 
-Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would.
+Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. postgres for --use-postgres). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would.
 
 **Type:** `array`
 

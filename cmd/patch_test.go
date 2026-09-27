@@ -44,10 +44,10 @@ func TestMergeSet_NilInputs(t *testing.T) {
 
 func TestUnionFlags_OrderAndDedup(t *testing.T) {
 	got := unionFlags(
-		[]string{"disable-es", "disable-portal"},
+		[]string{"disable-metrics", "disable-portal"},
 		[]string{"disable-portal", "enable-redis"},
 	)
-	want := []string{"disable-es", "disable-portal", "enable-redis"}
+	want := []string{"disable-metrics", "disable-portal", "enable-redis"}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}

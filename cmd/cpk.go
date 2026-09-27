@@ -46,7 +46,7 @@ func init() {
 // API translation controller alongside its gateway controller, and by default
 // registers its own IngressClass as the cluster default — which makes it adopt
 // every Ingress that names no class, including the placeholder Ingresses Helm
-// charts ship (graviteeio/apim renders apim.example.com). Each adopted Ingress
+// charts ship (a chart rendering app.example.com as its placeholder host). Each adopted Ingress
 // becomes an HTTPRoute named <ingress>-<sha256(host)[:10]>, and gck collects
 // HTTPRoute hostnames as DNS records — so a chart's placeholder host became a
 // record the DNS server cannot serve and a create that failed on a hostname

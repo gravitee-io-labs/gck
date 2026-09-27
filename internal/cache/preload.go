@@ -286,7 +286,7 @@ func normalizeRef(ref string) string {
 }
 
 // stripRegistryHost removes the registry hostname from an image reference,
-// returning just the path and tag (e.g. "graviteeio/apim-gateway:latest").
+// returning just the path and tag (e.g. "acme/gateway:latest").
 // Docker Hub images (implicit or explicit docker.io) have just their path
 // returned. For other registries the first component is stripped.
 func stripRegistryHost(ref string) string {
