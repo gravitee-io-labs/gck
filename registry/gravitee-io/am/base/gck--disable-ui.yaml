@@ -8,4 +8,4 @@ components:
 images:
   preload:
     skip:
-      - "graviteeio/am-management-ui:{{ .imageTag }}"
+      - "{{ .imagePrefix }}/am-management-ui:{{ .imageTag }}"
