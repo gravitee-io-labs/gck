@@ -39,7 +39,7 @@ as the datasource. Both are passed directly on the command line:
 
   gck create --use-postgres --disable-ui
 
-Run "gck info" to see the alternatives and flags of your context.`,
+Run "gck info <context>" to see the alternatives and flags of a context.`,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 	RunE:               runUp,
 }

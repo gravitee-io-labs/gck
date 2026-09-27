@@ -13,14 +13,19 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info",
+	Use:   "info [context...]",
 	Short: "Show context details including available flags",
-	Long: `Show information about the resolved context without creating a cluster.
+	Long: `Show information about a context without creating a cluster.
 
-Displays the composition chain, component list, available alternatives
-(--use-* flags, default marked), context flags, and enabled features. Use this to discover what flags a context supports
-before running "gck create". Pass --use-* flags to preview the components
-of another alternative.`,
+Name the contexts to compose as arguments, or with --from, or leave both out
+to use the config file's from. Displays the composed context paths, the
+component list, the available alternatives (--use-* flags, default marked),
+the context flags, and the enabled features. Use this to discover what flags
+a context supports before running "gck create". Pass --use-* flags to
+preview the components of another alternative.`,
+	Example: `  gck info my-org/product
+  gck info my-org/product --use-postgres
+  gck info my-org/product my-org/tool`,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 	RunE:               runInfo,
 }
@@ -30,16 +35,28 @@ func init() {
 }
 
 func runInfo(cmd *cobra.Command, _ []string) error {
+	// Not cobra's args: see positionalArgs.
+	if args := positionalArgs(os.Args, cmd.Name(), cmd.InheritedFlags(), cmd.LocalFlags()); len(args) > 0 {
+		if len(fromPaths) > 0 {
+			return fmt.Errorf("pass contexts as arguments or with --from, not both")
+		}
+		cfg.From = args
+	}
 	resolved, err := resolveContextConfig()
 	if err != nil {
 		return err
 	}
 	if resolved == nil {
-		return fmt.Errorf("no context configured; set registry and from in gck.yaml or use --registry and --from")
+		return fmt.Errorf("no context to show: name one, as in \"gck info <context>\", or set from in gck.yaml")
 	}
-	// Reject unknown flags; alternatives were already applied at resolution.
+	// Alternatives were applied at resolution; apply the plain flags too, as
+	// gck create does, so the components and any requires/conflicts error
+	// are the ones create would see.
 	active, err := extractActiveFlags(os.Args, cmd.InheritedFlags(), cmd.LocalFlags(), resolved.Flags)
 	if err != nil {
+		return err
+	}
+	if err := registry.ApplyFlags(resolved, active, setOverrides); err != nil {
 		return err
 	}
 	inForce := make(map[string]bool)
@@ -64,6 +81,7 @@ func runInfo(cmd *cobra.Command, _ []string) error {
 	printInfoAlternatives(bold, resolved, inForce)
 	printInfoFlags(bold, resolved, inForce)
 	printInfoFeatures(bold, cfg.Features)
+	printInfoUsage(bold, active)
 
 	return nil
 }
@@ -223,11 +241,19 @@ func printInfoFeatures(bold *color.Color, features config.FeaturesConfig) {
 		dnsLine += fmt.Sprintf(" (domain: %s, port: %d)", domain, port)
 	}
 	fmt.Printf("  dns:     %s\n", dnsLine)
+}
 
-	if len(cfg.From) > 0 {
-		fmt.Println()
-		bold.Println("Usage")
-		example := fmt.Sprintf("  gck create --from %s", strings.Join(cfg.From, " --from "))
-		fmt.Println(example)
+// printInfoUsage prints the gck create command for what info previewed: the
+// same contexts and the context flags info was given.
+func printInfoUsage(bold *color.Color, active []string) {
+	if len(cfg.From) == 0 {
+		return
 	}
+	fmt.Println()
+	bold.Println("Usage")
+	line := "  gck create --from " + strings.Join(cfg.From, " --from ")
+	for _, f := range active {
+		line += " --" + f
+	}
+	fmt.Println(line)
 }

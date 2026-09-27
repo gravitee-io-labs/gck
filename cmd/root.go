@@ -258,7 +258,16 @@ func checkConfigUse(use []string, resolved *config.ResolvedContext) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("use: %s matches no alternative of the context (run \"gck info\" to list them)", n)
+			var members []string
+			for _, f := range resolved.Flags {
+				if f.IsAlternative() {
+					members = append(members, strings.TrimPrefix(f.Name, "use-"))
+				}
+			}
+			if len(members) == 0 {
+				return fmt.Errorf("use: %s: the context has no alternatives", n)
+			}
+			return fmt.Errorf("use: %s matches no alternative of the context (available: %s)", n, strings.Join(members, ", "))
 		}
 	}
 	return nil
@@ -286,6 +295,66 @@ func applyContextFlags(cmd *cobra.Command, resolved *config.ResolvedContext) ([]
 // extractActiveFlags walks args looking for --flag-name tokens that are not
 // known Cobra flags and match one of the available context flags. It returns
 // the list of active flag names or an error if an unrecognized flag is found.
+// positionalArgs returns the non-flag arguments that follow the subcommand
+// in argv. Commands that accept context flags whitelist unknown flags, and
+// pflag then takes the word after an unknown flag as its value, so
+// "--use-x ctx" would lose ctx. Context flags never take a value: only a known
+// flag that does (--from, --set, ...) consumes the next word.
+func positionalArgs(argv []string, subcommand string, inherited, local *pflag.FlagSet) []string {
+	start := -1
+	for i := 1; i < len(argv); i++ {
+		if argv[i] == subcommand {
+			start = i + 1
+			break
+		}
+	}
+	if start < 0 {
+		return nil
+	}
+	var out []string
+	for i := start; i < len(argv); i++ {
+		arg := argv[i]
+		if arg == "--" {
+			return append(out, argv[i+1:]...)
+		}
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			out = append(out, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if strings.Contains(name, "=") {
+			continue
+		}
+		var f *pflag.Flag
+		if strings.HasPrefix(arg, "--") {
+			f = lookupFlag(inherited, local, name)
+		} else {
+			f = lookupShorthand(inherited, local, name)
+		}
+		if f != nil && f.NoOptDefVal == "" && f.Value.Type() != "bool" {
+			i++ // the flag's value
+		}
+	}
+	return out
+}
+
+func lookupFlag(inherited, local *pflag.FlagSet, name string) *pflag.Flag {
+	if f := local.Lookup(name); f != nil {
+		return f
+	}
+	return inherited.Lookup(name)
+}
+
+func lookupShorthand(inherited, local *pflag.FlagSet, name string) *pflag.Flag {
+	if len(name) != 1 {
+		return nil
+	}
+	if f := local.ShorthandLookup(name); f != nil {
+		return f
+	}
+	return inherited.ShorthandLookup(name)
+}
+
 func extractActiveFlags(args []string, inherited, local *pflag.FlagSet, available []config.ContextFlag) ([]string, error) {
 	availableByName := make(map[string]bool, len(available))
 	for _, f := range available {
