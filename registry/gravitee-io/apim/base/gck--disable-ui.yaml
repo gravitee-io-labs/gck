@@ -1,0 +1,14 @@
+description: "Disable both Console and Portal UIs"
+components:
+  - name: apim
+    helm:
+      values:
+        ui:
+          enabled: false
+        portal:
+          enabled: false
+images:
+  preload:
+    skip:
+      - "{{ .imagePrefix }}/apim-management-ui:{{ .imageTag }}"
+      - "{{ .imagePrefix }}/apim-portal-ui:{{ .imageTag }}"

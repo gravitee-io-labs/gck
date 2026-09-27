@@ -15,13 +15,20 @@ A `gck.yaml` file is a YAML document with the following top-level fields:
 | `abstract` | boolean | When true, marks this configuration as a shared base that cannot be deployed on its own. Abstract configs are meant to be referenced via 'from' by concrete contexts. |
 | `builds` | object[] | Local Docker builds for the inner development loop. Each entry describes how to compile, build, and load a Docker image into the Kind cluster, then restart matching workloads. Use with 'gck build' to iterate quickly on application code. |
 | `components` | object[] | Ordered list of components to deploy. Components are applied sequentially; use 'requires' to express inter-component dependencies. |
+| `conflicts` | string[] | Plain flag files only: flags or alternatives (full names, e.g. use-embedded) that must not be active alongside this flag. |
+| `default` | boolean | Alternative flag files only: marks the member applied when no member of the group is selected. Each group has exactly one default. |
 | `description` | string | Human-readable description of this configuration. Used by context flag files to document what the flag does; ignored during deployment. |
+| `disables` | string[] | Plain flag files only: alternative groups of which no member is applied while this flag is active. The group's members are left out of the composition entirely (e.g. disable-metrics disables the metrics group, so no metrics backend is composed). |
 | `features` | map | Optional networking features. Each sub-key uses pointer semantics: setting a feature explicitly overrides the inherited context default; omitting it preserves the parent value. |
-| `from` | string[] | List of registry paths to compose from. Each referenced context is merged in order, allowing reuse of shared building blocks (databases, message brokers, etc.). |
+| `from` | string[] | List of registry paths to compose from. Each referenced context is merged in order, allowing reuse of shared building blocks (databases, message brokers, etc.). In a flag file, the contexts the flag brings in when it is selected or active, composed ahead of the declaring context's own from. It is read before templating and must be literal. |
+| `group` | string | Alternative flag files only (gck--use-*.yaml): the group of mutually exclusive implementations this alternative belongs to (e.g. database). Exactly one member of a group is applied. |
 | `helm` | map | Global Helm configuration shared across all components. |
 | `images` | map | Container image management: preloading images into Kind nodes and configuring registry mirrors. |
+| `implies` | string[] | Alternative flag files only: plain flags turned on whenever this alternative is selected, as if they had been passed (e.g. use-embedded implies disable-ui). |
 | `kind` | map | Configuration for the Kind (Kubernetes-in-Docker) cluster. |
 | `registry` | string | Registry path that identifies this configuration context (org/edition/product/variant convention). |
+| `requires` | string[] | Plain flag files only: flags or alternatives (full names, e.g. use-postgres) that must be active for this flag to apply. |
+| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users. In your own gck.yaml, selects the member as the matching --use-* flag would. |
 | `vars` | map | Template variables and path-scoped overrides. Top-level entries with a "default" key (or plain strings) are own var declarations, available as {{ .key }} in the rest of the file. Nested entries (keyed by parent context path segments) override parent vars. Defaults can be overridden at deploy time with --set key=value (broadcast) or --set path.segments.key=value (scoped). |
 
 ---
@@ -201,11 +208,29 @@ Label selector used to identify the pods to watch for readiness.
 |-------|------|----------|-------------|
 | `matchLabels` | map | No | Map of label key-value pairs that pods must match. |
 
+## `conflicts`
+
+Plain flag files only: flags or alternatives (full names, e.g. use-embedded) that must not be active alongside this flag.
+
+**Type:** `array`
+
+## `default`
+
+Alternative flag files only: marks the member applied when no member of the group is selected. Each group has exactly one default.
+
+**Type:** `boolean` | **Default:** `false`
+
 ## `description`
 
 Human-readable description of this configuration. Used by context flag files to document what the flag does; ignored during deployment.
 
 **Type:** `string`
+
+## `disables`
+
+Plain flag files only: alternative groups of which no member is applied while this flag is active. The group's members are left out of the composition entirely (e.g. disable-metrics disables the metrics group, so no metrics backend is composed).
+
+**Type:** `array`
 
 ## `features`
 
@@ -267,9 +292,15 @@ Cloud-provider load-balancer emulation for LoadBalancer-type services inside the
 
 ## `from`
 
-List of registry paths to compose from. Each referenced context is merged in order, allowing reuse of shared building blocks (databases, message brokers, etc.).
+List of registry paths to compose from. Each referenced context is merged in order, allowing reuse of shared building blocks (databases, message brokers, etc.). In a flag file, the contexts the flag brings in when it is selected or active, composed ahead of the declaring context's own from. It is read before templating and must be literal.
 
 **Type:** `array`
+
+## `group`
+
+Alternative flag files only (gck--use-*.yaml): the group of mutually exclusive implementations this alternative belongs to (e.g. database). Exactly one member of a group is applied.
+
+**Type:** `string`
 
 ## `helm`
 
@@ -325,6 +356,12 @@ Images to pull and preload into Kind nodes before deploying components, avoiding
 | `mode` | string | No | How this preload section combines with inherited preload. "merge" (default) unions refs and skip lists. "replace" discards inherited refs and uses only the listed refs. Default: `merge`. Values: `merge`, `replace`. |
 | `refs` | string[] | No | List of fully-qualified image references (e.g. "docker.io/library/nginx:1.27-alpine") to preload. |
 | `skip` | string[] | No | Image references to exclude from inherited preload (merge mode only). Useful in context flags that disable components whose images would otherwise be preloaded. |
+
+## `implies`
+
+Alternative flag files only: plain flags turned on whenever this alternative is selected, as if they had been passed (e.g. use-embedded implies disable-ui).
+
+**Type:** `array`
 
 ## `kind`
 
@@ -382,6 +419,18 @@ Maps a port from the Kind node container to the host.
 Registry path that identifies this configuration context (org/edition/product/variant convention).
 
 **Type:** `string`
+
+## `requires`
+
+Plain flag files only: flags or alternatives (full names, e.g. use-postgres) that must be active for this flag to apply.
+
+**Type:** `array`
+
+## `use`
+
+Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users. In your own gck.yaml, selects the member as the matching --use-* flag would.
+
+**Type:** `array`
 
 ## `vars`
 

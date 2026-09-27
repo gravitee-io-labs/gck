@@ -107,7 +107,7 @@ func TestPollGatewayRecords_UnresolvedRouteIsAnError(t *testing.T) {
 	}
 }
 
-// registry/gravitee-io/oss/apim/gateway enables features.dns while declaring
+// registry/gravitee-io/gateway-api enables features.dns while declaring
 // neither routes nor records. Collecting nothing there is correct, which is why
 // the predicate is route/record presence and not features.dns.enabled.
 func TestPollGatewayRecords_NoRouteHostnamesIsNotAnError(t *testing.T) {

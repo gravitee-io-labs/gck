@@ -27,12 +27,12 @@
   var green = '#28c840', teal = '#5EEAD4', white = '#e1e4e8';
 
   var script = [
-    { type: 'type', text: '$ gck create --from gravitee-io/oss/apim/dbless' },
+    { type: 'type', text: '$ gck create --from gravitee-io/apim --use-dbless' },
     { type: 'pause', ms: 600 },
     { type: 'line', text: '  \u2713 Pulling images for preload (1.847s)', color: green },
     { type: 'line', text: '  \u2713 Starting preload registry (1.62s)', color: green },
     { type: 'line', text: '  \u2713 Pushing images to preload registry (2.799s)', color: green },
-    { type: 'line', text: '  \u2713 Creating cluster "gravitee-dbless" (26.251s)', color: green },
+    { type: 'line', text: '  \u2713 Creating cluster "gravitee" (26.251s)', color: green },
     { type: 'line', text: '  \u2713 Connecting preload registry to Kind network (130ms)', color: green },
     { type: 'line', text: '  \u2713 Initializing Helm (1.13s)', color: green },
     { type: 'line', text: '  \u2713 Installing "apim" (858ms)', color: green },
@@ -41,7 +41,7 @@
     { type: 'line', text: '' },
     { type: 'line', text: '  Total: 35.541s', color: teal },
     { type: 'line', text: '' },
-    { type: 'line', text: 'Your cluster "gravitee-dbless" is ready.', color: white },
+    { type: 'line', text: 'Your cluster "gravitee" is ready.', color: white },
     { type: 'line', text: '' },
     { type: 'line', text: 'Everything has been deployed in the `gravitee` namespace.', color: white },
     { type: 'line', text: '' },

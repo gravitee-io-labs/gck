@@ -17,6 +17,8 @@ import (
 //   - helm.version: user wins if non-empty
 //   - helm.valueFiles: user files are appended (higher precedence in Helm)
 //   - helm.values: deep-merged on top of context values (user wins per leaf key)
+//   - k8s.secrets / k8s.configMaps: matched by name, user entry replaces the
+//     context's; new names are appended
 //
 // Value file paths from the user config are resolved relative to configDir.
 func MergeComponents(resolved *config.ResolvedContext, components []config.Component, configDir string) {
@@ -90,11 +92,31 @@ func MergeComponents(resolved *config.ResolvedContext, components []config.Compo
 			resolveLocalResourcePaths(&patch, configDir)
 			comp.K8s.ManifestFiles = append(comp.K8s.ManifestFiles, patch.K8s.ManifestFiles...)
 			comp.K8s.Manifests = mergeManifests(comp.K8s.Manifests, patch.K8s.Manifests)
-			comp.K8s.Secrets = append(comp.K8s.Secrets, patch.K8s.Secrets...)
-			comp.K8s.ConfigMaps = append(comp.K8s.ConfigMaps, patch.K8s.ConfigMaps...)
+			comp.K8s.Secrets = mergeLocalResources(comp.K8s.Secrets, patch.K8s.Secrets)
+			comp.K8s.ConfigMaps = mergeLocalResources(comp.K8s.ConfigMaps, patch.K8s.ConfigMaps)
 		}
 	}
 	resolved.Components = append(resolved.Components, newComponents...)
+}
+
+// mergeLocalResources merges patch secrets or config maps into base by name:
+// a patch entry replaces the base entry of the same name in place (so a later
+// layer can, for instance, switch onMissing), and new names are appended.
+func mergeLocalResources(base, patch []config.LocalResource) []config.LocalResource {
+	for _, p := range patch {
+		replaced := false
+		for i := range base {
+			if base[i].Name == p.Name {
+				base[i] = p
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			base = append(base, p)
+		}
+	}
+	return base
 }
 
 // manifestKey identifies a Kubernetes resource by its API coordinates and name.

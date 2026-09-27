@@ -136,14 +136,14 @@ Add a `.default` file next to variant directories to set the default:
 echo "standalone" > registry/mongodb/.default
 ```
 
-When a user specifies `from: [mongodb]`, gck reads `.default` and resolves it to `mongodb/standalone`. Defaults chain across multiple levels.
+When a user specifies `from: [mongodb]`, gck reads `.default` and resolves it to `mongodb/standalone`. Defaults chain across multiple levels. A directory with its own `gck.yaml` is resolved directly and its `.default`, if any, is ignored -- a context may also hold child contexts in subdirectories.
 
 ## Merge semantics
 
 When contexts are composed, each top-level field is merged as follows:
 
 - **`kind`** -- Scalar fields: child wins if set. `nodes`: child replaces the list, but `extraPortMappings` are union-merged by `(containerPort, protocol)`. `containerdConfigPatches`: child replaces entirely.
-- **`components`** -- Matched by name. Helm chart/version: child wins. Value files: appended. Values: deep-merged. Manifest files: appended. Manifests: union by resource identity. Secrets/configMaps: appended. Requirements: appended and deduplicated. Unmatched components are appended.
+- **`components`** -- Matched by name. Helm chart/version: child wins. Value files: appended. Values: deep-merged. Manifest files: appended. Manifests: union by resource identity. Secrets/configMaps: matched by name, child replaces; new names appended. Requirements: appended and deduplicated. Unmatched components are appended.
 - **`helm.repos`** -- Deduplicated by name; child wins on conflict.
 - **`features`** -- Each feature block is replaced as a whole if the child defines it; otherwise inherited.
 - **`images`** -- `preload`: merge mode (default) unions `refs` and `skip`; replace mode uses only the child's `refs`. `mirrors`: child wins if set.
@@ -248,46 +248,198 @@ components:
 Flag file names must follow the pattern `gck--{flag-name}.yaml` where `flag-name` is lowercase kebab-case: `^[a-z0-9]+(-[a-z0-9]+)*$`. Users activate flags with `--flag-name` on the CLI:
 
 ```bash
-gck create --from gravitee-io/oss/apim --disable-portal --disable-ui
+gck create --from gravitee-io/apim --disable-portal --disable-ui
 ```
+
+The `use-` prefix is reserved for [alternatives](#alternatives).
 
 ### Inheritance from abstract parents
 
 Flags defined on an abstract context are inherited by all concrete contexts that compose from it via `from`. A child context can override an inherited flag by providing its own `gck--{name}.yaml` with the same name.
 
+### Flags that compose contexts
+
+A flag that needs other contexts -- a broker, a datastore -- lists them in `from`. While the flag is active, they are composed ahead of the declaring context during resolution, like an [alternative](#alternatives)'s, and the flag's path-scoped `vars` overrides reach them. The flag's own patch is applied afterwards with the other flags, so it has the last word over the declaring context's values:
+
+```yaml
+# gck--enable-streaming.yaml
+description: "Deploy a Kafka broker and wire the app to it"
+from:
+  - kafka/standalone
+vars:
+  kafka:
+    standalone:
+      imageTag:
+        default: "3.9"
+components:
+  - name: app
+    helm:
+      values:
+        streaming:
+          bootstrapServers: kafka:9092
+```
+
+Like an alternative's, a flag's `from` is read before templating and must be literal.
+
 ### Cumulative application
 
-Multiple flags can be combined. Each flag's patch is merged on top of the resolved context in the order they appear on the command line, using the same [merge rules]({{< ref "/docs/guides/composing-contexts#merge-rules" >}}) as context composition.
+Multiple flags can be combined. Each flag's patch is merged on top of the resolved context in the order they appear on the command line, using the same [merge rules]({{< ref "/docs/guides/composing-contexts#merge-rules" >}}) as context composition. Flags are applied after alternatives, so a flag always has the last word over the selected implementation.
+
+### Required local files
+
+Secrets and config maps built from local files or env vars fail the deployment when the input is missing (`onMissing: fail`, the default) or skip themselves (`onMissing: ignore`). `gck create` and `gck patch` check every non-ignored input before touching the cluster. Because secrets merge by name, a flag can make an optional input mandatory by redeclaring it:
+
+```yaml
+# gck--enable-signing.yaml
+description: "Sign responses (needs the signing key)"
+components:
+  - name: keys
+    k8s:
+      secrets:
+        - name: signing-key
+          fromFile: "{{ .signingKeyFile }}"
+          onMissing: fail
+```
+
+### Requirements and conflicts
+
+A flag that only works with some other flag or alternative lists it in `requires`. `gck create` fails when a required name is not active; a default alternative counts as active:
+
+```yaml
+description: "Deploy Kibana alongside Elasticsearch"
+requires:
+  - use-elasticsearch
+```
+
+A flag that cannot work with one lists it in `conflicts`, and `gck create` refuses the combination:
+
+```yaml
+description: "Enable bridge architecture: management API serves as bridge, gateway syncs through it"
+conflicts:
+  - use-dbless
+```
 
 ### Disabling components
 
 Flags can fully exclude a component from deployment by setting `enabled: false`. When a component is disabled, it is not installed and any `requires` entries referencing it are silently dropped:
 
 ```yaml
-description: "Disable Elasticsearch and analytics reporters"
+description: "Disable Kafka Gateway and related components"
 components:
-  - name: elasticsearch
+  - name: kafka
     enabled: false
   - name: apim
     helm:
       values:
-        es:
-          enabled: false
+        gateway:
+          kafka:
+            enabled: false
 ```
 
-With this flag active, the `elasticsearch` component is skipped entirely and other components that declare `requires: [{component: elasticsearch}]` proceed without waiting for it.
+With this flag active, the `kafka` component is skipped entirely and other components that declare `requires: [{component: kafka}]` proceed without waiting for it. Disabling a component the composition does not contain is a no-op.
 
-### When to use flags vs separate contexts
+To remove a component an [alternative](#alternatives) brings in, disable the whole group with [`disables`](#cascading) instead: the member is then never composed, so its host ports and notes go too.
 
-Use **flags** for optional features within a context -- components that can be toggled on or off without changing the fundamental nature of the deployment (e.g., disabling analytics, removing UIs, enabling debug mode).
+## Alternatives
 
-Use **separate context directories** for fundamentally different backends or topologies (e.g., MongoDB vs PostgreSQL, standalone vs clustered).
+An alternative is a flag that picks one implementation among mutually exclusive ones, such as the datasource of a product. Alternatives sharing a `group` form a set: exactly one member is applied on every `gck create`, the `default: true` member unless the user selects another.
+
+```yaml
+# gck--use-mongodb.yaml
+description: "Store APIM data in MongoDB"
+group: datasource
+from:
+  - mongodb/standalone
+vars:
+  mongodb:
+    standalone:
+      imageTag:
+        default: "7"
+components:
+  - name: apim
+    helm:
+      values:
+        mongo:
+          uri: mongodb://mongodb:27017/apim
+```
+
+| Field | Meaning |
+|---|---|
+| `group` | Required. Name of the set of mutually exclusive members. |
+| `default` | Marks the member applied when the user selects none. Exactly one per group. |
+| `from` | Contexts composed when this member is selected, ahead of the declaring context's own `from`. Plain flags may declare it too (see [Flags that compose contexts](#flags-that-compose-contexts)). |
+| `vars` | Var declarations and path-scoped overrides, merged with the declaring context's. An alternative's default wins over the context's for the same name. |
+| `implies` | Plain flags turned on whenever this member is selected. See [Cascading](#cascading). |
+
+The file name must be `gck--use-{member}.yaml`, and only alternatives may use the `use-` prefix.
+
+### Resolution
+
+Alternatives are applied where they are declared, while the context is resolved. Selecting `--use-mongodb` on a context with `from: [gravitee-io/apim/base]` resolves it as if it declared `from: [mongodb/standalone, gravitee-io/apim/base]`, with the member's body merged after the context's own. Members that are not selected are never composed. Groups are applied in group-name order.
+
+An alternative's `from` is read before templating and must be literal. The rest of the file is rendered once the declaring context is resolved, with the composition's effective vars -- the same vars a plain flag file sees, so a member can use `{{ .imagePrefix }}` declared by an abstract base.
+
+A context that composes one with alternatives inherits them: a context with `from: [gravitee-io/am]` offers AM's `--use-*` flags unless it [pins](#pinning) them, as `gravitee-io/gamma` does. A context cannot redeclare an alternative or a group it inherits.
+
+### Cascading
+
+Selecting a member sometimes makes other features meaningless. Three fields express that in the files:
+
+| Field | On | Effect |
+|---|---|---|
+| `implies` | alternative | Plain flags turned on whenever the member is selected, as if passed on the CLI. They are applied, saved with the cluster, and visible to `hasFlag`. |
+| `disables` | plain flag | Alternative groups switched off while the flag is in force: no member of the group is composed. |
+| `conflicts` | plain flag | Flags or alternatives the flag cannot be combined with. |
+
+They chain. `--use-dbless` implies `disable-ui` and `disable-analytics`, and `disable-analytics` disables the `analytics` group, so a DB-less gateway composes no Elasticsearch at all:
+
+```yaml
+# gck--use-dbless.yaml
+description: "No datasource: the gateway runs DB-less, configured from Kubernetes resources through GKO"
+group: datasource
+from:
+  - gravitee-io/gko
+implies:
+  - disable-ui
+  - disable-analytics
+```
+
+```yaml
+# gck--disable-analytics.yaml
+description: "Disable analytics: no Elasticsearch or OpenSearch, no analytics reporters"
+disables:
+  - analytics
+```
+
+A `disables` flag only switches off groups declared by the same context. Selecting a member of a disabled group explicitly (`--use-opensearch --disable-analytics`) is not an error: the disable wins and gck prints a warning.
+
+### Pinning
+
+A context that only works with one member of an inherited group pins it with `use`. Its users can no longer switch that group, and passing another member fails:
+
+```yaml
+from:
+  - gravitee-io/am
+use:
+  - mongodb
+```
+
+Members are named without the `use-` prefix in `use`. The same field in your own `gck.yaml` selects members the way `--use-*` flags do.
+
+### Flags, alternatives or separate contexts
+
+Use **flags** for optional features within a context -- things that can be toggled on or off without changing the fundamental nature of the deployment (e.g., disabling analytics, removing UIs, enabling debug mode).
+
+Use **alternatives** for interchangeable implementations of something the stack always has (e.g., MongoDB vs PostgreSQL as the datasource, Elasticsearch vs OpenSearch for analytics).
+
+Use **separate context directories** for fundamentally different topologies (e.g., GKO as a Gateway API controller vs the APIM chart, standalone vs clustered). A mode that only removes things -- APIM without a database -- is an alternative that implies the flags removing them.
 
 ## Registry organization tips
 
 - Use the `org/edition/product/variant` convention for discoverability
 - Extract shared config into `abstract: true` base contexts
 - Set `.default` files so users can reference products without spelling out the full variant path
+- Offer interchangeable backends as alternatives on one product context rather than one directory per backend
 - Include a `README.md` with front matter (`title`, `description`, `tags`) -- the site generator uses it for the registry browser
 - Add `notes.create` declaring the endpoints this context exposes, plus any instructions `gck create` should print after a successful deploy. Notes are merged across every composed context into a single endpoints table, so declare only what this context owns and let variants inherit the rest. Use `when` to gate a row on a [context flag](#context-flags):
 

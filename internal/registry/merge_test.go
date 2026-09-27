@@ -653,6 +653,53 @@ func TestMergeComponents_ConfigMapsMerge(t *testing.T) {
 	}
 }
 
+// A later layer redeclaring a secret by name replaces it instead of adding a
+// second secret of the same name -- how a flag tightens onMissing.
+func TestMergeComponents_SecretsMergeByName(t *testing.T) {
+	resolved := &config.ResolvedContext{
+		Components: []config.Component{
+			{
+				Name: "app",
+				K8s: &config.K8sSpec{
+					Secrets: []config.LocalResource{
+						{Name: "token", FromFile: "/abs/token", OnMissing: "ignore"},
+						{Name: "other", FromFile: "/abs/other"},
+					},
+					ConfigMaps: []config.LocalResource{
+						{Name: "settings", FromFile: "/abs/a.xml"},
+					},
+				},
+			},
+		},
+	}
+	overrides := []config.Component{
+		{
+			Name: "app",
+			K8s: &config.K8sSpec{
+				Secrets: []config.LocalResource{
+					{Name: "token", FromFile: "/abs/token", OnMissing: "fail"},
+				},
+				ConfigMaps: []config.LocalResource{
+					{Name: "settings", FromFile: "/abs/b.xml"},
+				},
+			},
+		},
+	}
+
+	MergeComponents(resolved, overrides, "/config/dir")
+
+	comp := resolved.Components[0]
+	if len(comp.K8s.Secrets) != 2 {
+		t.Fatalf("expected 2 secrets, got %+v", comp.K8s.Secrets)
+	}
+	if comp.K8s.Secrets[0].Name != "token" || comp.K8s.Secrets[0].OnMissing != "fail" {
+		t.Fatalf("expected token replaced in place with onMissing fail, got %+v", comp.K8s.Secrets[0])
+	}
+	if len(comp.K8s.ConfigMaps) != 1 || comp.K8s.ConfigMaps[0].FromFile != "/abs/b.xml" {
+		t.Fatalf("expected settings replaced, got %+v", comp.K8s.ConfigMaps)
+	}
+}
+
 func TestMergeComponents_LocalResourceEntryPaths(t *testing.T) {
 	resolved := &config.ResolvedContext{
 		Components: []config.Component{

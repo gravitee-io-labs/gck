@@ -23,7 +23,7 @@ go install github.com/gravitee-io-labs/gck@latest
 Pick a context from the registry and deploy it in one command:
 
 ```bash
-gck create --from gravitee-io/oss/apim
+gck create --from gravitee-io/apim
 ```
 
 That's it — gck creates a Kind cluster, installs all components, and gives you a full Gravitee API Management stack. When you're done:

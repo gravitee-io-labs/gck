@@ -1,0 +1,78 @@
+description: "Deploy a Kafka broker fronted by the APIM Kafka Gateway (licensed feature, needs the license file)"
+from:
+  - kafka/standalone
+  - gravitee-io/apim/kafka-gateway
+vars:
+  kafka:
+    standalone:
+      imageTag:
+        default: "latest"
+      imageRepository:
+        default: "apache/kafka"
+features:
+  lb:
+    enabled: true
+  dns:
+    enabled: true
+    records:
+      - hostname: "*.kafka.gck.local"
+        service: apim-gateway
+        namespace: gravitee
+components:
+  # The Kafka Gateway is licensed: fail before creating the cluster when the
+  # license file is missing, instead of deploying a gateway that refuses it.
+  - name: license
+    k8s:
+      secrets:
+        - name: gravitee-license
+          fromFile: "{{ .licenseFile }}"
+          onMissing: fail
+  - name: kafka
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: kafka
+            labels:
+              app: kafka
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 9092
+                targetPort: 9092
+                name: internal
+            selector:
+              app: kafka
+  - name: apim
+    requires:
+      - component: kafka
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: kafka
+        timeout: 15m
+    helm:
+      values:
+        gateway:
+          service:
+            type: LoadBalancer
+          env:
+            - name: KAFKA_PORT
+              value: "9092"
+            - name: KAFKA_SERVICE_HOST
+              value: kafka
+          kafka:
+            enabled: true
+            port: 9092
+            host: 0.0.0.0
+            routingMode: host
+            routingHostMode:
+              defaultDomain: kafka.gck.local
+              defaultPort: 9092
+            ssl:
+              keystore:
+                type: pem
+                secret: secret://kubernetes/kafka-tls

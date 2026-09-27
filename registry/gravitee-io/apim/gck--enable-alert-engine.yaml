@@ -1,0 +1,107 @@
+description: "Deploy Alert Engine and wire APIM gateway + management API to send alerts (licensed feature, needs the license file)"
+vars:
+  alertEngineImageRepository:
+    default: "graviteeio/ae-engine"
+    description: "Alert Engine Docker image repository"
+  alertEngineImageTag:
+    default: "2.3.1"
+    description: "Alert Engine Docker image tag"
+images:
+  preload:
+    refs:
+      - "{{ .alertEngineImageRepository }}:{{ .alertEngineImageTag }}"
+components:
+  # Alert Engine is licensed: fail before creating the cluster when the
+  # license file is missing.
+  - name: license
+    k8s:
+      secrets:
+        - name: gravitee-license
+          fromFile: "{{ .licenseFile }}"
+          onMissing: fail
+  - name: alert-engine
+    type: k8s
+    namespace: gravitee
+    conditions:
+      ready: true
+    selector:
+      matchLabels:
+        app: alert-engine
+    k8s:
+      manifests:
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: alert-engine
+            labels:
+              app: alert-engine
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: alert-engine
+            template:
+              metadata:
+                labels:
+                  app: alert-engine
+              spec:
+                volumes:
+                  - name: graviteeio-license
+                    secret:
+                      secretName: gravitee-license
+                containers:
+                  - name: alert-engine
+                    image: "{{ .alertEngineImageRepository }}:{{ .alertEngineImageTag }}"
+                    ports:
+                      - containerPort: 8072
+                        name: http
+                      - containerPort: 18072
+                        name: tech
+                    env:
+                      - name: gravitee_ingesters_ws_instances_0_host
+                        value: "0.0.0.0"
+                      - name: gravitee_ingesters_ws_instances_0_port
+                        value: "8072"
+                    volumeMounts:
+                      - name: graviteeio-license
+                        mountPath: /opt/graviteeio-alert-engine/license
+                        readOnly: true
+                    resources:
+                      requests:
+                        cpu: 250m
+                        memory: 512Mi
+                      limits:
+                        cpu: "1"
+                        memory: 1Gi
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: alert-engine
+            labels:
+              app: alert-engine
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 8072
+                targetPort: 8072
+                name: http
+              - port: 18072
+                targetPort: 18072
+                name: tech
+            selector:
+              app: alert-engine
+  - name: apim
+    requires:
+      - component: alert-engine
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: alert-engine
+        timeout: 10m
+    helm:
+      values:
+        alerts:
+          enabled: true
+          endpoints:
+            - ws://alert-engine:8072

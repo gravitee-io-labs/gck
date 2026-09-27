@@ -1,0 +1,22 @@
+---
+# Titled "Kafka" so this replaces the kafka/standalone instructions rather
+# than contradicting them: with --enable-kafka-gateway, the APIM gateway
+# fronts the broker instead of exposing its host port.
+title: Kafka
+endpoints:
+  - name: Kafka
+    when: false
+  - name: Kafka Gateway
+    url: '*.kafka.gck.local:9092'
+    note: TLS
+---
+To connect a Kafka client to the gateway, extract the TLS certificate:
+
+  kubectl get secret kafka-tls -n gravitee -o jsonpath='{.data.tls\.crt}' | base64 -d > kafka-tls.crt
+
+Then use these client properties:
+
+  security.protocol=SSL
+  ssl.truststore.type=PEM
+  ssl.truststore.location=/path/to/kafka-tls.crt
+  ssl.endpoint.identification.algorithm=

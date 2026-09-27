@@ -24,7 +24,7 @@ For Homebrew, Linux packages, and other options, see [Installation]({{< ref "/do
 You don't even need a config file to get started. Pick a context from the registry and deploy it in one command:
 
 ```bash
-gck create --from gravitee-io/oss/apim
+gck create --from gravitee-io/apim
 ```
 
 That's it. gck creates a Kind cluster, installs the Helm repos and components defined by the context, and gives you a full Gravitee API Management stack.
@@ -39,10 +39,10 @@ gck describe    # shows features, networking, and active flags for the current c
 Before creating a cluster, you can preview what a context offers with `gck info`:
 
 ```bash
-gck info --from gravitee-io/oss/apim
+gck info --from gravitee-io/apim
 ```
 
-This shows the component list, available context flags (optional toggles like `--disable-es` to disable Elasticsearch), and enabled features.
+This shows the component list, the alternatives you can pick from (like `--use-mongodb` to store APIM data in MongoDB instead of the default PostgreSQL), the available context flags (optional toggles like `--disable-analytics`), and enabled features.
 
 When you're done:
 
@@ -56,7 +56,7 @@ For anything beyond a quick test, you'll want a `gck.yaml` file. It lets you com
 
 ```yaml
 from:
-  - gravitee-io/oss/apim
+  - gravitee-io/apim
 ```
 
 Then just run `gck create` without flags. The config file is where things get interesting -- you can layer contexts, override values, enable DNS, and more. See [Composing Contexts]({{< ref "/docs/guides/composing-contexts" >}}) for the full story.

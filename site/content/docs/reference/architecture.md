@@ -57,12 +57,12 @@ When gck starts, it assembles a final configuration by merging multiple layers. 
 flowchart LR
     A["~/.gck/gck.yaml"] --> B["./gck.yaml"]
     B --> C["--from contexts\n(left to right)"]
-    C --> D["Context flags\n(--disable-es, --disable-ui, ...)"]
+    C --> D["Context flags\n(--disable-analytics, --disable-ui, ...)"]
     D --> E["CLI overrides\n(--registry, --from)"]
     E --> F["Embedded defaults"]
 ```
 
-The user-level base config (`~/.gck/gck.yaml`) provides personal defaults -- mirror settings, a custom registry URL, or a preferred DNS domain. The project config (`./gck.yaml` or `--config`) layers on top. Registry contexts resolved from `from` entries are merged left to right. Context flags apply last, patching components in or out.
+The user-level base config (`~/.gck/gck.yaml`) provides personal defaults -- mirror settings, a custom registry URL, or a preferred DNS domain. The project config (`./gck.yaml` or `--config`) layers on top. Registry contexts resolved from `from` entries are merged left to right, each with its selected alternatives. Context flags apply last, patching components in or out.
 
 ## Context composition
 
@@ -70,13 +70,12 @@ Registry contexts compose other contexts via the `from` field. gck resolves each
 
 ```mermaid
 flowchart TD
-    A["Project gck.yaml"] -- from --> B["gravitee-io/oss/apim"]
-    B -- from --> C["postgresql/standalone"]
-    B -- from --> D["elastic/elasticsearch"]
-    B -- from --> E["gravitee-io/oss/apim/jdbc/base\n(abstract)"]
-    E -- from --> F["gravitee-io/oss/apim/base\n(abstract)"]
+    A["Project gck.yaml"] -- from --> B["gravitee-io/apim"]
+    B -- "--use-elasticsearch\n(default)" --> D["elastic/elasticsearch/standalone"]
+    B -- "--use-jdbc-postgres\n(default)" --> C["postgresql/standalone"]
+    B -- from --> F["gravitee-io/apim/base\n(abstract)"]
 ```
 
-Here the project pulls in `gravitee-io/oss/apim`, which resolves to the default concrete context (`gravitee-io/oss/apim/jdbc/postgres` via the `.default` chain). That context composes three dependencies: a standalone data store, Elasticsearch, and an abstract JDBC base that adds JDBC persistence on top of the shared APIM configuration. gck walks the full tree, merges every layer, and deduplicates overlapping components.
+Here the project pulls in `gravitee-io/apim`. Its own `from` only names the abstract APIM base; its datasource and analytics backend come from **alternatives** -- `gck--use-*.yaml` files grouped by concern, one member of each group selected (the default unless a `--use-*` flag picks another). A selected alternative composes its backend context ahead of the context's own `from` and merges its own settings after the context's, as a dedicated variant directory would. Unselected alternatives are never composed. gck walks the full tree, merges every layer, and deduplicates overlapping components.
 
 Abstract contexts (`abstract: true`) cannot be deployed directly -- they exist to capture shared configuration that concrete contexts extend.

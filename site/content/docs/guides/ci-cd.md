@@ -11,9 +11,9 @@ This guide covers the basics of running gck in a CI pipeline, image caching stra
 A typical integration test pipeline creates a cluster, runs tests against it, and tears it down:
 
 ```bash
-gck create --from gravitee-io/oss/apim/dbless
+gck create --from gravitee-io/apim --use-dbless
 make test
-gck delete gravitee-dbless
+gck delete gravitee
 ```
 
 ## Private registries
@@ -76,13 +76,13 @@ jobs:
           command: go install github.com/gravitee-io-labs/gck@latest
       - run:
           name: Create cluster
-          command: gck create --from gravitee-io/oss/apim/dbless
+          command: gck create --from gravitee-io/apim --use-dbless
       - run:
           name: Verify
-          command: gck describe gravitee-dbless
+          command: gck describe gravitee
       - run:
           name: Delete cluster
-          command: gck delete gravitee-dbless
+          command: gck delete gravitee
           when: always
 
 workflows:
@@ -91,7 +91,7 @@ workflows:
       - test
 ```
 
-No explicit cache configuration is needed. The dbless context already defines `images.preload.refs`, and DLC caches the host `docker pull` layers transparently. The local push to the preload registry is fast regardless.
+No explicit cache configuration is needed. The `--use-dbless` selection already trims `images.preload` to the gateway and operator images, and DLC caches the host `docker pull` layers transparently. The local push to the preload registry is fast regardless.
 
 ## GitHub Actions
 
@@ -120,21 +120,23 @@ jobs:
           restore-keys: gck-mirrors-
 
       - name: Create cluster
-        run: gck create --from gravitee-io/oss/apim/dbless
+        run: gck create --from gravitee-io/apim --use-dbless
 
       - name: Verify
-        run: gck describe gravitee-dbless
+        run: gck describe gravitee
 
       - name: Delete cluster
         if: always()
-        run: gck delete gravitee-dbless
+        run: gck delete gravitee
 ```
 
 The `gck.yaml` for this pipeline would use mirrors instead of preload:
 
 ```yaml
 from:
-  - gravitee-io/oss/apim/dbless
+  - gravitee-io/apim
+use:
+  - dbless
 
 images:
   mirrors: {}

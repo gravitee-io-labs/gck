@@ -54,13 +54,41 @@ components:
 
 Contexts in `from` are merged left-to-right: later entries override earlier ones on conflicts. Your local fields override last.
 
+## Choosing a backend
+
+Product contexts offer their interchangeable backends as **alternatives**: `--use-*` flags grouped by concern, of which exactly one per group is applied. `gravitee-io/apim` offers a `datasource` group (PostgreSQL over JDBC by default, MySQL, MSSQL, MongoDB) and an `analytics` group (Elasticsearch by default, OpenSearch):
+
+```bash
+gck create --from gravitee-io/apim --use-mongodb --use-opensearch
+```
+
+Leave a group out to keep its default. `gck info --from <context>` lists the groups and marks each default; the registry page lists them in its **Context flags** table, tagged with their group, and shows which components each one brings in.
+
+`--use-dbless` is also a datasource: the gateway runs without a database and reads its APIs from Kubernetes resources through GKO. It takes the console, portal and analytics with it, which is the lightest APIM stack for CI:
+
+```bash
+gck create --from gravitee-io/apim --use-dbless
+```
+
+To pin the selection in a project, list the members in `use` instead of repeating the flags:
+
+```yaml
+from:
+  - gravitee-io/apim
+use:
+  - mongodb
+  - opensearch
+```
+
+Plain flags still apply on top of the selection. `--disable-analytics`, for example, turns analytics off whichever analytics backend is selected. A cluster keeps the backend it was created with: `gck patch` refuses a different `--use-*`, so switching datasource means `gck delete` and `gck create` again.
+
 ## Adding an OpenTelemetry collector to a Gravitee stack
 
 The `otel-collector/base` context is a reusable observability layer: it deploys an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) into the `observability` namespace that receives OTLP telemetry and prints it to its logs via the `debug` exporter. Compose it onto any APIM or AM context, and turn on the gateway's exporter with the inherited `--enable-otel-collector` flag:
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from otel-collector/base \
   --enable-otel-collector
 ```
@@ -77,7 +105,7 @@ The `debug` exporter only prints spans, so nothing survives past the collector's
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from grafana/base \
   --enable-otel-collector
 ```
@@ -88,7 +116,7 @@ For a hostname instead, add `--enable-route`, which serves Grafana at `http://gr
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from grafana/base \
   --enable-otel-collector \
   --enable-route
@@ -110,7 +138,7 @@ The `kube-state-metrics/base` context deploys [kube-state-metrics](https://githu
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from kube-state-metrics/base
 ```
 
@@ -301,7 +329,7 @@ The `onMissing` field controls behavior when a source file or env var is missing
 Registry contexts can declare template variables with defaults using a `vars` block. As a user, you override these at deploy time with `--set` -- no files to edit:
 
 ```bash
-gck create --from gravitee-io/oss/apim/jdbc/postgres --set imageTag=4.6.0 --set helmVersion=4.6.0
+gck create --from gravitee-io/apim --set imageTag=4.6.0 --set helmVersion=4.6.0
 ```
 
 This works because the APIM base context declares `vars` with defaults (`imageTag: "latest"`, `helmVersion: ""`), and `--set` values take precedence. Check a context's Variables table on the registry site or run `gck info` to discover which variables it supports.
@@ -310,10 +338,10 @@ When a composition chain includes multiple contexts that declare the same variab
 
 ```bash
 # Override MySQL's imageTag without affecting the product's imageTag
-gck create --from gravitee-io/oss/am/jdbc/mysql --set mysql.standalone.imageTag=8.4
+gck create --from gravitee-io/am --use-jdbc-mysql --set mysql.standalone.imageTag=8.4
 
 # This still broadcasts to every context declaring imageTag
-gck create --from gravitee-io/oss/am/jdbc/mysql --set imageTag=4.6.0
+gck create --from gravitee-io/am --use-jdbc-mysql --set imageTag=4.6.0
 ```
 
 The system matches the dotted key against known context paths in the composition chain using longest-prefix matching: `mysql.standalone.imageTag` resolves to path `mysql/standalone`, variable `imageTag`.
@@ -346,13 +374,14 @@ gck create --set appVersion=2.1.0
 
 ### Overriding parent variables in the registry
 
-Context authors can override a parent's variable default by nesting it under the parent's path segments in the `vars` block:
+Context authors can override a parent's variable default by nesting it under the parent's path segments in the `vars` block. Alternatives do the same for the contexts their `from` brings in:
 
 ```yaml
-# gravitee-io/oss/am/jdbc/mysql/gck.yaml
+# gravitee-io/am/gck--use-jdbc-mysql.yaml
+description: "Store AM data in MySQL over JDBC"
+group: datasource
 from:
   - mysql/standalone
-  - gravitee-io/oss/am/jdbc/base
 
 vars:
   jdbcDriver:
@@ -430,7 +459,7 @@ Each context's `notes.create` declares the endpoints it exposes in YAML front ma
 
 ```bash
 gck create \
-  --from gravitee-io/oss/apim/jdbc/postgres \
+  --from gravitee-io/apim \
   --from grafana/base \
   --enable-otel-collector
 ```
@@ -440,14 +469,18 @@ gck create \
 
   Endpoints
 
-    PostgreSQL          localhost:30432
     Elasticsearch       http://localhost:30920  security disabled
+    PostgreSQL          localhost:30432
     APIM Console        http://localhost:30080
     APIM Portal         http://localhost:30081
     APIM Gateway        http://localhost:30082
     APIM Gateway (TLS)  https://localhost:30084
     APIM API            http://localhost:30083
     Grafana             http://localhost:30300
+
+  Elasticsearch
+
+      curl http://localhost:30920/_cluster/health?pretty
 
   PostgreSQL
 
@@ -477,7 +510,7 @@ gck create \
 
 Rows merge by `name` and prose blocks by `title`. The first context to declare one fixes its position; a later context that declares the same one replaces it -- which is how a context that changes an inherited service corrects its address rather than contradicting it. Declaring `when: false` on the replacement hides it instead, for a service a later layer stops exposing.
 
-Because inherited rows are kept, a variant usually needs no `notes.create` of its own: `gravitee-io/oss/apim/jdbc/postgres` has none, and still prints all of the above.
+Because inherited rows are kept, a context usually needs no `notes.create` of its own: `gravitee-io/apim` has none, and still prints all of the above -- including the rows of the datasource and analytics backend its selected [alternatives](#choosing-a-backend) compose.
 
 The same declarations feed the documentation. Each context's registry page renders an **Endpoints** table built from the resolved composition, with a `From` column naming the context each row came from -- so an endpoint declared on an abstract base like `grafana/base` appears on every concrete variant that composes it, even though abstract contexts get no page of their own.
 

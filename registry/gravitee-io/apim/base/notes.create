@@ -1,0 +1,38 @@
+---
+title: APIM
+endpoints:
+  - name: APIM Console
+    url: http://localhost:30080
+    when: '{{ not (hasFlag "disable-ui") }}'
+  - name: APIM Portal
+    url: http://localhost:30081
+    when: '{{ and (not (hasFlag "disable-portal")) (not (hasFlag "disable-ui")) }}'
+  - name: APIM Gateway
+    url: http://localhost:30082
+  # DB-less runs the gateway alone, on a single plaintext server: there is no
+  # management API and nothing listens behind the TLS port.
+  - name: APIM Gateway (TLS)
+    url: https://localhost:30084
+    when: '{{ not (hasFlag "use-dbless") }}'
+  - name: APIM API
+    url: http://localhost:30083
+    when: '{{ not (hasFlag "use-dbless") }}'
+  - name: APIM Bridge API
+    url: http://localhost:30085
+    when: '{{ hasFlag "enable-bridge" }}'
+  - name: Alert Engine
+    url: ws://alert-engine:8072
+    note: in-cluster only
+    when: '{{ hasFlag "enable-alert-engine" }}'
+---
+Everything has been deployed in the `gravitee` namespace.
+{{ if hasFlag "use-dbless" }}
+The gateway is configured from Kubernetes resources only. Create Gravitee CRDs
+with GKO to publish APIs.
+{{ end -}}
+{{ if hasFlag "enable-hc-vault" }}
+Vault is deployed in dev mode (root token: root). To access the Vault API/UI
+from your host:
+
+  kubectl port-forward svc/vault -n gravitee 8200:8200
+{{ end -}}

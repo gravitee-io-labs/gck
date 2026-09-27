@@ -47,8 +47,8 @@ const defaultPollInterval = 2 * time.Second
 // served NXDOMAIN forever — a broken cluster reported as a healthy one. The
 // predicate is what was actually asked for (route hostnames, or declared
 // records), NOT features.dns.enabled: a context can enable DNS while declaring
-// neither gateway nor records (registry/gravitee-io/oss/apim/gateway does), and
-// collecting nothing there is correct.
+// neither gateway nor records (e.g. one that only installs a Gateway API
+// controller), and collecting nothing there is correct.
 //
 // Only hostnames inside domain are collected — see inDomain for why anything
 // else is not a record but a guaranteed failure.
@@ -259,8 +259,8 @@ func resolveServiceRecords(ctx context.Context, client kubernetes.Interface, dns
 			return records, ctx.Err()
 		case <-deadline:
 			// Returning the partial set with a nil error silently dropped
-			// whatever was still pending — for ee/apim that is the whole
-			// *.kafka.gck.local wildcard, absent with no failure anywhere.
+			// whatever was still pending — e.g. a wildcard record behind a
+			// LoadBalancer, absent with no failure anywhere.
 			return records, fmt.Errorf(
 				"timed out after %s waiting for LoadBalancer IPs: %d/%d record(s) unresolved (%s)",
 				timeout, len(pendingHosts), len(dnsRecords), strings.Join(pendingHosts, ", "))

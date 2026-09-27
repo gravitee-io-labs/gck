@@ -63,7 +63,7 @@
         {{ with .Params.endpoints }}
         <section class="registry-endpoints">
           <h2>Endpoints</h2>
-          <p class="endpoints-desc">Services this context exposes on your machine after <code>gck create</code>, including the ones it inherits from the contexts it composes. Rows marked with a flag only exist when you pass it.</p>
+          <p class="endpoints-desc">Services this context exposes on your machine after <code>gck create</code>, including the ones it inherits from the contexts it composes. Rows marked with a flag only exist when you pass it; rows marked <em>with</em> an alternative only exist when it is selected, and rows marked <em>not with</em> one disappear when it is.</p>
           <table class="vars-table">
             <thead>
               <tr>
@@ -79,6 +79,12 @@
                 <td>{{ .name }}</td>
                 <td><code>{{ .url }}</code></td>
                 <td>
+                  {{ with .use }}
+                    <span class="endpoint-requires">with {{ range $i, $f := . }}{{ if $i }} or {{ end }}<code>--{{ $f }}</code>{{ end }}</span>
+                  {{ end }}
+                  {{ with .unless }}
+                    <span class="endpoint-requires">not with {{ range $i, $f := . }}{{ if $i }} or {{ end }}<code>--{{ $f }}</code>{{ end }}</span>
+                  {{ end }}
                   {{ with .requires }}
                     <span class="endpoint-requires">needs {{ range $i, $f := . }}{{ if $i }} + {{ end }}<code>--{{ $f }}</code>{{ end }}</span>
                   {{ end }}
@@ -92,10 +98,38 @@
         </section>
         {{ end }}
 
+        {{ with .Params.component_table }}
+        <section class="registry-flags" id="components">
+          <h2>Components</h2>
+          <p class="flags-desc">What <code>gck create</code> deploys, and which context flags change it.</p>
+          <table class="flags-table">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Deployed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range . }}
+              <tr>
+                <td><code>{{ .name }}</code></td>
+                <td>
+                  {{- if and (not .use) (not .unless) }}<span class="flag-meta">always</span>{{ end -}}
+                  {{- with .use }}with {{ range $i, $f := . }}{{ if $i }} or {{ end }}<code>--{{ $f }}</code>{{ end }}{{ end -}}
+                  {{- if and .use .unless }}, {{ end -}}
+                  {{- with .unless }}not with {{ range $i, $f := . }}{{ if $i }} or {{ end }}<code>--{{ $f }}</code>{{ end }}{{ end -}}
+                </td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </section>
+        {{ end }}
+
         {{ with .Params.flags }}
         <section class="registry-flags" id="context-flags">
           <h2>Context flags</h2>
-          <p class="flags-desc">Optional flags you can pass to <code>gck create</code> to customize this context:</p>
+          <p class="flags-desc">Flags you can pass to <code>gck create</code> to customize this context. Flags tagged with a group are mutually exclusive: pass at most one per group, the default applies otherwise.</p>
           <table class="flags-table">
             <thead>
               <tr>
@@ -106,8 +140,14 @@
             <tbody>
               {{ range . }}
               <tr>
-                <td><code>--{{ .name }}</code></td>
-                <td>{{ .description }}</td>
+                <td><code>--{{ .name }}</code>{{ with .group }}<br><span class="flag-meta">{{ . }}</span>{{ end }}</td>
+                <td>
+                  {{ .description }}
+                  {{- if .default }} <span class="flag-meta">default</span>{{ end }}
+                  {{- with .implies }}<br><span class="flag-note">implies {{ range $i, $f := . }}{{ if $i }}, {{ end }}<code>--{{ $f }}</code>{{ end }}</span>{{ end }}
+                  {{- with .requires }}<br><span class="flag-note">needs {{ range $i, $f := . }}{{ if $i }} + {{ end }}<code>--{{ $f }}</code>{{ end }}</span>{{ end }}
+                  {{- with .conflicts }}<br><span class="flag-note">not with {{ range $i, $f := . }}{{ if $i }}, {{ end }}<code>--{{ $f }}</code>{{ end }}</span>{{ end }}
+                </td>
               </tr>
               {{ end }}
             </tbody>
@@ -134,7 +174,15 @@
                 <td><code>{{ .name }}</code></td>
                 <td>{{ if .default }}<code>{{ .default }}</code>{{ else }}<em>(empty)</em>{{ end }}</td>
                 <td>{{ with .origin }}<code>{{ . }}</code>{{ end }}</td>
-                <td>{{ .description }}</td>
+                <td>
+                  {{ with .use }}
+                    <span class="endpoint-requires">with {{ range $i, $f := . }}{{ if $i }} or {{ end }}<code>--{{ $f }}</code>{{ end }}</span>
+                  {{ end }}
+                  {{ with .unless }}
+                    <span class="endpoint-requires">not with {{ range $i, $f := . }}{{ if $i }} or {{ end }}<code>--{{ $f }}</code>{{ end }}</span>
+                  {{ end }}
+                  {{ .description }}
+                </td>
               </tr>
               {{ end }}
             </tbody>
@@ -202,8 +250,10 @@
         <div class="sidebar-section">
           <h3>Variables</h3>
           <ul class="var-list">
-            {{ range . }}
-            <li><code>{{ .name }}</code></li>
+            {{ $names := slice }}
+            {{ range . }}{{ $names = $names | append .name }}{{ end }}
+            {{ range uniq $names }}
+            <li><code>{{ . }}</code></li>
             {{ end }}
           </ul>
         </div>

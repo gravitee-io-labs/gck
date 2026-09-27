@@ -777,3 +777,28 @@ func TestExtractActiveFlags_IgnoresSingleDash(t *testing.T) {
 		t.Fatalf("expected [disable-portal], got %v", active)
 	}
 }
+
+func TestExtractCLIFlags(t *testing.T) {
+	args := []string{"gck", "create", "--from", "gravitee-io/apim", "--use-mongodb", "--disable-analytics", "--use-opensearch=true", "--", "--use-jdbc-mysql"}
+	use, plain := extractCLIFlags(args)
+	if want := []string{"use-mongodb", "use-opensearch"}; strings.Join(use, ",") != strings.Join(want, ",") {
+		t.Errorf("use = %v, want %v", use, want)
+	}
+	if want := []string{"from", "disable-analytics"}; strings.Join(plain, ",") != strings.Join(want, ",") {
+		t.Errorf("plain = %v, want %v", plain, want)
+	}
+}
+
+func TestCheckConfigUse(t *testing.T) {
+	resolved := &config.ResolvedContext{Flags: []config.ContextFlag{
+		{Name: "use-mongodb", Group: "datasource"},
+		{Name: "use-jdbc-postgres", Group: "datasource", Default: true},
+		{Name: "disable-portal"},
+	}}
+	if err := checkConfigUse([]string{"mongodb", "use-jdbc-postgres"}, resolved); err != nil {
+		t.Errorf("known alternatives, with or without prefix: %v", err)
+	}
+	if err := checkConfigUse([]string{"portal"}, resolved); err == nil {
+		t.Error("expected an error for a use: entry matching no alternative")
+	}
+}

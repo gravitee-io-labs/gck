@@ -22,6 +22,8 @@ Each argument can be a path to a gck.yaml file or a directory. When a
 directory is given, all gck.yaml and gck--*.yaml (context flag) files
 under it are validated recursively. Context flag files are additionally
 checked for a valid naming convention and a non-empty description field.
+Alternatives (use-* flags) must declare a group, and each group declared
+in a directory must have exactly one default member.
 
 When --tags is provided with a path to a tags vocabulary file, README.md
 files that sit alongside a gck.yaml are also checked: every tag in the
@@ -114,9 +116,28 @@ func runValidate(_ *cobra.Command, args []string) error {
 			failed++
 		}
 	}
+	flagDirs := make(map[string]bool)
+	var dirOrder []string
 	for _, f := range flagFiles {
+		dir := filepath.Dir(f)
+		if _, seen := flagDirs[dir]; !seen {
+			flagDirs[dir] = true
+			dirOrder = append(dirOrder, dir)
+		}
 		if err := validateFlagFile(sch, f); err != nil {
 			logger.Error("%s: %v", f, err)
+			failed++
+			flagDirs[dir] = false
+		}
+	}
+	// Group rules span the files of one directory; check them once every
+	// file there is valid on its own so errors are not reported twice.
+	for _, dir := range dirOrder {
+		if !flagDirs[dir] {
+			continue
+		}
+		if _, err := registry.DiscoverFlags(dir); err != nil {
+			logger.Error("%v", err)
 			failed++
 		}
 	}
@@ -149,10 +170,9 @@ func runValidate(_ *cobra.Command, args []string) error {
 }
 
 // validateFlagFile validates a context flag file: naming convention,
-// description required, and schema compliance.
+// alternative fields, description required, and schema compliance.
 func validateFlagFile(sch *jsonschema.Schema, path string) error {
-	name := filepath.Base(path)
-	if _, err := registry.FlagNameFromFile(name); err != nil {
+	if _, err := registry.ReadFlag(path); err != nil {
 		return err
 	}
 

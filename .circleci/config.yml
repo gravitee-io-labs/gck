@@ -17,7 +17,7 @@ jobs:
           command: go build -o ./gck .
       - run:
           name: Create cluster
-          command: ./gck create --config gck.local.yaml --from gravitee-io/oss/apim/dbless
+          command: ./gck create --config gck.local.yaml --from gravitee-io/apim --use-dbless
       - run:
           name: Verify
           command: ./gck describe gravitee

@@ -1,0 +1,76 @@
+description: "Store APIM data in MySQL over JDBC"
+group: datasource
+from:
+  - mysql/standalone
+vars:
+  mysql:
+    standalone:
+      imageTag:
+        default: "8.0"
+      imageRepository:
+        default: "mysql"
+  jdbcUrl:
+    default: "jdbc:mysql://mysql:3306/gravitee"
+    description: "JDBC connection URL"
+  jdbcDriver:
+    default: "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.2.0/mysql-connector-j-9.2.0.jar"
+    description: "JDBC driver download URL"
+  jdbcUsername:
+    default: "root"
+    description: "JDBC username"
+  jdbcPassword:
+    default: "mysql"
+    description: "JDBC password"
+images:
+  preload:
+    skip:
+      - "mysql:9"
+    refs:
+      - "mysql:8.0"
+components:
+  - name: mysql
+    namespace: gravitee
+    k8s:
+      manifests:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: mysql
+            labels:
+              app: mysql
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 3306
+                targetPort: 3306
+                name: mysql
+            selector:
+              app: mysql
+  - name: apim
+    requires:
+      - component: mysql
+        conditions:
+          ready: true
+        selector:
+          matchLabels:
+            app: mysql
+        timeout: 15m
+    helm:
+      values:
+        management:
+          type: jdbc
+        jdbc:
+          url: "{{ .jdbcUrl }}"
+          driver: "{{ .jdbcDriver }}"
+          username: "{{ .jdbcUsername }}"
+          password: "{{ .jdbcPassword }}"
+        gateway:
+          env:
+            - name: gravitee_ratelimit_type
+              value: jdbc
+            - name: gravitee_ratelimit_jdbc_uri
+              value: "{{ .jdbcUrl }}"
+            - name: gravitee_ratelimit_jdbc_username
+              value: "{{ .jdbcUsername }}"
+            - name: gravitee_ratelimit_jdbc_password
+              value: "{{ .jdbcPassword }}"

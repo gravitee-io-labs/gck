@@ -1,5 +1,5 @@
 <a href="{{ .RelPermalink }}" class="registry-card"
-   data-search="{{ .Title | lower }} {{ with .Params.path }}{{ . | lower }}{{ end }} {{ .Description | lower }} {{ with .Params.tags }}{{ delimit . " " | lower }}{{ end }} {{ with .Params.components }}{{ delimit . " " | lower }}{{ end }}"
+   data-search="{{ .Title | lower }} {{ with .Params.path }}{{ . | lower }}{{ end }} {{ .Description | lower }} {{ with .Params.tags }}{{ delimit . " " | lower }}{{ end }} {{ with .Params.components }}{{ delimit . " " | lower }}{{ end }} {{ range .Params.flags }}{{ .name | lower }} {{ end }}"
    data-tags="{{ with .Params.tags }}{{ delimit . "," }}{{ end }}">
   <div class="registry-card-body">
     <div class="registry-card-header">

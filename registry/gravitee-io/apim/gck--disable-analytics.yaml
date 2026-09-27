@@ -1,0 +1,17 @@
+description: "Disable analytics: no Elasticsearch or OpenSearch, no analytics reporters"
+disables:
+  - analytics
+components:
+  - name: apim
+    helm:
+      values:
+        es:
+          enabled: false
+        gateway:
+          reporters:
+            elasticsearch:
+              enabled: false
+        api:
+          env:
+            - name: ANALYTICS_TYPE
+              value: none

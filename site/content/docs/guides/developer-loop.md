@@ -12,7 +12,7 @@ Add a `builds` section to your `gck.yaml`. Each entry describes one image you bu
 
 ```yaml
 from:
-  - gravitee-io/ee/edge-stack
+  - gravitee-io/edge-stack
 
 builds:
   - name: emissary

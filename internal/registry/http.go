@@ -69,6 +69,20 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 		return nil, fmt.Errorf("fetching context: %d", status)
 	}
 
+	cacheDir := filepath.Join(r.CacheRoot, contextPath)
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		return nil, fmt.Errorf("creating cache dir: %w", err)
+	}
+
+	ownFlags, err := r.fetchFlags(ctx, client, baseURL, contextPath, cacheDir)
+	if err != nil {
+		return nil, err
+	}
+	alternatives, err := selectAlternatives(ctx, contextPath, ownFlags)
+	if err != nil {
+		return nil, err
+	}
+
 	tree, err := gcktmpl.ExtractVarsTree(data)
 	if err != nil {
 		return nil, fmt.Errorf("extracting vars from %s: %w", contextPath, err)
@@ -78,6 +92,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 	for _, d := range tree.Defs {
 		ownDefaults[d.Name] = d.Default
 	}
+	overrides := addAlternativeVars(alternatives, ownDefaults, tree.Overrides)
 
 	myOverrides := make(map[string]string)
 	if childOverrides != nil {
@@ -88,7 +103,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 		}
 	}
 
-	parentOverrides := mergeOverrideMaps(childOverrides, tree.Overrides)
+	parentOverrides := mergeOverrideMaps(childOverrides, overrides)
 
 	scopedForMe := make(map[string]string)
 	knownPaths := map[string]bool{contextPath: true}
@@ -113,15 +128,63 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 	if err := yaml.Unmarshal(rendered, &parsed); err != nil {
 		return nil, fmt.Errorf("parsing context file %s: %w", contextPath, err)
 	}
+	parsed.From = alternativeFrom(alternatives, parsed.From)
 
-	cacheDir := filepath.Join(r.CacheRoot, contextPath)
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
-		return nil, fmt.Errorf("creating cache dir: %w", err)
+	if err := r.fetchReferencedFiles(ctx, client, baseURL, contextPath, cacheDir, parsed.Components); err != nil {
+		return nil, err
 	}
 
+	for _, notesFile := range []string{"notes.create", "notes.delete"} {
+		if err := r.fetchAndCache(ctx, client, baseURL, contextPath, cacheDir, notesFile, true); err != nil {
+			return nil, err
+		}
+	}
+
+	var resolved *config.ResolvedContext
+	if len(parsed.From) > 0 {
+		resolved, err = r.resolveFromWithVars(withPins(ctx, contextPath, parsed.Use), parsed, cacheDir, contextPath, parentOverrides, set, ownFlags)
+		if err != nil {
+			return nil, err
+		}
+		resolved.EffectiveVars = mergeVarMaps(resolved.EffectiveVars, effectiveVars)
+	} else {
+		resolved = &config.ResolvedContext{
+			Repos:         parsed.Helm.Repos,
+			Components:    parsed.Components,
+			Dir:           cacheDir,
+			Kind:          parsed.Kind,
+			Features:      parsed.Features,
+			Images:        parsed.Images,
+			Notes:         readNotes(cacheDir, contextPath),
+			Abstract:      parsed.Abstract,
+			Flags:         ownFlags,
+			EffectiveVars: effectiveVars,
+		}
+	}
+	if err := renderAlternatives(alternatives, resolved.EffectiveVars); err != nil {
+		return nil, fmt.Errorf("context %s: %w", contextPath, err)
+	}
+	for _, l := range alternatives {
+		if err := r.fetchReferencedFiles(ctx, client, baseURL, contextPath, cacheDir, l.cfg.Components); err != nil {
+			return nil, err
+		}
+	}
+	applyAlternatives(resolved, alternatives)
+	if err := checkPins(contextPath, parsed.Use, resolved); err != nil {
+		return nil, err
+	}
+	if err := checkImplied(contextPath, resolved); err != nil {
+		return nil, err
+	}
+	return resolved, nil
+}
+
+// fetchReferencedFiles downloads the values and manifest files the given
+// components reference into cacheDir.
+func (r *HTTPResolver) fetchReferencedFiles(ctx context.Context, client *http.Client, baseURL, contextPath, cacheDir string, components []config.Component) error {
 	var filesToFetch []string
 	seen := make(map[string]bool)
-	for _, comp := range parsed.Components {
+	for _, comp := range components {
 		if comp.Helm != nil {
 			for _, v := range comp.Helm.ValueFiles {
 				if !seen[v] {
@@ -142,46 +205,15 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 
 	for _, f := range filesToFetch {
 		if err := r.fetchAndCache(ctx, client, baseURL, contextPath, cacheDir, f, false); err != nil {
-			return nil, err
+			return err
 		}
 	}
-
-	for _, notesFile := range []string{"notes.create", "notes.delete"} {
-		if err := r.fetchAndCache(ctx, client, baseURL, contextPath, cacheDir, notesFile, true); err != nil {
-			return nil, err
-		}
-	}
-
-	flags, err := r.fetchFlags(ctx, client, baseURL, contextPath, cacheDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(parsed.From) > 0 {
-		resolved, err := r.resolveFromWithVars(ctx, parsed, cacheDir, contextPath, parentOverrides, set)
-		if err != nil {
-			return nil, err
-		}
-		resolved.EffectiveVars = mergeVarMaps(resolved.EffectiveVars, effectiveVars)
-		return resolved, nil
-	}
-
-	return &config.ResolvedContext{
-		Repos:         parsed.Helm.Repos,
-		Components:    parsed.Components,
-		Dir:           cacheDir,
-		Kind:          parsed.Kind,
-		Features:      parsed.Features,
-		Images:        parsed.Images,
-		Notes:         readNotes(cacheDir, contextPath),
-		Abstract:      parsed.Abstract,
-		Flags:         flags,
-		EffectiveVars: effectiveVars,
-	}, nil
+	return nil
 }
 
 // resolveFromWithVars resolves all from entries with two-pass var resolution.
-func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, childPath string, overrides map[string]map[string]string, set SetOverrides) (*config.ResolvedContext, error) {
+// childFlags are the flags declared by the child context itself.
+func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.Config, childDir, childPath string, overrides map[string]map[string]string, set SetOverrides, childFlags []config.ContextFlag) (*config.ResolvedContext, error) {
 	registryURL := r.BaseURL
 	if childCfg.Registry != "" {
 		registryURL = resolveRegistryURL(childCfg.Registry, childDir)
@@ -226,9 +258,8 @@ func (r *HTTPResolver) resolveFromWithVars(ctx context.Context, childCfg config.
 	acc.Notes = appendNotes(acc.Notes, readNotes(childDir, childPath))
 	acc.Abstract = childCfg.Abstract
 
-	childFlags, err := DiscoverFlags(childDir)
-	if err != nil {
-		return nil, fmt.Errorf("discovering flags: %w", err)
+	if err := checkInheritedAlternatives(childPath, acc.Flags, childFlags); err != nil {
+		return nil, err
 	}
 	acc.Flags = MergeFlags(acc.Flags, childFlags)
 
@@ -306,10 +337,15 @@ type flagsManifest struct {
 type flagEntry struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
+	// Source is the registry path of the context that declares the flag.
+	// The manifest also lists inherited flags; those are resolved through
+	// the parent that declares them, so only the context's own flags are
+	// fetched here. Manifests without sources list every flag as own.
+	Source string `yaml:"source,omitempty"`
 }
 
 // fetchFlags fetches the gck.flags.yaml manifest from the remote registry,
-// downloads each referenced flag patch file to cacheDir, and returns the
+// downloads the context's own flag patch files to cacheDir, and returns the
 // corresponding ContextFlag entries. A 404 on the manifest means no flags.
 func (r *HTTPResolver) fetchFlags(ctx context.Context, client *http.Client, baseURL, contextPath, cacheDir string) ([]config.ContextFlag, error) {
 	u := baseURL + "/" + contextPath + "/gck.flags.yaml"
@@ -340,15 +376,24 @@ func (r *HTTPResolver) fetchFlags(ctx context.Context, client *http.Client, base
 
 	var flags []config.ContextFlag
 	for _, entry := range manifest.Flags {
+		if entry.Source != "" && entry.Source != contextPath {
+			continue
+		}
 		flagFile := flagFilePrefix + entry.Name + ".yaml"
-		if err := r.fetchAndCache(ctx, client, baseURL, contextPath, cacheDir, flagFile, true); err != nil {
+		if err := r.fetchAndCache(ctx, client, baseURL, contextPath, cacheDir, flagFile, false); err != nil {
 			return nil, err
 		}
-		flags = append(flags, config.ContextFlag{
-			Name:        entry.Name,
-			Description: entry.Description,
-			Dir:         cacheDir,
-		})
+		flag, err := ReadFlag(filepath.Join(cacheDir, flagFile))
+		if err != nil {
+			return nil, err
+		}
+		if flag.Description == "" {
+			flag.Description = entry.Description
+		}
+		flags = append(flags, flag)
+	}
+	if err := validateAlternativeGroups(flags); err != nil {
+		return nil, fmt.Errorf("flags of %s: %w", contextPath, err)
 	}
 	return flags, nil
 }

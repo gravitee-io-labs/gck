@@ -70,18 +70,30 @@ func checkPodsReady(ctx context.Context, clientset *kubernetes.Clientset, releas
 	if err != nil {
 		return false, fmt.Errorf("listing pods: %w", err)
 	}
-	if len(list.Items) == 0 {
-		return false, nil
+	return podsReady(list.Items), nil
+}
+
+// podsReady reports whether every selected pod is done starting: running with
+// all containers ready, or -- for the pod of a Job -- completed successfully.
+// A Succeeded pod is never Ready (its containers have exited), so without the
+// second case a requirement on a Job could only ever time out.
+func podsReady(pods []corev1.Pod) bool {
+	if len(pods) == 0 {
+		return false
 	}
-	for _, pod := range list.Items {
-		if pod.Status.Phase != corev1.PodRunning {
-			return false, nil
-		}
-		for _, cs := range pod.Status.ContainerStatuses {
-			if !cs.Ready {
-				return false, nil
+	for _, pod := range pods {
+		switch pod.Status.Phase {
+		case corev1.PodSucceeded:
+			continue
+		case corev1.PodRunning:
+			for _, cs := range pod.Status.ContainerStatuses {
+				if !cs.Ready {
+					return false
+				}
 			}
+		default:
+			return false
 		}
 	}
-	return true, nil
+	return true
 }
