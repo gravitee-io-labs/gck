@@ -29,12 +29,6 @@ vars:
   jdbcPassword:
     default: "mysql"
     description: "JDBC password"
-images:
-  preload:
-    skip:
-      - "mysql:9"
-    refs:
-      - "mysql:8.0"
 components:
   - name: mysql
     namespace: gravitee
