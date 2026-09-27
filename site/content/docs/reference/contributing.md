@@ -692,11 +692,8 @@ plain flag files, so a member can use a var its context inherits (e.g.
 `{{ .imagePrefix }}` from `apim/base`). Their `from` is read before
 templating and must be literal.
 
-**Pinning**: a context that composes another and only works with one of its
-alternatives pins it with `use`. The group is no longer offered to users of
-the composing context, and passing another member is an error. `use` only
-reaches composed contexts: naming one of the context's own alternatives is an
-error, since the group's `default` already says which member applies:
+**Pinning**: Gamma composes AM but only works on MongoDB, so it locks AM's
+datasource with `use`:
 
 ```yaml
 # registry/gravitee-io/gamma/gck.yaml
@@ -706,6 +703,12 @@ from:
 use:
   - mongodb
 ```
+
+Gamma users can no longer pick an AM datasource: `--use-jdbc-postgres` fails.
+
+`use` only locks groups of the contexts you compose. For a group your context
+declares itself, mark the member you want `default: true`; naming it in `use`
+is an error.
 
 Users select alternatives on the command line, or with `use` in their own
 `gck.yaml`:

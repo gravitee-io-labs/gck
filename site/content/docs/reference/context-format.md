@@ -416,14 +416,19 @@ A `disables` flag only switches off groups declared by the same context. Selecti
 
 ### Pinning
 
-A context that only works with one member of an inherited group pins it with `use`. Its users can no longer switch that group, and passing another member fails. `use` only reaches composed contexts: naming one of the context's own alternatives is an error, since the group's `default` already says which member applies.
+Gamma composes AM but only works on MongoDB, so it locks AM's datasource with `use`:
 
 ```yaml
+# registry/gravitee-io/gamma/gck.yaml
 from:
   - gravitee-io/am
 use:
   - mongodb
 ```
+
+Gamma users can no longer pick an AM datasource: `--use-jdbc-postgres` fails.
+
+`use` only locks groups of the contexts you compose. For a group your context declares itself, mark the member you want `default: true`; naming it in `use` is an error.
 
 Members are named with or without the `use-` prefix in `use`. The same field in your own `gck.yaml` selects members the way `--use-*` flags do, without pinning: the groups stay visible, and a `--use-*` flag on the command line overrides the file's member of its group.
 
