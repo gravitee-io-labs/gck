@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/gravitee-io-labs/gck/internal/cache"
 	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/gravitee-io-labs/gck/internal/installer"
@@ -15,7 +17,6 @@ import (
 	"github.com/gravitee-io-labs/gck/internal/logger"
 	"github.com/gravitee-io-labs/gck/internal/registry"
 	"github.com/gravitee-io-labs/gck/internal/state"
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -82,6 +83,9 @@ func runPatch(cmd *cobra.Command, args []string) error {
 	}
 	if resolved == nil {
 		return fmt.Errorf("no registry context configured; patch requires a resolved context (set registry and from in gck.yaml or via flags)")
+	}
+	if err := checkPatchSelection(inherited, resolved); err != nil {
+		return err
 	}
 
 	if err := applyPatchFlags(cmd, resolved, inherited); err != nil {
@@ -219,11 +223,13 @@ func inheritClusterState(clusterName string) *state.ClusterState {
 		cfg.Registry = st.Registry
 	}
 	setOverrides = mergeSet(st.Set, setOverrides)
+	inheritedSelected = st.Selected
 	for _, f := range st.Flags {
-		if strings.HasPrefix(f, registry.AlternativePrefix) {
-			inheritedUse = append(inheritedUse, f)
-		} else {
+		if !strings.HasPrefix(f, registry.AlternativePrefix) {
 			inheritedFlags = append(inheritedFlags, f)
+		} else if len(st.Selected) == 0 {
+			// A state written before Selected existed: re-select by name.
+			inheritedUse = append(inheritedUse, f)
 		}
 	}
 	return st
@@ -244,6 +250,31 @@ func checkPatchUse(inherited *state.ClusterState, use []string) error {
 		if !created[name] {
 			return fmt.Errorf("--%s: cluster %q was not created with this alternative; recreate it to switch (gck delete, then gck create --%s)", name, inherited.Name, name)
 		}
+	}
+	return nil
+}
+
+// checkPatchSelection refuses a resolution whose member of an alternative
+// group differs from the one the cluster was created with. checkPatchUse
+// compares names only, so it lets through a --use-* flag that another
+// composed context had selected in a group of the same name.
+func checkPatchSelection(inherited *state.ClusterState, resolved *config.ResolvedContext) error {
+	if inherited == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(inherited.Selected))
+	for k := range inherited.Selected {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		was := inherited.Selected[k]
+		now, ok := resolved.Selected[k]
+		if !ok || now == was {
+			continue
+		}
+		contextPath, group := registry.SplitSelectionKey(k)
+		return fmt.Errorf("--%s: cluster %q was created with --%s for group %s of %s; recreate it to switch (gck delete, then gck create --%s)", now, inherited.Name, was, group, contextPath, now)
 	}
 	return nil
 }

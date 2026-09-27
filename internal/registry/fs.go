@@ -71,6 +71,9 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 	if err != nil {
 		return nil, fmt.Errorf("discovering flags: %w", err)
 	}
+	for i := range ownFlags {
+		ownFlags[i].Context = contextPath
+	}
 	alternatives, err := selectAlternatives(ctx, contextPath, ownFlags)
 	if err != nil {
 		return nil, err

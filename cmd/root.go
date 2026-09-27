@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
@@ -191,7 +192,7 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 
 	cliUse, cliFlags := extractCLIFlags(os.Args)
 	use := append(append([]string{}, cfg.Use...), inheritedUse...)
-	ctx := registry.WithUse(registry.WithConfiguredUse(context.Background(), use), cliUse)
+	ctx := registry.WithUse(registry.WithConfiguredUse(registry.WithSavedUse(context.Background(), inheritedSelected), use), cliUse)
 	ctx = registry.WithFlags(ctx, append(append([]string{}, inheritedFlags...), cliFlags...))
 
 	acc := &config.ResolvedContext{}
@@ -219,10 +220,12 @@ func resolveContextConfig() (*config.ResolvedContext, error) {
 
 // inheritedUse and inheritedFlags hold the alternatives and plain flags a
 // patched cluster was created with, so the context re-resolves to the same
-// composition.
+// composition. inheritedSelected holds the member of each group, when the
+// state records it; inheritedUse is then empty.
 var (
-	inheritedUse   []string
-	inheritedFlags []string
+	inheritedUse      []string
+	inheritedFlags    []string
+	inheritedSelected map[string]string
 )
 
 // extractCLIFlags returns the --name tokens passed on the command line, split
@@ -269,7 +272,9 @@ func checkConfigUse(use []string, resolved *config.ResolvedContext) error {
 			var members []string
 			for _, f := range resolved.Flags {
 				if f.IsAlternative() {
-					members = append(members, strings.TrimPrefix(f.Name, "use-"))
+					if m := strings.TrimPrefix(f.Name, "use-"); !slices.Contains(members, m) {
+						members = append(members, m)
+					}
 				}
 			}
 			if len(members) == 0 {
@@ -393,7 +398,9 @@ func extractActiveFlags(args []string, inherited, local *pflag.FlagSet, availabl
 		if !availableByName[name] {
 			var known []string
 			for _, f := range available {
-				known = append(known, "--"+f.Name)
+				if !slices.Contains(known, "--"+f.Name) {
+					known = append(known, "--"+f.Name)
+				}
 			}
 			return nil, fmt.Errorf("unknown context flag --%s (available: %s)", name, strings.Join(known, ", "))
 		}

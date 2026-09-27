@@ -35,7 +35,7 @@ The user-level base config. Settings here are merged under every project config 
 
 ## `clusters/`
 
-State files created automatically at the end of a successful `gck create`. Each file captures the cluster name, enabled features, and image configuration -- everything `gck delete` needs for a clean teardown.
+State files created automatically at the end of a successful `gck create`. Each file captures what `gck delete` needs for a clean teardown -- the cluster name, enabled features and image configuration -- and what `gck patch` reuses: the create-time `from`, `--registry`, `--set` overrides, context flags and the member of each alternative group.
 
 ```
 clusters/

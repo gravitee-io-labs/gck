@@ -299,6 +299,7 @@ func saveClusterState(cfg *config.Config, resolved *config.ResolvedContext, acti
 	}
 	if resolved != nil {
 		cs.Notes.Delete = resolved.Notes.Delete
+		cs.Selected = resolved.Selected
 	}
 	stateDir := filepath.Join(gckHome, "clusters")
 	if err := state.Save(stateDir, cs); err != nil {

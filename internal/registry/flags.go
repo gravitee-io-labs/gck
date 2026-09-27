@@ -161,17 +161,28 @@ func MergeFlags(base, child []config.ContextFlag) []config.ContextFlag {
 	result := make([]config.ContextFlag, len(base))
 	copy(result, base)
 	for i, f := range result {
-		byName[f.Name] = i
+		byName[flagMergeKey(f)] = i
 	}
 	for _, f := range child {
-		if idx, ok := byName[f.Name]; ok {
+		if idx, ok := byName[flagMergeKey(f)]; ok {
 			result[idx] = f
 		} else {
-			byName[f.Name] = len(result)
+			byName[flagMergeKey(f)] = len(result)
 			result = append(result, f)
 		}
 	}
 	return result
+}
+
+// flagMergeKey identifies a flag when flag lists are merged. A context
+// cannot redeclare an alternative it inherits, so two alternatives of the
+// same name come from two composed contexts (--use-mongodb of two
+// products), and both are kept.
+func flagMergeKey(f config.ContextFlag) string {
+	if f.IsAlternative() {
+		return SelectionKey(f.Context, f.Name)
+	}
+	return f.Name
 }
 
 // ApplyFlags loads each active flag's patch file and merges it into the
@@ -209,7 +220,7 @@ func ApplyFlags(resolved *config.ResolvedContext, activeFlags []string, setOverr
 		if !ok {
 			var known []string
 			for _, f := range resolved.Flags {
-				known = append(known, "--"+f.Name)
+				known = appendUnique(known, "--"+f.Name)
 			}
 			return fmt.Errorf("unknown context flag --%s (available: %s)", name, strings.Join(known, ", "))
 		}

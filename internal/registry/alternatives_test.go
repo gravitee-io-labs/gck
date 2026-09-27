@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -126,7 +127,7 @@ func TestAlternatives_DefaultMemberApplied(t *testing.T) {
 	if got := componentValues(t, resolved, "app")["name"]; got != "app" {
 		t.Fatalf("name = %v, want the context's own value kept", got)
 	}
-	if got := resolved.Selected["datasource"]; got != "use-pg" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-pg" {
 		t.Fatalf("Selected[datasource] = %q, want use-pg", got)
 	}
 }
@@ -157,7 +158,7 @@ func TestAlternatives_ExplicitSelection(t *testing.T) {
 	if got := componentValues(t, resolved, "app")["store"]; got != "mongo" {
 		t.Fatalf("store = %v, want mongo", got)
 	}
-	if got := resolved.Selected["datasource"]; got != "use-mongo" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-mongo" {
 		t.Fatalf("Selected[datasource] = %q, want use-mongo", got)
 	}
 }
@@ -170,7 +171,7 @@ func TestAlternatives_MemberNameWithoutPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := resolved.Selected["datasource"]; got != "use-mongo" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-mongo" {
 		t.Fatalf("Selected[datasource] = %q, want use-mongo", got)
 	}
 }
@@ -193,7 +194,7 @@ func TestAlternatives_ConfiguredSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := resolved.Selected["datasource"]; got != "use-mongo" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-mongo" {
 		t.Fatalf("Selected[datasource] = %q, want use-mongo", got)
 	}
 }
@@ -208,7 +209,7 @@ func TestAlternatives_CommandLineOverridesConfiguredSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := resolved.Selected["datasource"]; got != "use-pg" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-pg" {
 		t.Fatalf("Selected[datasource] = %q, want use-pg from the command line", got)
 	}
 }
@@ -243,7 +244,7 @@ use:
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := resolved.Selected["datasource"]; got != "use-mongo" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-mongo" {
 		t.Fatalf("Selected[datasource] = %q, want the pinned use-mongo", got)
 	}
 	for _, f := range resolved.Flags {
@@ -292,6 +293,84 @@ components:
 	_, err := (&FSResolver{Root: root}).Resolve(context.Background(), "product")
 	if err == nil || !strings.Contains(err.Error(), "use: mongo names an alternative the context declares itself") {
 		t.Fatalf("expected a self-pin error, got %v", err)
+	}
+}
+
+// writeTwoProductRegistry adds "other", a second product whose datasource
+// group shares its name and members with product's, and "both", which
+// composes the two.
+func writeTwoProductRegistry(t *testing.T) string {
+	t.Helper()
+	root := writeAltRegistry(t)
+	writeFile(t, filepath.Join(root, "other", "gck.yaml"), `
+components:
+  - name: other
+    helm:
+      chart: other/chart
+`)
+	for name, def := range map[string]string{"mongo": "true", "pg": "false"} {
+		writeFile(t, filepath.Join(root, "other", "gck--use-"+name+".yaml"), `
+description: "other on `+name+`"
+group: datasource
+default: `+def+`
+components:
+  - name: other
+    helm:
+      values:
+        store: `+name+`
+`)
+	}
+	writeFile(t, filepath.Join(root, "both", "gck.yaml"), `
+from:
+  - product
+  - other
+`)
+	return root
+}
+
+func TestAlternatives_SameGroupNameInTwoContexts(t *testing.T) {
+	root := writeTwoProductRegistry(t)
+	r := &FSResolver{Root: root}
+
+	resolved, err := r.Resolve(context.Background(), "both")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		SelectionKey("product", "datasource"): "use-pg",
+		SelectionKey("other", "datasource"):   "use-mongo",
+	}
+	if !reflect.DeepEqual(resolved.Selected, want) {
+		t.Fatalf("Selected = %v, want %v: each context keeps its own group", resolved.Selected, want)
+	}
+	var members []string
+	for _, f := range resolved.Flags {
+		if f.IsAlternative() {
+			members = append(members, f.Context+" "+f.Name)
+		}
+	}
+	sort.Strings(members)
+	if want := []string{"other use-mongo", "other use-pg", "product use-mongo", "product use-pg"}; !reflect.DeepEqual(members, want) {
+		t.Fatalf("alternatives = %v, want %v", members, want)
+	}
+	if got, want := EffectiveFlags(resolved, nil), []string{"use-mongo", "use-pg"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("EffectiveFlags = %v, want %v", got, want)
+	}
+
+	// By name, the two members are ambiguous; the saved selection is not.
+	if _, err := r.Resolve(WithConfiguredUse(context.Background(), []string{"mongo", "pg"}), "both"); err == nil {
+		t.Fatal("expected configured use-mongo and use-pg to conflict")
+	}
+	swapped := map[string]string{
+		SelectionKey("product", "datasource"): "use-mongo",
+		SelectionKey("other", "datasource"):   "use-pg",
+	}
+	resolved, err = r.Resolve(WithSavedUse(context.Background(), swapped), "both")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(resolved.Selected, swapped) {
+		t.Fatalf("Selected = %v, want the saved %v", resolved.Selected, swapped)
 	}
 }
 
@@ -488,7 +567,7 @@ flags:
 	if len(resolved.Flags) != 3 {
 		t.Fatalf("expected the 3 flags declared by product, got %d", len(resolved.Flags))
 	}
-	if got := resolved.Selected["datasource"]; got != "use-mongo" {
+	if got := resolved.Selected[SelectionKey("product", "datasource")]; got != "use-mongo" {
 		t.Fatalf("Selected[datasource] = %q, want use-mongo", got)
 	}
 }
@@ -592,7 +671,7 @@ func TestAlternatives_DisablesKeepsGroupOutOfComposition(t *testing.T) {
 	if got, want := componentNames(resolved), []string{"pg", "app"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("components = %v, want %v: a disabled group's member must not be composed", got, want)
 	}
-	if _, ok := resolved.Selected["analytics"]; ok {
+	if _, ok := resolved.Selected[SelectionKey("product", "analytics")]; ok {
 		t.Fatalf("Selected = %v, want no analytics entry", resolved.Selected)
 	}
 }
@@ -654,7 +733,7 @@ implies:
 	if got, want := componentNames(resolved), []string{"pg", "app"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("components = %v, want %v: the implied flag must disable product's analytics group", got, want)
 	}
-	if _, ok := resolved.Selected["analytics"]; ok {
+	if _, ok := resolved.Selected[SelectionKey("product", "analytics")]; ok {
 		t.Fatalf("Selected = %v, want no analytics entry", resolved.Selected)
 	}
 }

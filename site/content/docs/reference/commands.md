@@ -49,7 +49,7 @@ See [Context Format -- Context flags]({{< ref "/docs/reference/context-format#co
 gck create --from gravitee-io/apim --use-mongodb --use-opensearch
 ```
 
-Passing two members of the same group fails (`--use-mongodb and --use-jdbc-mysql are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members; a `--use-*` flag on the command line overrides the file's member of its group.
+Passing two members of the same group fails (`--use-mongodb and --use-jdbc-mysql are mutually exclusive (group datasource)`), and so does selecting a member of a group the context pins. Plain flags are applied after the alternatives, so `--disable-analytics` turns analytics off whichever backend is selected. In your `gck.yaml`, `use: [mongodb, opensearch]` selects the same members; a `--use-*` flag on the command line overrides the file's member of its group. A member is selected by name in every group that has one: composing `gravitee-io/apim` and `gravitee-io/am`, whose `datasource` groups both offer MongoDB, `--use-mongodb` puts both on it.
 
 A member can turn other flags on. `--use-dbless` runs the APIM gateway without a database and implies `--disable-ui` and `--disable-analytics`, so no console, portal or Elasticsearch is deployed; flags that need the management API, such as `--enable-bridge`, fail alongside it. `gck info` marks implied and conflicting flags for the current selection.
 
@@ -79,7 +79,7 @@ What each section shows:
 |---|---|
 | Context | The contexts composed, in order |
 | Components | The components that would be installed, with the flags applied |
-| Alternatives | Each group and its members. `*` marks the selected member, `(default)` the default one, and `(off: --flag)` a group a flag disables. A group a composing context pins with `use:` is not shown. |
+| Alternatives | Each group and its members. `*` marks the selected member, `(default)` the default one, and `(off: --flag)` a group a flag disables. A group a composing context pins with `use:` is not shown. Two composed contexts that each declare a group of the same name get one entry each, named after the context: `datasource (gravitee-io/apim)`. |
 | Flags | The plain context flags. `(implied by --x)` marks a flag a selected member implies, `(needs --x)` a flag that `requires` one, and `(not with --x)` one that `conflicts` with it. |
 | Features | `lb`, `gateway` and `dns` as the composition sets them |
 | Usage | The `gck create` command for what was previewed |
@@ -169,9 +169,9 @@ gck patch upgrade.yaml --set imageTag=4.11.0
 
 ### Inherited context
 
-`gck patch` reuses the context the cluster was created with, so you only pass what changes. The `from` contexts, `--registry`, the context flags (e.g. `--disable-analytics`), the selected alternatives (defaults included), and the `--set` overrides captured at `gck create` are read back from the saved cluster state (`~/.gck/clusters/<name>.yaml`) and applied automatically. Patch-time inputs take priority: `--from` / `--registry` override the stored values, per-key `--set` overrides win, and context flags passed to `patch` are added to the inherited ones.
+`gck patch` reuses the context the cluster was created with, so you only pass what changes. The `from` contexts, `--registry`, the context flags (e.g. `--disable-analytics`), the member of each alternative group (defaults included), and the `--set` overrides captured at `gck create` are read back from the saved cluster state (`~/.gck/clusters/<name>.yaml`) and applied automatically. Patch-time inputs take priority: `--from` / `--registry` override the stored values, per-key `--set` overrides win, and context flags passed to `patch` are added to the inherited ones.
 
-Alternatives are the exception: a patch cannot switch implementation. Passing a `--use-*` flag the cluster was not created with fails -- delete the cluster and create it again with the new selection.
+Alternatives are the exception: a patch cannot switch implementation. Passing a `--use-*` flag that changes the member of any group fails, including a member another composed context was created with -- delete the cluster and create it again with the new selection.
 
 This keeps an upgrade small -- it only needs the deltas:
 

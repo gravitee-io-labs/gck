@@ -98,6 +98,10 @@ type ContextFlag struct {
 	Name        string
 	Description string
 	Dir         string // directory containing the gck--{name}.yaml file
+	// Context is the registry path of the context that declares the flag.
+	// Two composed contexts can each declare an alternative group of the
+	// same name; the context tells them apart.
+	Context string
 
 	// Group is set on alternatives (use-* flags): mutually exclusive
 	// implementations of the same concern, exactly one of which is always
@@ -141,8 +145,9 @@ type ResolvedContext struct {
 	Notes      ResolvedNotes
 	Abstract   bool
 	Flags      []ContextFlag
-	// Selected maps each alternative group in the composition to the name of
-	// the applied member (e.g. "database" -> "use-postgres").
+	// Selected maps each alternative group in the composition, keyed by
+	// SelectionKey of its declaring context and name, to the applied member
+	// (e.g. "acme/app:database" -> "use-postgres").
 	Selected map[string]string
 	// Implied lists the plain flags turned on by the selected alternatives.
 	Implied       []string
