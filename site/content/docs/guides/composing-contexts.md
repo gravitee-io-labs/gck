@@ -62,7 +62,7 @@ Product contexts offer their interchangeable backends as **alternatives**: `--us
 gck create --from gravitee-io/apim --use-mongodb --use-opensearch
 ```
 
-Leave a group out to keep its default. `gck info --from <context>` lists the groups and marks each default; the registry page lists them in its **Context flags** table, tagged with their group, and shows which components each one brings in.
+Leave a group out to keep its default. `gck info <context>` lists the groups and marks each default; the registry page lists them in its **Context flags** table, tagged with their group, and shows which components each one brings in.
 
 `--use-dbless` is also a datasource: the gateway runs without a database and reads its APIs from Kubernetes resources through GKO. It takes the console, portal and analytics with it, which is the lightest APIM stack for CI:
 
@@ -332,7 +332,7 @@ Registry contexts can declare template variables with defaults using a `vars` bl
 gck create --from gravitee-io/apim --set imageTag=4.6.0 --set helmVersion=4.6.0
 ```
 
-This works because the APIM base context declares `vars` with defaults (`imageTag: "latest"`, `helmVersion: ""`), and `--set` values take precedence. Check a context's Variables table on the registry site or run `gck info` to discover which variables it supports.
+This works because the APIM base context declares `vars` with defaults (`imageTag: "latest"`, `helmVersion: ""`), and `--set` values take precedence. Check a context's Variables table on the registry site to discover which variables it supports.
 
 When a composition chain includes multiple contexts that declare the same variable name (e.g. `imageTag`), a plain `--set` broadcasts to all of them. To target a specific context, use dotted path notation:
 

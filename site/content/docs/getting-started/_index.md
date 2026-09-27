@@ -39,7 +39,7 @@ gck describe    # shows features, networking, and active flags for the current c
 Before creating a cluster, you can preview what a context offers with `gck info`:
 
 ```bash
-gck info --from gravitee-io/apim
+gck info gravitee-io/apim
 ```
 
 This shows the component list, the alternatives you can pick from (like `--use-mongodb` to store APIM data in MongoDB instead of the default PostgreSQL), the available context flags (optional toggles like `--disable-analytics`), and enabled features.

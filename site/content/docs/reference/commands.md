@@ -57,22 +57,44 @@ See [Context Format -- Alternatives]({{< ref "/docs/reference/context-format#alt
 
 ## gck info
 
-Show information about the resolved context without creating a cluster. Displays the component list, the alternatives with their defaults, available context flags, and enabled features. Use this to discover what a context supports before running `gck create`. Pass `--use-*` flags to see the components of another selection; the selected member of each group is marked `*`.
+Show what a context gives you without creating a cluster: its components, its alternatives with their defaults, its context flags, and the features it enables. Use it to discover what a context supports before running `gck create`.
 
 ```bash
-gck info
-gck info --from gravitee-io/apim --use-mongodb
+gck info [context...] [--use-* ...] [--enable-* ...]
 ```
+
+Name the contexts to compose as arguments, the same as repeated `--from`, or leave both out to use the config file's `from`. Passing both arguments and `--from` is an error.
+
+```bash
+gck info gravitee-io/apim
+gck info gravitee-io/apim --use-mongodb --enable-keycloak
+gck info gravitee-io/apim a2a/standalone
+```
+
+Context flags preview another selection. `--use-*` switches the member of a group; `--enable-*` and `--disable-*` are applied as `gck create` applies them, so the component list includes what they add, and a flag that `gck create` would refuse (two members of one group, a missing `requires`, a `conflicts`) fails here with the same error.
+
+What each section shows:
+
+| Section | Content |
+|---|---|
+| Context | The contexts composed, in order |
+| Components | The components that would be installed, with the flags applied |
+| Alternatives | Each group and its members. `*` marks the selected member, `(default)` the default one, and `(off: --flag)` a group a flag disables. A group a composing context pins with `use:` is not shown. |
+| Flags | The plain context flags. `(implied by --x)` marks a flag a selected member implies, `(needs --x)` a flag that `requires` one, and `(not with --x)` one that `conflicts` with it. |
+| Features | `lb`, `gateway` and `dns` as the composition sets them |
+| Usage | The `gck create` command for what was previewed |
 
 ### Example output
 
 ```
+$ gck info gravitee-io/apim --use-mongodb
 Context
   Path: gravitee-io/apim
 
 Components
   - elasticsearch
   - mongodb
+  - license
   - tls-server
   - apim
 
@@ -81,15 +103,19 @@ Alternatives
   * --use-elasticsearch  Store analytics in Elasticsearch (default)
     --use-opensearch     Store analytics in OpenSearch
   datasource
+    --use-dbless         No datasource: the gateway runs DB-less, configured from Kubernetes resources through GKO
     --use-jdbc-mssql     Store APIM data in Microsoft SQL Server over JDBC
     --use-jdbc-mysql     Store APIM data in MySQL over JDBC
     --use-jdbc-postgres  Store APIM data in PostgreSQL over JDBC (default)
   * --use-mongodb        Store APIM data in MongoDB
 
 Flags
-  --disable-portal     Disable the developer portal UI
-  --disable-ui         Disable both Console and Portal UIs
-  --disable-analytics  Disable analytics: no Elasticsearch or OpenSearch, no analytics reporters
+  --disable-portal                Disable the developer portal UI
+  --disable-ui                    Disable both Console and Portal UIs
+  --enable-bridge                 Enable bridge architecture: management API serves as bridge, gateway syncs through it
+  ...
+  --disable-analytics             Disable analytics: no Elasticsearch or OpenSearch, no analytics reporters
+  --enable-opensearch-dashboards  Deploy OpenSearch Dashboards alongside OpenSearch (needs --use-opensearch)
 
 Features
   lb:      disabled
@@ -97,7 +123,7 @@ Features
   dns:     disabled
 
 Usage
-  gck create --from gravitee-io/apim
+  gck create --from gravitee-io/apim --use-mongodb
 ```
 
 ## gck build

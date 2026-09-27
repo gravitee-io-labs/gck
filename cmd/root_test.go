@@ -802,3 +802,34 @@ func TestCheckConfigUse(t *testing.T) {
 		t.Error("expected an error for a use: entry matching no alternative")
 	}
 }
+
+func TestPositionalArgs(t *testing.T) {
+	inherited := newFlagSet(t, map[string]string{"config": "", "from": "", "set": ""})
+	local := pflag.NewFlagSet("local", pflag.ContinueOnError)
+	local.Bool("skip", false, "a bool flag")
+
+	tests := []struct {
+		name string
+		argv []string
+		want []string
+	}{
+		{"context only", []string{"gck", "info", "org/ctx"}, []string{"org/ctx"}},
+		{"context flag before the context", []string{"gck", "info", "--use-x", "org/ctx"}, []string{"org/ctx"}},
+		{"context flag after", []string{"gck", "info", "org/ctx", "--enable-y"}, []string{"org/ctx"}},
+		{"known flag consumes its value", []string{"gck", "info", "--config", "gck.local.yaml", "org/ctx"}, []string{"org/ctx"}},
+		{"known flag with =", []string{"gck", "info", "--set=k=v", "org/ctx"}, []string{"org/ctx"}},
+		{"bool flag takes no value", []string{"gck", "info", "--skip", "org/ctx"}, []string{"org/ctx"}},
+		{"several contexts", []string{"gck", "info", "org/a", "--use-x", "org/b"}, []string{"org/a", "org/b"}},
+		{"after --", []string{"gck", "info", "--", "--odd"}, []string{"--odd"}},
+		{"words before the subcommand", []string{"/tmp/go-build/exe", "--config", "c.yaml", "info", "org/ctx"}, []string{"org/ctx"}},
+		{"no subcommand", []string{"gck"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := positionalArgs(tt.argv, "info", inherited, local)
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
