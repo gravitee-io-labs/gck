@@ -133,18 +133,23 @@ images:
 
 `skip` entries accumulate across layers the same way `refs` do: if a parent context skips an image and a child adds another skip, both are excluded.
 
-This is especially useful in context flags. A `--disable-es` flag that disables Elasticsearch can skip its image in the same patch file:
+This is especially useful in context flags. APIM's `--disable-portal` turns the portal off and skips its image in the same patch file:
 
 ```yaml
-description: "Disable Elasticsearch and analytics reporters"
+description: "Disable the developer portal UI"
+components:
+  - name: apim
+    helm:
+      values:
+        portal:
+          enabled: false
 images:
   preload:
     skip:
-      - docker.elastic.co/elasticsearch/elasticsearch:8.17.0
-components:
-  - name: elasticsearch
-    enabled: false
+      - "{{ .imagePrefix }}/apim-portal-ui:{{ .imageTag }}"
 ```
+
+Write the skip entry with the same template as the preload ref it removes, so it still matches when a user overrides `imagePrefix` or `imageTag`.
 
 > `skip` is ignored when `mode` is set to `replace`, since replace already gives you an explicit list.
 

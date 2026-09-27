@@ -15,7 +15,7 @@ from:
   - elastic/elasticsearch/standalone
 ```
 
-The default registry follows an `org/edition/product/variant` convention:
+The default registry follows an `org/product/variant` convention:
 
 ```
 registry/
@@ -57,7 +57,7 @@ A registry is just a directory tree served over HTTP. There's no server to run, 
 
 To create your own:
 
-1. Create a directory structure following the `org/edition/product/variant` convention.
+1. Create a directory structure following the `org/product/variant` convention.
 2. Add a `gck.yaml` to each leaf context (see [Context Format]({{< ref "/docs/reference/context-format" >}})).
 3. Serve it however you like -- a Git repo's raw URL, a static file server, or an internal CDN.
 

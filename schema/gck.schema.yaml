@@ -30,8 +30,11 @@ properties:
   registry:
     type: string
     description: >-
-      Registry path that identifies this configuration context
-      (org/edition/product/variant convention).
+      URL of the registry that from paths resolve against: https:// for a
+      published registry, file:// for a directory. A relative file:// path
+      resolves against the context's directory in a registry context, and
+      against the working directory in your own gck.yaml. Defaults to
+      https://gravitee-io-labs.github.io/gck; --registry overrides it.
 
   from:
     type: array
@@ -63,7 +66,8 @@ properties:
     description: >-
       Alternative flag files only (gck--use-*.yaml): the group of
       mutually exclusive implementations this alternative belongs to
-      (e.g. database). Exactly one member of a group is applied.
+      (e.g. database). Exactly one member of a group is applied, unless
+      a plain flag in force disables the group.
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
 
   default:

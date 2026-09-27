@@ -208,7 +208,7 @@ gck create --set imageTag=4.12.0
 ### Rules
 
 - Variable names use **camelCase** (`imageTag`, `helmVersion`, not `image_tag`).
-- `vars` is a flat `map[string]string` -- no nesting.
+- An entry is a var declaration when it is a string or has a `default` key (with an optional `description`). Any other map is a path segment: nested entries are [overrides of a parent's vars]({{< ref "/docs/guides/composing-contexts#overriding-parent-variables-in-the-registry" >}}).
 - A default may use the template functions, but not other vars: `default: '{{ env "HOME" }}/opt/gravitee/license.key'` renders, and `default: '{{ .base }}/license.key'` fails with an error naming the var. The same holds for `--set` values. Write a literal `{{` as `{{ "{{" }}`.
 - Undefined variables with no default cause an error.
 - Use the `env` function to reference environment variables: `{{ env "HOME" }}`.
@@ -217,13 +217,15 @@ gck create --set imageTag=4.12.0
 
 ### Templating in composed contexts
 
-Each context is templated independently during resolution. Parent contexts don't see child vars and vice versa. Only `--set` flows globally across all levels:
+Each context's `gck.yaml` is templated during resolution with its own vars: its defaults, the path-scoped overrides the contexts composing it set, then `--set`. It does not see the vars its parents or children declare; `--set` reaches every level:
 
 ```yaml
 # Parent: vars: { dbVersion: "15" } uses {{ .dbVersion }}
 # Child:  vars: { imageTag: "latest" } uses {{ .imageTag }}
 # --set dbVersion=16 --set imageTag=v2 overrides both
 ```
+
+Context flag files see more. An alternative is templated with the vars of its context and of every context that context composes. A plain flag's patch is templated once the whole composition is resolved: the vars of every composed context (on a shared name, a context wins over those it composes, and a later `from` entry over an earlier one), then the flag's own `vars` defaults, then `--set`.
 
 ## Context flags
 
@@ -324,25 +326,24 @@ conflicts:
 Flags can fully exclude a component from deployment by setting `enabled: false`. When a component is disabled, it is not installed and any `requires` entries referencing it are silently dropped:
 
 ```yaml
-description: "Disable Kafka Gateway and related components"
+description: "No datasource: the gateway runs DB-less"
 components:
-  - name: kafka
+  - name: tls-server
     enabled: false
   - name: apim
     helm:
       values:
-        gateway:
-          kafka:
-            enabled: false
+        api:
+          enabled: false
 ```
 
-With this flag active, the `kafka` component is skipped entirely and other components that declare `requires: [{component: kafka}]` proceed without waiting for it. Disabling a component the composition does not contain is a no-op.
+APIM's `--use-dbless` does this: the `tls-server` component is skipped entirely, and `apim`, which declares `requires: [{component: tls-server}]`, proceeds without waiting for it. Disabling a component the composition does not contain is a no-op.
 
 To remove a component an [alternative](#alternatives) brings in, disable the whole group with [`disables`](#cascading) instead: the member is then never composed, so its host ports and notes go too.
 
 ## Alternatives
 
-An alternative is a flag that picks one implementation among mutually exclusive ones, such as the datasource of a product. Alternatives sharing a `group` form a set: exactly one member is applied on every `gck create`, the `default: true` member unless the user selects another.
+An alternative is a flag that picks one implementation among mutually exclusive ones, such as the datasource of a product. Alternatives sharing a `group` form a set: exactly one member is applied on every `gck create`, the `default: true` member unless the user selects another, and none while a flag in force [`disables`](#cascading) the group.
 
 ```yaml
 # gck--use-mongodb.yaml
@@ -436,7 +437,7 @@ Use **separate context directories** for fundamentally different topologies (e.g
 
 ## Registry organization tips
 
-- Use the `org/edition/product/variant` convention for discoverability
+- Use the `org/product/variant` convention for discoverability
 - Extract shared config into `abstract: true` base contexts
 - Set `.default` files so users can reference products without spelling out the full variant path
 - Offer interchangeable backends as alternatives on one product context rather than one directory per backend
