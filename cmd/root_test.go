@@ -833,3 +833,18 @@ func TestPositionalArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestOverrideFromDropsTheFilesUse(t *testing.T) {
+	saved := cfg
+	t.Cleanup(func() { cfg = saved })
+	cfg = &config.Config{From: []string{"org/file-ctx"}, Use: []string{"x"}}
+
+	overrideFrom([]string{"org/cli-ctx"})
+
+	if len(cfg.From) != 1 || cfg.From[0] != "org/cli-ctx" {
+		t.Errorf("from = %v, want the command line's", cfg.From)
+	}
+	if cfg.Use != nil {
+		t.Errorf("use = %v, want the file's use dropped with its from", cfg.Use)
+	}
+}

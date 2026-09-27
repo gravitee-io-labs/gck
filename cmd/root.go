@@ -78,7 +78,7 @@ var rootCmd = &cobra.Command{
 			cfg.Registry = registryURL
 		}
 		if len(fromPaths) > 0 {
-			cfg.From = fromPaths
+			overrideFrom(fromPaths)
 		}
 		return nil
 	},
@@ -89,6 +89,14 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&registryURL, "registry", "", "registry URL to use (overrides config file)")
 	rootCmd.PersistentFlags().StringSliceVar(&fromPaths, "from", nil, "context paths to compose (repeatable, overrides config file)")
 	rootCmd.PersistentFlags().StringSliceVar(&setValues, "set", nil, "set template variables (key=value, repeatable)")
+}
+
+// overrideFrom replaces the config file's from with contexts named on the
+// command line. The file's use: goes with it: it selects members of the
+// file's contexts, which the command line's may not have.
+func overrideFrom(paths []string) {
+	cfg.From = paths
+	cfg.Use = nil
 }
 
 // Execute runs the root command.

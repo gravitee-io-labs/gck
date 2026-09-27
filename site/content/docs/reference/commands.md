@@ -476,7 +476,7 @@ These flags are available on all commands:
 |------|-------------|
 | `--config <path>` | Project-level config file to merge on top of the user-level base (`$GCK_HOME/gck.yaml`). Defaults to `./gck.yaml` when present. |
 | `--registry <url>` | Registry URL (e.g. `file://./registry` or `https://…`). Overrides the value from config. |
-| `--from <path>` | Context path to compose (e.g. `elastic/elasticsearch/standalone`). Repeatable. Overrides the `from` list from config. |
+| `--from <path>` | Context path to compose (e.g. `elastic/elasticsearch/standalone`). Repeatable. Overrides the `from` list from config, and drops the config's `use`, which selects members of the config's contexts. |
 | `--set <key=value>` | Set a template variable. Repeatable. Overrides defaults declared in the `vars` block of any gck.yaml. See [Template variables](#template-variables). |
 
 ## Template variables
