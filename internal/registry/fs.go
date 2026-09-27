@@ -127,7 +127,7 @@ func (r *FSResolver) resolveWithVars(ctx context.Context, contextPath string, ch
 
 	var resolved *config.ResolvedContext
 	if len(ctxCfg.From) > 0 {
-		resolved, err = r.resolveFromWithVars(withPins(ctx, contextPath, ctxCfg.Use), ctxCfg, dir, contextPath, selfRegistry, parentOverrides, set, ownFlags)
+		resolved, err = r.resolveFromWithVars(withPins(withImplied(ctx, alternatives), contextPath, ctxCfg.Use), ctxCfg, dir, contextPath, selfRegistry, parentOverrides, set, ownFlags)
 		if err != nil {
 			return nil, err
 		}

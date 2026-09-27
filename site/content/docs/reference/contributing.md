@@ -630,8 +630,9 @@ merges *before* the context and would lose to it.
 files rather than leaving users to pass the right flags:
 
 - `implies` on an alternative turns plain flags on whenever it is selected, as
-  if the user had passed them. The flags are applied, saved with the cluster,
-  and visible to `hasFlag` in notes.
+  if the user had passed them. The flags can belong to the context or to one it
+  composes. They are applied, saved with the cluster, and visible to `hasFlag`
+  in notes.
 - `disables` on a plain flag switches alternative groups off: no member of the
   group is composed while the flag is in force, so nothing it brings (a
   datastore, its host port, its notes) remains.

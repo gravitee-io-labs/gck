@@ -142,7 +142,7 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 
 	var resolved *config.ResolvedContext
 	if len(parsed.From) > 0 {
-		resolved, err = r.resolveFromWithVars(withPins(ctx, contextPath, parsed.Use), parsed, cacheDir, contextPath, parentOverrides, set, ownFlags)
+		resolved, err = r.resolveFromWithVars(withPins(withImplied(ctx, alternatives), contextPath, parsed.Use), parsed, cacheDir, contextPath, parentOverrides, set, ownFlags)
 		if err != nil {
 			return nil, err
 		}
