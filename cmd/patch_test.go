@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/gravitee-io-labs/gck/internal/config"
+	"github.com/gravitee-io-labs/gck/internal/registry"
 	"github.com/gravitee-io-labs/gck/internal/state"
 )
 
@@ -60,7 +63,7 @@ func TestInheritClusterState_ReusesCreateContext(t *testing.T) {
 	// Patch-time inputs: bump imageTag only, no --from / --registry.
 	setOverrides = map[string]string{"imageTag": "master-latest"}
 	cfg = &config.Config{}
-	inheritedUse, inheritedFlags = nil, nil
+	inheritedUse, inheritedFlags, inheritedSelected = nil, nil, nil
 
 	st := &state.ClusterState{
 		Name:     "gravitee",
@@ -160,5 +163,82 @@ func TestInheritClusterState_NoStateFile(t *testing.T) {
 func TestInheritClusterState_EmptyName(t *testing.T) {
 	if got := inheritClusterState(""); got != nil {
 		t.Errorf("expected nil for an empty cluster name, got %v", got)
+	}
+}
+
+// writeTwoProducts writes products a and b, each with a datasource group of
+// members mongo and pg; a defaults to pg, b to mongo.
+func writeTwoProducts(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, p := range []struct{ name, def string }{{"a", "pg"}, {"b", "mongo"}} {
+		writeFile(t, filepath.Join(root, p.name, "gck.yaml"), `
+components:
+  - name: `+p.name+`
+    helm:
+      chart: repo/`+p.name+`
+`)
+		for _, m := range []string{"mongo", "pg"} {
+			writeFile(t, filepath.Join(root, p.name, "gck--use-"+m+".yaml"), fmt.Sprintf(`
+description: %q
+group: datasource
+default: %t
+`, p.name+" on "+m, m == p.def))
+		}
+	}
+	return root
+}
+
+func TestPatch_ReplaysEachContextsSelection(t *testing.T) {
+	root := writeTwoProducts(t)
+	resetContextConfigCache()
+	gckHome = t.TempDir()
+	setOverrides = map[string]string{}
+	cfg = &config.Config{}
+	inheritedUse, inheritedFlags, inheritedSelected = nil, nil, nil
+	t.Cleanup(func() { inheritedUse, inheritedFlags, inheritedSelected = nil, nil, nil })
+
+	// Both groups are named datasource and both have mongo and pg: by name,
+	// the state's flags cannot say which product had which.
+	created := map[string]string{
+		registry.SelectionKey("a", "datasource"): "use-mongo",
+		registry.SelectionKey("b", "datasource"): "use-pg",
+	}
+	st := &state.ClusterState{
+		Name:     "gravitee",
+		Registry: "file://" + root,
+		From:     []string{"a", "b"},
+		Flags:    []string{"use-mongo", "use-pg"},
+		Selected: created,
+	}
+	if err := state.Save(filepath.Join(gckHome, "clusters"), st); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	inherited := inheritClusterState("gravitee")
+	cfg.Kind.ApplyDefaults()
+	if len(inheritedUse) != 0 {
+		t.Fatalf("inheritedUse = %v, want none when the state records Selected", inheritedUse)
+	}
+
+	resolved, err := resolveContextConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !maps.Equal(resolved.Selected, created) {
+		t.Fatalf("Selected = %v, want the create-time %v", resolved.Selected, created)
+	}
+	if err := checkPatchSelection(inherited, resolved); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// --use-pg on patch passes checkPatchUse, since b was created with it,
+	// but it would switch a.
+	if err := checkPatchUse(inherited, []string{"use-pg"}); err != nil {
+		t.Fatalf("checkPatchUse: %v", err)
+	}
+	resolved.Selected[registry.SelectionKey("a", "datasource")] = "use-pg"
+	err = checkPatchSelection(inherited, resolved)
+	if err == nil || !strings.Contains(err.Error(), "created with --use-mongo for group datasource of a") {
+		t.Fatalf("expected the switch of a to be refused, got %v", err)
 	}
 }

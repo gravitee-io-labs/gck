@@ -78,6 +78,9 @@ func (r *HTTPResolver) resolveWithVars(ctx context.Context, contextPath string, 
 	if err != nil {
 		return nil, err
 	}
+	for i := range ownFlags {
+		ownFlags[i].Context = contextPath
+	}
 	alternatives, err := selectAlternatives(ctx, contextPath, ownFlags)
 	if err != nil {
 		return nil, err
@@ -423,7 +426,3 @@ func (r *HTTPResolver) fetchContextFile(ctx context.Context, client *http.Client
 	}
 	return data, http.StatusOK, nil
 }
-
-
-
-

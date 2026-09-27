@@ -21,6 +21,11 @@ type ClusterState struct {
 	Registry  string                `yaml:"registry,omitempty"`
 	From      []string              `yaml:"from,omitempty"`
 	Flags     []string              `yaml:"flags,omitempty"`
+	// Selected is the member of each alternative group, keyed by
+	// registry.SelectionKey (declaring context and group). Two composed
+	// contexts can share a group name and its members, so Flags alone
+	// cannot say which context had which.
+	Selected map[string]string `yaml:"selected,omitempty"`
 	Set       map[string]string     `yaml:"set,omitempty"`
 	Features  config.FeaturesConfig `yaml:"features,omitempty"`
 	Images    config.ImagesConfig   `yaml:"images,omitempty"`

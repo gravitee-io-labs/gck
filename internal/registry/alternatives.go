@@ -32,15 +32,32 @@ func AlternativeFlagName(member string) string {
 
 type useKey struct{}
 
+// SelectionKey is the key of an alternative group in
+// ResolvedContext.Selected: the declaring context's path and the group name.
+func SelectionKey(contextPath, group string) string {
+	return contextPath + ":" + group
+}
+
+// SplitSelectionKey returns the context path and group of a SelectionKey.
+func SplitSelectionKey(key string) (contextPath, group string) {
+	i := strings.LastIndexByte(key, ':')
+	if i < 0 {
+		return "", key
+	}
+	return key[:i], key[i+1:]
+}
+
 // useSelection carries alternative selections down the composition while
 // contexts are resolved: explicit ones come from the command line,
 // configured ones from the user's gck.yaml use: (or a cluster's saved
-// selection), pinned ones from a composing context's use: block. flags holds
-// the plain flags the user turned on, whose disables entries switch
-// alternative groups off.
+// selection), pinned ones from a composing context's use: block. saved ones
+// are a cluster's selection per group, and count as configured for their
+// group only. flags holds the plain flags the user turned on, whose
+// disables entries switch alternative groups off.
 type useSelection struct {
 	explicit   map[string]bool   // flag name -> selected on the command line
 	configured map[string]bool   // flag name -> selected by configuration
+	saved      map[string]string // SelectionKey -> flag name
 	pinned     map[string]string // flag name -> path of the pinning context
 	flags      map[string]bool   // plain flag name -> active
 }
@@ -59,7 +76,7 @@ func WithUse(ctx context.Context, names []string) context.Context {
 		return ctx
 	}
 	sel := selectionFrom(ctx)
-	next := useSelection{explicit: make(map[string]bool, len(sel.explicit)+len(names)), configured: sel.configured, pinned: sel.pinned, flags: sel.flags}
+	next := useSelection{explicit: make(map[string]bool, len(sel.explicit)+len(names)), configured: sel.configured, saved: sel.saved, pinned: sel.pinned, flags: sel.flags}
 	for k := range sel.explicit {
 		next.explicit[k] = true
 	}
@@ -89,6 +106,19 @@ func WithConfiguredUse(ctx context.Context, names []string) context.Context {
 	return context.WithValue(ctx, useKey{}, next)
 }
 
+// WithSavedUse returns a context carrying the members a cluster was created
+// with, keyed by SelectionKey. Each counts as configured for its own group
+// only, so two composed contexts whose groups share a name and members get
+// back what each had.
+func WithSavedUse(ctx context.Context, saved map[string]string) context.Context {
+	if len(saved) == 0 {
+		return ctx
+	}
+	next := selectionFrom(ctx)
+	next.saved = saved
+	return context.WithValue(ctx, useKey{}, next)
+}
+
 // WithFlags returns a context carrying the plain flags the user turned on.
 // Resolvers need them before applying alternatives: a flag that disables an
 // alternative group (e.g. --disable-analytics) keeps its members out of the
@@ -98,7 +128,7 @@ func WithFlags(ctx context.Context, names []string) context.Context {
 		return ctx
 	}
 	sel := selectionFrom(ctx)
-	next := useSelection{explicit: sel.explicit, configured: sel.configured, pinned: sel.pinned, flags: make(map[string]bool, len(sel.flags)+len(names))}
+	next := useSelection{explicit: sel.explicit, configured: sel.configured, saved: sel.saved, pinned: sel.pinned, flags: make(map[string]bool, len(sel.flags)+len(names))}
 	for k := range sel.flags {
 		next.flags[k] = true
 	}
@@ -115,7 +145,7 @@ func withPins(ctx context.Context, contextPath string, names []string) context.C
 		return ctx
 	}
 	sel := selectionFrom(ctx)
-	next := useSelection{explicit: sel.explicit, configured: sel.configured, pinned: make(map[string]string, len(sel.pinned)+len(names)), flags: sel.flags}
+	next := useSelection{explicit: sel.explicit, configured: sel.configured, saved: sel.saved, pinned: make(map[string]string, len(sel.pinned)+len(names)), flags: sel.flags}
 	for k, v := range sel.pinned {
 		next.pinned[k] = v
 	}
@@ -183,7 +213,7 @@ func selectAlternatives(ctx context.Context, contextPath string, flags []config.
 			if sel.explicit[f.Name] {
 				explicit = append(explicit, i)
 			}
-			if sel.configured[f.Name] {
+			if sel.configured[f.Name] || sel.saved[SelectionKey(contextPath, group)] == f.Name {
 				configured = append(configured, i)
 			}
 		}
@@ -393,7 +423,7 @@ func applyAlternatives(resolved *config.ResolvedContext, layers []*alternativeLa
 		if resolved.Selected == nil {
 			resolved.Selected = make(map[string]string)
 		}
-		resolved.Selected[l.flag.Group] = l.flag.Name
+		resolved.Selected[SelectionKey(l.flag.Context, l.flag.Group)] = l.flag.Name
 		resolved.Implied = appendUnique(resolved.Implied, l.flag.Implies...)
 	}
 }
@@ -501,7 +531,7 @@ func EffectiveFlags(resolved *config.ResolvedContext, active []string) []string 
 		}
 		sort.Strings(groups)
 		for _, g := range groups {
-			out = append(out, resolved.Selected[g])
+			out = appendUnique(out, resolved.Selected[g])
 		}
 		out = appendUnique(out, resolved.Implied...)
 	}

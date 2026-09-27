@@ -107,16 +107,20 @@ func printInfoComponents(bold *color.Color, components []config.Component) {
 // in name order, one member per line with the default and the current
 // selection marked. A group switched off by a flag in force names that flag.
 // Groups pinned by a composing context are not offered and are left out.
+// When two composed contexts declare a group of the same name, each is
+// listed on its own, with the context that declares it.
 func printInfoAlternatives(bold *color.Color, resolved *config.ResolvedContext, inForce map[string]bool) {
-	var groups []string
+	type group struct{ name, context, key string }
+	var groups []group
 	byGroup := make(map[string][]config.ContextFlag)
 	offBy := make(map[string]string)
+	contexts := make(map[string]int)
 	nameW := 0
 	for _, f := range resolved.Flags {
 		if !f.IsAlternative() {
 			for _, g := range f.Disables {
 				if inForce[f.Name] {
-					offBy[g] = f.Name
+					offBy[registry.SelectionKey(f.Context, g)] = f.Name
 				}
 			}
 			continue
@@ -124,10 +128,12 @@ func printInfoAlternatives(bold *color.Color, resolved *config.ResolvedContext, 
 		if f.Pinned {
 			continue
 		}
-		if _, ok := byGroup[f.Group]; !ok {
-			groups = append(groups, f.Group)
+		key := registry.SelectionKey(f.Context, f.Group)
+		if _, ok := byGroup[key]; !ok {
+			groups = append(groups, group{name: f.Group, context: f.Context, key: key})
+			contexts[f.Group]++
 		}
-		byGroup[f.Group] = append(byGroup[f.Group], f)
+		byGroup[key] = append(byGroup[key], f)
 		if w := len(f.Name) + 2; w > nameW {
 			nameW = w
 		}
@@ -135,19 +141,27 @@ func printInfoAlternatives(bold *color.Color, resolved *config.ResolvedContext, 
 	if len(groups) == 0 {
 		return
 	}
-	sort.Strings(groups)
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].name != groups[j].name {
+			return groups[i].name < groups[j].name
+		}
+		return groups[i].context < groups[j].context
+	})
 
 	bold.Println("Alternatives")
 	fmtStr := fmt.Sprintf("  %%s %%-%ds  %%s%%s\n", nameW)
 	for _, g := range groups {
-		if by, off := offBy[g]; off && resolved.Selected[g] == "" {
-			fmt.Printf("  %s (off: --%s)\n", g, by)
-		} else {
-			fmt.Printf("  %s\n", g)
+		header := g.name
+		if contexts[g.name] > 1 {
+			header += " (" + g.context + ")"
 		}
-		for _, f := range byGroup[g] {
+		if by, off := offBy[g.key]; off && resolved.Selected[g.key] == "" {
+			header += " (off: --" + by + ")"
+		}
+		fmt.Printf("  %s\n", header)
+		for _, f := range byGroup[g.key] {
 			mark := " "
-			if resolved.Selected[g] == f.Name {
+			if resolved.Selected[g.key] == f.Name {
 				mark = "*"
 			}
 			def := ""
@@ -171,7 +185,7 @@ func printInfoFlags(bold *color.Color, resolved *config.ResolvedContext, inForce
 			flags = append(flags, f)
 			continue
 		}
-		if resolved.Selected[f.Group] != f.Name {
+		if resolved.Selected[registry.SelectionKey(f.Context, f.Group)] != f.Name {
 			continue
 		}
 		for _, implied := range f.Implies {
