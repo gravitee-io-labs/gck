@@ -33,14 +33,16 @@ func AlternativeFlagName(member string) string {
 type useKey struct{}
 
 // useSelection carries alternative selections down the composition while
-// contexts are resolved: explicit ones come from the user (CLI or the user's
-// gck.yaml), pinned ones from a composing context's use: block. flags holds
+// contexts are resolved: explicit ones come from the command line,
+// configured ones from the user's gck.yaml use: (or a cluster's saved
+// selection), pinned ones from a composing context's use: block. flags holds
 // the plain flags the user turned on, whose disables entries switch
 // alternative groups off.
 type useSelection struct {
-	explicit map[string]bool   // flag name -> selected
-	pinned   map[string]string // flag name -> path of the pinning context
-	flags    map[string]bool   // plain flag name -> active
+	explicit   map[string]bool   // flag name -> selected on the command line
+	configured map[string]bool   // flag name -> selected by configuration
+	pinned     map[string]string // flag name -> path of the pinning context
+	flags      map[string]bool   // plain flag name -> active
 }
 
 func selectionFrom(ctx context.Context) useSelection {
@@ -57,12 +59,32 @@ func WithUse(ctx context.Context, names []string) context.Context {
 		return ctx
 	}
 	sel := selectionFrom(ctx)
-	next := useSelection{explicit: make(map[string]bool, len(sel.explicit)+len(names)), pinned: sel.pinned, flags: sel.flags}
+	next := useSelection{explicit: make(map[string]bool, len(sel.explicit)+len(names)), configured: sel.configured, pinned: sel.pinned, flags: sel.flags}
 	for k := range sel.explicit {
 		next.explicit[k] = true
 	}
 	for _, n := range names {
 		next.explicit[AlternativeFlagName(n)] = true
+	}
+	return context.WithValue(ctx, useKey{}, next)
+}
+
+// WithConfiguredUse returns a context carrying the alternatives selected by
+// configuration: the user's gck.yaml use:, or the selection a cluster was
+// created with. A member chosen on the command line (WithUse) overrides them
+// in its group, as the command line overrides the configuration elsewhere.
+func WithConfiguredUse(ctx context.Context, names []string) context.Context {
+	if len(names) == 0 {
+		return ctx
+	}
+	sel := selectionFrom(ctx)
+	next := sel
+	next.configured = make(map[string]bool, len(sel.configured)+len(names))
+	for k := range sel.configured {
+		next.configured[k] = true
+	}
+	for _, n := range names {
+		next.configured[AlternativeFlagName(n)] = true
 	}
 	return context.WithValue(ctx, useKey{}, next)
 }
@@ -76,7 +98,7 @@ func WithFlags(ctx context.Context, names []string) context.Context {
 		return ctx
 	}
 	sel := selectionFrom(ctx)
-	next := useSelection{explicit: sel.explicit, pinned: sel.pinned, flags: make(map[string]bool, len(sel.flags)+len(names))}
+	next := useSelection{explicit: sel.explicit, configured: sel.configured, pinned: sel.pinned, flags: make(map[string]bool, len(sel.flags)+len(names))}
 	for k := range sel.flags {
 		next.flags[k] = true
 	}
@@ -93,7 +115,7 @@ func withPins(ctx context.Context, contextPath string, names []string) context.C
 		return ctx
 	}
 	sel := selectionFrom(ctx)
-	next := useSelection{explicit: sel.explicit, pinned: make(map[string]string, len(sel.pinned)+len(names)), flags: sel.flags}
+	next := useSelection{explicit: sel.explicit, configured: sel.configured, pinned: make(map[string]string, len(sel.pinned)+len(names)), flags: sel.flags}
 	for k, v := range sel.pinned {
 		next.pinned[k] = v
 	}
@@ -123,9 +145,9 @@ type alternativeLayer struct {
 
 // selectAlternatives picks one member per alternative group declared in
 // flags (the flags of a single context directory) and loads its file.
-// Precedence per group: a pin from a composing context, then the user's
-// explicit selection, then the group default. Members of pinned groups are
-// marked Pinned in flags.
+// Precedence per group: a pin from a composing context, then the command
+// line's selection, then the configured one, then the group default.
+// Members of pinned groups are marked Pinned in flags.
 //
 // A group is skipped altogether while a plain flag of the same context that
 // disables it is active -- turned on by the user, or implied by another
@@ -149,7 +171,7 @@ func selectAlternatives(ctx context.Context, contextPath string, flags []config.
 	chosen := make(map[string]int, len(names))
 	explicitlyChosen := make(map[string]bool)
 	for _, group := range names {
-		var def, pinned, explicit []int
+		var def, pinned, explicit, configured []int
 		for _, i := range groups[group] {
 			f := flags[i]
 			if f.Default {
@@ -161,6 +183,15 @@ func selectAlternatives(ctx context.Context, contextPath string, flags []config.
 			if sel.explicit[f.Name] {
 				explicit = append(explicit, i)
 			}
+			if sel.configured[f.Name] {
+				configured = append(configured, i)
+			}
+		}
+		if len(configured) > 1 && len(explicit) == 0 {
+			return nil, fmt.Errorf("use: %s are mutually exclusive (group %s)", flagList(flags, configured), group)
+		}
+		if len(explicit) == 0 {
+			explicit = configured
 		}
 
 		switch {

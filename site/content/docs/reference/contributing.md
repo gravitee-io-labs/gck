@@ -692,6 +692,9 @@ Users select alternatives on the command line, or with `use` in their own
 gck create --from gravitee-io/apim --use-mongodb --use-opensearch
 ```
 
+A `--use-*` flag on the command line overrides the `gck.yaml` `use` member of
+its group, as `--from` and `--registry` override the file.
+
 ### Flags, alternatives or separate contexts
 
 - **Can a user toggle this on or off without changing the stack's identity?** Use a **flag**. Examples: `--disable-analytics` turns analytics off, `--disable-portal` hides the portal UI, `--enable-hc-vault` adds a HashiCorp Vault instance.
