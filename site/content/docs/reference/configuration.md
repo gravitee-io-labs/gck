@@ -28,7 +28,7 @@ A `gck.yaml` file is a YAML document with the following top-level fields:
 | `kind` | map | Configuration for the Kind (Kubernetes-in-Docker) cluster. |
 | `registry` | string | URL of the registry that from paths resolve against: https:// for a published registry, file:// for a directory. A relative file:// path resolves against the context's directory in a registry context, and against the working directory in your own gck.yaml. Defaults to https://gravitee-io-labs.github.io/gck; --registry overrides it. |
 | `requires` | string[] | Plain flag files only: flags or alternatives (full names, e.g. use-postgres) that must be active for this flag to apply. |
-| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. postgres for --use-postgres). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would. |
+| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. postgres for --use-postgres). In a registry context, locks the group: its users can no longer pick another member. Only groups of composed contexts can be locked; for the context's own groups, set default: true on the member instead. In your own gck.yaml, selects the member as the matching --use-* flag would. |
 | `vars` | map | Template variables and path-scoped overrides. Top-level entries with a "default" key (or plain strings) are own var declarations, available as {{ .key }} in the rest of the file. Nested entries (keyed by parent context path segments) override parent vars. Defaults can be overridden at deploy time with --set key=value (broadcast) or --set path.segments.key=value (scoped). |
 
 ---
@@ -428,7 +428,7 @@ Plain flag files only: flags or alternatives (full names, e.g. use-postgres) tha
 
 ## `use`
 
-Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. postgres for --use-postgres). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would.
+Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. postgres for --use-postgres). In a registry context, locks the group: its users can no longer pick another member. Only groups of composed contexts can be locked; for the context's own groups, set default: true on the member instead. In your own gck.yaml, selects the member as the matching --use-* flag would.
 
 **Type:** `array`
 
