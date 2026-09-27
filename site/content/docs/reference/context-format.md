@@ -415,7 +415,7 @@ A `disables` flag only switches off groups declared by the same context. Selecti
 
 ### Pinning
 
-A context that only works with one member of an inherited group pins it with `use`. Its users can no longer switch that group, and passing another member fails:
+A context that only works with one member of an inherited group pins it with `use`. Its users can no longer switch that group, and passing another member fails. `use` only reaches composed contexts: naming one of the context's own alternatives is an error, since the group's `default` already says which member applies.
 
 ```yaml
 from:

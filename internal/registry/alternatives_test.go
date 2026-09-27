@@ -278,6 +278,23 @@ use:
 	}
 }
 
+func TestAlternatives_PinOfOwnAlternativeRejected(t *testing.T) {
+	root := writeAltRegistry(t)
+	writeFile(t, filepath.Join(root, "product", "gck.yaml"), `
+use:
+  - mongo
+components:
+  - name: app
+    helm:
+      chart: app/chart
+`)
+
+	_, err := (&FSResolver{Root: root}).Resolve(context.Background(), "product")
+	if err == nil || !strings.Contains(err.Error(), "use: mongo names an alternative the context declares itself") {
+		t.Fatalf("expected a self-pin error, got %v", err)
+	}
+}
+
 func TestAlternatives_ChildCannotRedeclareInheritedGroup(t *testing.T) {
 	root := writeAltRegistry(t)
 	writeFile(t, filepath.Join(root, "child", "gck.yaml"), `

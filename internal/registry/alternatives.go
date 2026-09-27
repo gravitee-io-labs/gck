@@ -427,10 +427,16 @@ func checkImplied(contextPath string, resolved *config.ResolvedContext) error {
 }
 
 // checkPins verifies that every member named in a context's use: block
-// matches an alternative of the contexts it composes.
-func checkPins(contextPath string, use []string, resolved *config.ResolvedContext) error {
+// matches an alternative of the contexts it composes, and none of its own:
+// those are selected before use: is read, so pinning one would do nothing.
+func checkPins(contextPath string, use []string, own []config.ContextFlag, resolved *config.ResolvedContext) error {
 	for _, n := range use {
 		name := AlternativeFlagName(n)
+		for _, f := range own {
+			if f.IsAlternative() && f.Name == name {
+				return fmt.Errorf("context %s: use: %s names an alternative the context declares itself; use: only pins composed contexts, so make it the default of group %s instead", contextPath, n, f.Group)
+			}
+		}
 		found := false
 		for _, f := range resolved.Flags {
 			if f.IsAlternative() && f.Name == name {

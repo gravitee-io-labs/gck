@@ -28,7 +28,7 @@ A `gck.yaml` file is a YAML document with the following top-level fields:
 | `kind` | map | Configuration for the Kind (Kubernetes-in-Docker) cluster. |
 | `registry` | string | Registry path that identifies this configuration context (org/edition/product/variant convention). |
 | `requires` | string[] | Plain flag files only: flags or alternatives (full names, e.g. use-postgres) that must be active for this flag to apply. |
-| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users. In your own gck.yaml, selects the member as the matching --use-* flag would. |
+| `use` | string[] | Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would. |
 | `vars` | map | Template variables and path-scoped overrides. Top-level entries with a "default" key (or plain strings) are own var declarations, available as {{ .key }} in the rest of the file. Nested entries (keyed by parent context path segments) override parent vars. Defaults can be overridden at deploy time with --set key=value (broadcast) or --set path.segments.key=value (scoped). |
 
 ---
@@ -428,7 +428,7 @@ Plain flag files only: flags or alternatives (full names, e.g. use-postgres) tha
 
 ## `use`
 
-Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users. In your own gck.yaml, selects the member as the matching --use-* flag would.
+Alternatives to select in the composed contexts, by member name without the "use-" prefix (e.g. mongodb for --use-mongodb). In a registry context, pins the group: the choice is no longer offered to users; a context cannot name its own alternatives, whose group default already applies. In your own gck.yaml, selects the member as the matching --use-* flag would.
 
 **Type:** `array`
 
