@@ -1,5 +1,5 @@
 ---
-title: A2A Test Agent
+title: A2A Dummy
 endpoints:
   - name: A2A Agent
     url: http://localhost:30803

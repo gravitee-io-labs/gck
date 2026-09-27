@@ -1,10 +1,10 @@
 ---
-title: "A2A Test Agent"
+title: "A2A Dummy"
 description: "Deterministic A2A agent for testing A2A clients, proxies and gateways"
 tags: [ai]
 ---
 
-# A2A Test Agent
+# A2A Dummy
 
 Deploys a small agent built on the official
 [A2A Python SDK](https://github.com/a2aproject/a2a-python) into a local Kind

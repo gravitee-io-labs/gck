@@ -44,7 +44,7 @@ components:
               app: a2a-agent
           data:
             server.py: |
-              # A2A test agent for e2e-testing A2A clients, proxies and gateways.
+              # A2A Dummy: an agent for e2e-testing A2A clients, proxies and gateways.
               # Serves the agent card on /.well-known/agent-card.json, JSON-RPC on /
               # and HTTP+JSON on /rest, both speaking A2A 1.0 and 0.3, plus GET /health.
               # Behaviour is deterministic and driven by the text of the message.
