@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.0](https://github.com/gravitee-io-labs/gck/compare/v1.3.7...v1.4.0) (2026-09-29)
+
+
+### Features
+
+* let --use-* override the member gck.yaml selects ([c2909a8](https://github.com/gravitee-io-labs/gck/commit/c2909a801548f40d11abd7c705dd24f5e6ba27fb))
+* make gravitee context easier to navigate ([bc01a60](https://github.com/gravitee-io-labs/gck/commit/bc01a60f3a8e6e6b3707cf5912bc488a193c03c9))
+
+
+### Bug Fixes
+
+* accept contexts as arguments to gck info ([75286ec](https://github.com/gravitee-io-labs/gck/commit/75286ec39503384f8bbfd5acb69d5392146fc1c2))
+* drop the config's use when --from replaces its contexts ([152f025](https://github.com/gravitee-io-labs/gck/commit/152f0251ca352b59e3dcfdfb23088764091b3074))
+* drop the hardcoded MySQL preload refs of the JDBC alternatives ([ff8bf3e](https://github.com/gravitee-io-labs/gck/commit/ff8bf3e132f60eec47274de848d3955f02b18d0f))
+* keep same-named alternative groups of composed contexts apart ([432b10e](https://github.com/gravitee-io-labs/gck/commit/432b10e26a6e367aeec85a2e34334df9301522ef))
+* let an implied flag of a composed context take effect there ([717d5cd](https://github.com/gravitee-io-labs/gck/commit/717d5cd626957109544196da82476ede0e036c06))
+* reject a use: that names the context's own alternative ([f8393db](https://github.com/gravitee-io-labs/gck/commit/f8393dbcbb1e0303a02705441a8ac32b6c222b13))
+* template the image AM's --disable-ui skips from preload ([8e6f2f7](https://github.com/gravitee-io-labs/gck/commit/8e6f2f7c277267193117b8eb1e9195a2832198f0))
+
 ## [1.3.7](https://github.com/gravitee-io-labs/gck/compare/v1.3.6...v1.3.7) (2026-09-25)
 
 
