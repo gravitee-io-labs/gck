@@ -9,6 +9,9 @@ vars:
   helmVersion:
     default: ""
     description: "Helm chart version constraint"
+  helmChartLocator:
+    default: "graviteeio/apim"
+    description: "Helm chart reference: repo/chart, oci://registry/path/chart, a path or a URL. An OCI chart needs an explicit helmVersion"
   imageTag:
     default: "latest"
     description: "Docker image tag for all APIM components"
@@ -83,7 +86,7 @@ components:
       # only read it at startup, which is why the secret must exist first.
       - component: license
     helm:
-      chart: graviteeio/apim
+      chart: "{{ .helmChartLocator }}"
       version: "{{ .helmVersion }}"
       values:
         secrets:
