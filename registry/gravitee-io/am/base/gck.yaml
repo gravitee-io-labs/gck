@@ -9,6 +9,9 @@ vars:
   helmVersion:
     default: ""
     description: "Helm chart version constraint"
+  helmChartLocator:
+    default: "graviteeio/am"
+    description: "Helm chart reference: repo/chart, oci://registry/path/chart, a path or a URL. An OCI chart needs an explicit helmVersion"
   imageTag:
     default: "latest"
     description: "Docker image tag for all AM components"
@@ -76,7 +79,7 @@ components:
       # only read it at startup, which is why the secret must exist first.
       - component: license
     helm:
-      chart: graviteeio/am
+      chart: "{{ .helmChartLocator }}"
       version: "{{ .helmVersion }}"
       values:
         ui:

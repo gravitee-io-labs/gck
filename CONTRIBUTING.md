@@ -817,9 +817,15 @@ gck create --from gravitee-io/am --use-jdbc-mysql --set imageTag=4.6.0
 
 | Variable | Controls | Default |
 |---|---|---|
+| `helmChartLocator` | `helm.chart`: `repo/chart`, `oci://registry/path/chart`, a path or a URL | the context's released chart, e.g. `graviteeio/apim` |
 | `helmVersion` | `helm.version` (chart version) | `""` (latest) |
 | `imageTag` | Image tags in helm values / manifests | `"latest"` |
 | `imageRepository` | Image repository (optional) | chart default |
+
+An empty `helmVersion` means the highest version the chart source offers. On a
+released Helm repo that is the latest release; on an OCI registry it is the
+highest tag, whatever pushed it. Set an explicit `helmVersion` whenever
+`helmChartLocator` points at a registry you do not control.
 
 ### Template functions
 

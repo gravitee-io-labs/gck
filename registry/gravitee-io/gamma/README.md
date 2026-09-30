@@ -69,3 +69,25 @@ start without the file. To use another path, set it at creation time:
 ```bash
 gck create --from gravitee-io/gamma --set licenseFile=/path/to/license.key
 ```
+
+## Versions
+
+`imagePrefix` and `imageTag` pick the Gamma and APIM images, `helmChartLocator`
+and `helmVersion` the chart. AM is composed from `gravitee-io/am/base`, so its
+vars are scoped to that path. Pin both products to a release:
+
+```bash
+gck create --from gravitee-io/gamma \
+  --set gravitee-io.gamma.imageTag=4.12.20 --set gravitee-io.gamma.helmVersion=4.12.20 \
+  --set gravitee-io.am.base.imageTag=4.12.7 --set gravitee-io.am.base.helmVersion=4.12.7
+```
+
+To install a chart from somewhere other than helm.gravitee.io, such as an OCI
+registry, set `helmChartLocator`. Always give an explicit `helmVersion` with
+it: an empty one means the highest tag in the registry, whatever pushed it.
+
+```bash
+gck create --from gravitee-io/gamma \
+  --set gravitee-io.gamma.helmChartLocator=oci://registry.example.com/helm/apim \
+  --set gravitee-io.gamma.helmVersion='4.*'
+```

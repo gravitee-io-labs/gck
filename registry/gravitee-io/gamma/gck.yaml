@@ -16,6 +16,9 @@ vars:
   helmVersion:
     default: ""
     description: "Helm chart version constraint"
+  helmChartLocator:
+    default: "graviteeio/apim"
+    description: "Helm chart reference: repo/chart, oci://registry/path/chart, a path or a URL. An OCI chart needs an explicit helmVersion"
   apiUrl:
     default: "http://apim-api.gravitee.gck.local"
     description: "Management API base URL used by all UIs"
@@ -29,11 +32,10 @@ vars:
     default: "http://gamma-console.gravitee.gck.local"
     description: "Gamma Console URL"
   gravitee-io:
-    oss:
-      am:
-        base:
-          imageTag:
-            default: "latest"
+    am:
+      base:
+        imageTag:
+          default: "latest"
   elastic:
     elasticsearch:
       standalone:
@@ -271,7 +273,7 @@ components:
             app: elasticsearch-master
         timeout: 15m
     helm:
-      chart: graviteeio/apim
+      chart: "{{ .helmChartLocator }}"
       version: "{{ .helmVersion }}"
       values:
         secrets:

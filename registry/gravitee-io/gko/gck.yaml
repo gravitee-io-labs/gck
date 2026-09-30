@@ -8,6 +8,12 @@ vars:
   imageTag:
     default: "latest"
     description: "GKO Docker image tag"
+  helmVersion:
+    default: ""
+    description: "Helm chart version constraint"
+  helmChartLocator:
+    default: "graviteeio/gko"
+    description: "Helm chart reference: repo/chart, oci://registry/path/chart, a path or a URL. An OCI chart needs an explicit helmVersion"
 images:
   preload:
     refs:
@@ -23,7 +29,8 @@ components:
     type: helm
     namespace: gravitee
     helm:
-      chart: graviteeio/gko
+      chart: "{{ .helmChartLocator }}"
+      version: "{{ .helmVersion }}"
       values:
         manager:
           image:
