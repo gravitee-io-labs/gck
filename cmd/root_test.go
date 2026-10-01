@@ -848,3 +848,15 @@ func TestOverrideFromDropsTheFilesUse(t *testing.T) {
 		t.Errorf("use = %v, want the file's use dropped with its from", cfg.Use)
 	}
 }
+
+func TestSetTakesEachValueVerbatim(t *testing.T) {
+	flag := rootCmd.PersistentFlags().Lookup("set")
+	t.Cleanup(func() { setValues = nil })
+	value := `cfg={"mongodb":{"uri":"mongodb://mongodb:27017/am","dbname":"am"}}`
+	if err := flag.Value.Set(value); err != nil {
+		t.Fatal(err)
+	}
+	if len(setValues) != 1 || setValues[0] != value {
+		t.Fatalf("--set %s parsed as %q", value, setValues)
+	}
+}

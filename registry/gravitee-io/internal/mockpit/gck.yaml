@@ -23,6 +23,12 @@ vars:
   seedDelay:
     default: "20s"
     description: "Wait between an installation's HELLO and the seed of the built-in tenants, so its startup upgraders run first"
+  amNodeUrl:
+    default: ""
+    description: "AM management node API, /_node included; when set, every AM seed ends by creating one data plane per built-in environment, as the cloud does for a managed AM (4.13 and later)"
+  amDataPlaneConfiguration:
+    default: ""
+    description: "Connection settings of those data planes, a JSON object, e.g. {\"mongodb\":{\"uri\":\"mongodb://mongodb:27017/am\"}}; required with amNodeUrl"
 images:
   preload:
     refs:
@@ -59,6 +65,9 @@ components:
                     image: "{{ .imageRepository }}:{{ .imageTag }}"
                     args:
                       - "--seed-delay={{ .seedDelay }}"
+                      # Empty by default, which leaves AM data planes off.
+                      - "--am-node-url={{ .amNodeUrl }}"
+                      - '--am-data-plane-configuration={{ .amDataPlaneConfiguration }}'
                     ports:
                       - containerPort: 8085
                         name: http
