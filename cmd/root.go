@@ -89,7 +89,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "path to config file (default: ./gck.yaml or ~/.gck/gck.yaml)")
 	rootCmd.PersistentFlags().StringVar(&registryURL, "registry", "", "registry URL to use (overrides config file)")
 	rootCmd.PersistentFlags().StringSliceVar(&fromPaths, "from", nil, "context paths to compose (repeatable, overrides config file)")
-	rootCmd.PersistentFlags().StringSliceVar(&setValues, "set", nil, "set template variables (key=value, repeatable)")
+	// An array, not a slice: a slice parses each value as CSV, which rejects
+	// a double quote and splits on a comma, so a JSON value could not pass.
+	rootCmd.PersistentFlags().StringArrayVar(&setValues, "set", nil, "set a template variable (key=value, taken verbatim; repeat the flag for each)")
 }
 
 // overrideFrom replaces the config file's from with contexts named on the
