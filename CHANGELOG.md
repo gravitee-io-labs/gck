@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/gravitee-io-labs/gck/compare/v1.4.0...v1.4.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* move --set to string array var ([27c90de](https://github.com/gravitee-io-labs/gck/commit/27c90de52806c4b419603028d7c967e98ca1e35f))
+
 ## [1.4.0](https://github.com/gravitee-io-labs/gck/compare/v1.3.7...v1.4.0) (2026-09-29)
 
 
