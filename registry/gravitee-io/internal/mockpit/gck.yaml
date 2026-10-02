@@ -23,6 +23,9 @@ vars:
   seedDelay:
     default: "20s"
     description: "Wait between an installation's HELLO and the seed of the built-in tenants, so its startup upgraders run first"
+  gatewayHostTemplate:
+    default: "{environment}.{organization}.{account}.test"
+    description: "GATEWAY host of each built-in environment for an installation whose HELLO carries no access point template (AM 4.12), which binds its domains to it; AM 4.13 and later send their own. Placeholders {organization}, {environment}, {account}"
   amNodeUrl:
     default: ""
     description: "AM management node API, /_node included; when set, every AM seed ends by creating one data plane per built-in environment, as the cloud does for a managed AM (4.13 and later)"
@@ -65,6 +68,7 @@ components:
                     image: "{{ .imageRepository }}:{{ .imageTag }}"
                     args:
                       - "--seed-delay={{ .seedDelay }}"
+                      - "--gateway-host-template={{ .gatewayHostTemplate }}"
                       # Empty by default, which leaves AM data planes off.
                       - "--am-node-url={{ .amNodeUrl }}"
                       - '--am-data-plane-configuration={{ .amDataPlaneConfiguration }}'
