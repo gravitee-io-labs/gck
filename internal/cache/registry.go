@@ -10,6 +10,7 @@ import (
 
 	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
@@ -148,21 +149,38 @@ func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, gckHome strin
 	return nil
 }
 
-// StopProxies stops and removes all gck-mirror-* proxy containers for the
-// configured upstreams.
-func StopProxies(ctx context.Context, cfg *config.MirrorsConfig) error {
+// StopSharedRegistries removes the preload registry and every mirror proxy
+// container. They are shared by all clusters, so callers must only do this
+// once no cluster is left to pull from them. It returns the number of
+// containers removed.
+func StopSharedRegistries(ctx context.Context) (int, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return fmt.Errorf("creating docker client: %w", err)
+		return 0, fmt.Errorf("creating docker client: %w", err)
 	}
 	defer cli.Close()
 
-	for _, upstream := range AllUpstreams(cfg) {
-		if err := forceRemove(ctx, cli, ContainerName(upstream)); err != nil {
-			return fmt.Errorf("stopping container %s: %w", ContainerName(upstream), err)
-		}
+	containers, err := cli.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("label", "gck.role")),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("listing registry containers: %w", err)
 	}
-	return nil
+
+	removed := 0
+	for _, c := range containers {
+		switch c.Labels["gck.role"] {
+		case "preload-registry", "cache-proxy":
+		default:
+			continue
+		}
+		if err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); err != nil && !client.IsErrNotFound(err) {
+			return removed, fmt.Errorf("removing container %s: %w", c.ID, err)
+		}
+		removed++
+	}
+	return removed, nil
 }
 
 // isContainerRunning returns true if a container with the given name exists and
@@ -176,6 +194,22 @@ func isContainerRunning(ctx context.Context, cli *client.Client, name string) (b
 		return false, err
 	}
 	return info.State != nil && info.State.Running, nil
+}
+
+// ensureImage pulls ref unless the Docker daemon already has it.
+func ensureImage(ctx context.Context, cli *client.Client, ref string) error {
+	if _, err := cli.ImageInspect(ctx, ref); err == nil {
+		return nil
+	} else if !client.IsErrNotFound(err) {
+		return fmt.Errorf("inspecting %s: %w", ref, err)
+	}
+	rc, err := cli.ImagePull(ctx, ref, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("pulling %s: %w", ref, err)
+	}
+	defer rc.Close()
+	_, err = io.Copy(io.Discard, rc)
+	return err
 }
 
 // forceRemove removes a container by name, doing nothing if it doesn't exist.

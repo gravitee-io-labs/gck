@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -122,7 +121,7 @@ func EnsurePreloadRegistry(ctx context.Context, gckHome string) error {
 	_, _ = io.Copy(io.Discard, rc)
 	rc.Close()
 
-	dataDir := filepath.Join(gckHome, "preload")
+	dataDir := preloadDataDir(gckHome)
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return fmt.Errorf("creating preload data directory %s: %w", dataDir, err)
 	}
@@ -258,16 +257,6 @@ func ConnectPreloadToKindNetwork(ctx context.Context) error {
 	}
 
 	return cli.NetworkConnect(ctx, netID, preloadContainerName, nil)
-}
-
-// StopPreloadRegistry stops and removes the preload registry container.
-func StopPreloadRegistry(ctx context.Context) error {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return fmt.Errorf("creating docker client: %w", err)
-	}
-	defer cli.Close()
-	return forceRemove(ctx, cli, preloadContainerName)
 }
 
 // normalizeRef expands a short Docker image reference into its canonical form

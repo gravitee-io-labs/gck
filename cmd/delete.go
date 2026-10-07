@@ -3,10 +3,12 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -104,22 +106,12 @@ func runDown(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	if target.Images.Mirrors != nil {
-		ctx := context.Background()
-		if err := logger.WithSpinner("Stopping image mirror proxies", func() error {
-			return cache.StopProxies(ctx, target.Images.Mirrors)
-		}); err != nil {
-			return err
+	if others := otherLiveClusters(stateDir, target.Name); len(others) > 0 {
+		if target.Images.Mirrors != nil || (target.Images.Preload != nil && len(target.Images.Preload.Refs) > 0) {
+			logger.Success("Keeping image registries, still used by %s", strings.Join(others, ", "))
 		}
-	}
-
-	if target.Images.Preload != nil && len(target.Images.Preload.Refs) > 0 {
-		ctx := context.Background()
-		if err := logger.WithSpinner("Stopping preload registry", func() error {
-			return cache.StopPreloadRegistry(ctx)
-		}); err != nil {
-			return err
-		}
+	} else if err := stopSharedRegistries(ctx); err != nil {
+		return err
 	}
 
 	stopCPKIfNoKindClusters()
@@ -179,7 +171,7 @@ func resolveByName(stateDir, name string) (*deleteTarget, error) {
 		return nil, fmt.Errorf("cluster %q not found (no state file and no running Kind cluster)", name)
 	}
 
-	logger.Warn("No state file for cluster %q; performing best-effort cleanup (mirrors and preload will not be stopped)", name)
+	logger.Warn("No state file for cluster %q; performing best-effort cleanup", name)
 	return &deleteTarget{Name: name}, nil
 }
 
@@ -236,6 +228,57 @@ func promptClusterSelection(stateDir string, names []string) (*deleteTarget, err
 	}
 
 	return loadStateTarget(stateDir, names[choice-1])
+}
+
+// stopSharedRegistries stops the preload registry and mirror proxies unless a
+// gck command still running holds the preload lock, such as a create whose
+// cluster does not exist yet.
+func stopSharedRegistries(ctx context.Context) error {
+	lock, err := cache.TryLockPreload(gckHome, cache.Exclusive)
+	if errors.Is(err, cache.ErrPreloadBusy) {
+		logger.Success("Keeping image registries, still used by a running gck command")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
+	removed, err := cache.StopSharedRegistries(ctx)
+	if err != nil {
+		return fmt.Errorf("stopping image registries: %w", err)
+	}
+	if removed > 0 {
+		logger.Success("Stopped %d image registry container(s)", removed)
+	}
+	return nil
+}
+
+// otherLiveClusters returns the gck-managed clusters other than name that are
+// still running. The preload registry and mirror proxies are shared by every
+// cluster, so they must outlive name while any of these remain.
+func otherLiveClusters(stateDir, name string) []string {
+	names, err := state.List(stateDir)
+	if err != nil {
+		return nil
+	}
+	kindClusters, err := kindcluster.NewProvider().List()
+	if err != nil {
+		// Assume every recorded cluster still runs rather than stop
+		// registries a cluster may depend on.
+		kindClusters = names
+	}
+	return liveOthers(names, kindClusters, name)
+}
+
+func liveOthers(stateNames, kindClusters []string, name string) []string {
+	var others []string
+	for _, n := range stateNames {
+		if n != name && slices.Contains(kindClusters, n) {
+			others = append(others, n)
+		}
+	}
+	return others
 }
 
 func cpkProcessRunning() bool {
