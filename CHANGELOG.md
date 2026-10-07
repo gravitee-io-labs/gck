@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/gravitee-io-labs/gck/compare/v1.4.1...v1.5.0) (2026-10-07)
+
+
+### Features
+
+* garbage-collect the preload registry ([6a1e8a9](https://github.com/gravitee-io-labs/gck/commit/6a1e8a92848b81a51a10e9ed5c557c44823b30d7))
+
 ## [1.4.1](https://github.com/gravitee-io-labs/gck/compare/v1.4.0...v1.4.1) (2026-10-01)
 
 
