@@ -343,10 +343,9 @@ gck delete my-cluster
 2. **DNS records** -- Removes the cluster's DNS record file.
 3. **Load balancer containers** -- Stops and removes Docker containers created by the cloud provider controller.
 4. **Kind cluster** -- Deletes the Kind cluster, removing all namespaces, Helm releases, and applied manifests.
-5. **Image mirrors** -- Stops mirror proxy containers if mirrors were configured.
-6. **Preload registry** -- Stops the preload registry container if preloading was configured.
-7. **Background processes** -- Stops the cloud provider controller and DNS server when no clusters or DNS records remain.
-8. **State file** -- Removes the cluster's state file from `$GCK_HOME/clusters/`.
+5. **Image registries** -- Stops the preload registry and mirror proxy containers once no other gck cluster is running and no `gck create` is in progress. Every cluster pulls from the same ones, so they keep running while another cluster still needs them. Their data in `$GCK_HOME` is kept either way.
+6. **Background processes** -- Stops the cloud provider controller and DNS server when no clusters or DNS records remain.
+7. **State file** -- Removes the cluster's state file from `$GCK_HOME/clusters/`.
 
 ### Target resolution
 
@@ -448,6 +447,27 @@ Exit code is non-zero when any file fails validation, making it suitable for CI 
 | Flag | Description |
 |---|---|
 | `--tags <file>` | Also check the `tags` in the front matter of each `README.md` next to a `gck.yaml` against the vocabulary in `<file>`. Skipped when omitted. |
+
+## gck clean preload
+
+Remove superseded images from the preload registry in `$GCK_HOME/preload`: every manifest no tag points at, and every layer only those manifests used.
+
+```bash
+gck clean preload
+gck clean preload --dry-run
+```
+
+Pushing a mutable tag (`latest`, nightly builds) again moves the tag to the new image and leaves the previous one in storage. `gck create` collects this garbage after each push, so you only need this command to reclaim space left by `gck build` and `gck patch`, or to see what would be removed.
+
+Tagged images are never removed, including the platform images of a multi-platform index. The preload registry container is stopped during the collection and restarted afterwards if it was running; running clusters pull from upstream registries for those few seconds.
+
+If another gck command is pushing to the preload registry, `gck clean preload` waits for it to finish first. `gck create` skips its own collection in that case and leaves the garbage to a later run, so it never waits on another command.
+
+### Flags
+
+| Flag | Description |
+|---|---|
+| `--dry-run` | List the manifests that would be removed and the space that would be reclaimed, without stopping the registry. |
 
 ## gck setup dns
 

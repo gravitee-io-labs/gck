@@ -76,6 +76,12 @@ func Run(ctx context.Context, b config.Build, opts Options) error {
 		}
 	}
 
+	lock, err := cache.LockPreload(opts.GckHome, cache.Shared, "Waiting for preload registry garbage collection")
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	if err := logger.WithSpinner(
 		"Pushing image to preload registry",
 		func() error {

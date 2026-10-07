@@ -169,6 +169,11 @@ func runPatch(cmd *cobra.Command, args []string) error {
 	if !patchDryRun && !patchSkipPreload {
 		preloadRefs := getPreloadRefs(preloadSource)
 		if len(preloadRefs) > 0 {
+			lock, err := cache.LockPreload(gckHome, cache.Shared, "Waiting for preload registry garbage collection")
+			if err != nil {
+				return err
+			}
+			defer lock.Unlock()
 			running, _ := cache.IsPreloadRunning(ctx)
 			if running {
 				if err := logger.WithSpinner("Pulling images for preload", func() error {

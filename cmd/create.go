@@ -151,6 +151,14 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 		}); err != nil {
 			return err
 		}
+		// Held until create returns: it keeps garbage collection and the
+		// deletion of another cluster from stopping the registry while this
+		// one still pushes to it or is about to pull from it.
+		lock, err := cache.LockPreload(gckHome, cache.Shared, "Waiting for preload registry garbage collection")
+		if err != nil {
+			return err
+		}
+		defer func() { lock.Unlock() }()
 		if err := logger.WithSpinner("Starting preload registry", func() error {
 			return cache.EnsurePreloadRegistry(ctx, gckHome)
 		}); err != nil {
@@ -159,6 +167,9 @@ func createCluster(resolved *config.ResolvedContext, activeFlags []string) error
 		if err := logger.WithSpinner("Pushing images to preload registry", func() error {
 			return cache.PushImages(ctx, preloadRefs)
 		}); err != nil {
+			return err
+		}
+		if lock, err = collectPreloadGarbage(ctx, lock); err != nil {
 			return err
 		}
 	}

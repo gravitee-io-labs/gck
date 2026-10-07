@@ -24,6 +24,7 @@ $GCK_HOME/
 │   ├── data/
 │   └── hosts/
 ├── preload/
+├── preload.lock
 └── pids/
     ├── cpk.pid
     └── dns.pid
@@ -53,7 +54,7 @@ clusters/
 2. **State files** -- If `--name` is omitted, gck scans `clusters/` for existing state files. With one cluster, it's deleted automatically. With multiple clusters, you get an interactive prompt.
 3. **Config fallback** -- If no state files exist, gck reads `kind.name` from the config chain.
 
-If you pass `--name` but no state file exists, gck performs a best-effort cleanup (Kind cluster, load balancer containers, DNS records) and prints a warning that mirrors and preload cannot be stopped since the original configuration is unknown.
+If you pass `--name` but no state file exists, gck performs a best-effort cleanup (Kind cluster, load balancer containers, DNS records) and prints a warning. The preload registry and mirror proxies are stopped as usual once no other gck cluster is running.
 
 ## `dns/`
 
@@ -76,16 +77,20 @@ When a component fails to install or times out, the log file usually contains th
 
 Data and configuration for image mirror proxies.
 
-- **`data/`** -- Cached image layers, persisted across cluster lifecycles. Mirror containers use a `restart: unless-stopped` policy, so cached data survives `gck delete`.
+- **`data/`** -- Cached image layers, persisted across cluster lifecycles. Mirror containers are stopped when the last gck cluster is deleted, but this data is kept.
 - **`hosts/`** -- Generated `hosts.toml` files that configure containerd on Kind nodes to pull through the local mirrors.
 
 See [Container Images]({{< ref "/docs/guides/container-images" >}}) for how to enable mirrors.
 
 ## `preload/`
 
-Cached image layers for the preload registry. Like `mirrors/`, this data persists across cluster lifecycles -- when you delete and recreate a cluster, previously pushed images are still available, and only changed layers need to be re-pushed.
+Cached image layers for the preload registry. Like `mirrors/`, this data persists across cluster lifecycles -- when you delete and recreate a cluster, previously pushed images are still available, and only changed layers need to be re-pushed. Images superseded by a newer push of the same tag are removed after each `gck create` push, or on demand with `gck clean preload`.
 
 See [Container Images -- Image preloading]({{< ref "/docs/guides/container-images#image-preloading" >}}) for details.
+
+## `preload.lock`
+
+A lock file that coordinates gck commands sharing the preload registry. `gck create`, `gck build` and `gck patch` hold it shared while they push to the registry -- `gck create` until it finishes -- and garbage collection or the deletion of the last cluster needs it exclusively, since both stop the registry. The operating system releases the lock when a command exits, even if it crashes, so the file never needs to be removed by hand.
 
 ## `pids/`
 

@@ -12,7 +12,7 @@ Mirror proxies run as local `registry:2` containers that cache image layers on y
 
 ### How it works
 
-Each upstream registry gets its own pull-through cache container, bound to a local port. The Kind nodes' containerd is configured to check the mirror first. Mirror containers use a `restart: unless-stopped` policy, so they survive `gck delete` and keep their cache across cluster lifecycles.
+Each upstream registry gets its own pull-through cache container, bound to a local port. The Kind nodes' containerd is configured to check the mirror first. Mirror containers keep running until the last gck cluster is deleted, and their cache lives in `$GCK_HOME/mirrors`, so it survives across cluster lifecycles.
 
 ### Enabling mirrors
 
@@ -70,6 +70,8 @@ As an alternative (or complement) to mirrors, you can preload specific images in
 3. Kind nodes are configured to check the preload registry first for each upstream referenced by the listed images.
 
 Because the preload registry stores its data on the host filesystem, cached layers survive across cluster lifecycles. When you delete and recreate a cluster, only layers that have actually changed need to be re-pushed -- stable images like databases are available instantly. For mutable-tag images (snapshots, `latest`), gck re-pulls the upstream version and pushes only the changed layers.
+
+Each time a mutable tag moves to a new build, the previous build becomes unreachable: nothing pulls it by tag any more, but its layers stay in storage. For large images rebuilt daily, this adds gigabytes per recreate. gck collects that garbage right after pushing, so `$GCK_HOME/preload` only holds the images currently tagged. Images pushed by `gck build` and `gck patch` are collected on the next `gck create`; run [`gck clean preload`]({{< ref "/docs/reference/commands#gck-clean-preload" >}}) to reclaim that space immediately.
 
 ### Enabling preloading
 
