@@ -10,6 +10,16 @@ import (
 	"github.com/docker/docker/api/types/registry"
 )
 
+// useDockerConfigDir points DOCKER_CONFIG at dir for the duration of t and
+// clears DOCKER_AUTH_CONFIG, whose credentials the Docker CLI configuration
+// would otherwise layer over the file's, so a value in the developer's
+// environment cannot change what the tests see.
+func useDockerConfigDir(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("DOCKER_CONFIG", dir)
+	t.Setenv("DOCKER_AUTH_CONFIG", "")
+}
+
 // writeDockerConfig writes a Docker CLI config.json holding inline auths into
 // a fresh directory and points DOCKER_CONFIG at it for the duration of t.
 func writeDockerConfig(t *testing.T, auths map[string][2]string) {
@@ -28,7 +38,7 @@ func writeDockerConfig(t *testing.T, auths map[string][2]string) {
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("DOCKER_CONFIG", dir)
+	useDockerConfigDir(t, dir)
 }
 
 func TestRegistryAuthFor(t *testing.T) {
@@ -89,7 +99,7 @@ func TestRegistryAuthForUnreadableConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("DOCKER_CONFIG", dir)
+	useDockerConfigDir(t, dir)
 
 	if got := registryAuthFor("registry.example.test/app:1"); got != "" {
 		t.Fatalf("registryAuthFor with malformed config = %q, want \"\"", got)
