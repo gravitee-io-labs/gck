@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +10,6 @@ import (
 	"github.com/gravitee-io-labs/gck/internal/config"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -69,12 +67,9 @@ func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, gckHome strin
 	}
 	defer cli.Close()
 
-	rc, err := cli.ImagePull(ctx, registryImage, image.PullOptions{RegistryAuth: registryAuthFor(registryImage)})
-	if err != nil {
+	if err := pullImage(ctx, cli, registryImage, registryAuthFor(registryImage)); err != nil {
 		return fmt.Errorf("pulling %s: %w", registryImage, err)
 	}
-	_, _ = io.Copy(io.Discard, rc)
-	rc.Close()
 
 	dir := ResolveDir(cfg, gckHome)
 
@@ -203,13 +198,10 @@ func ensureImage(ctx context.Context, cli *client.Client, ref string) error {
 	} else if !client.IsErrNotFound(err) {
 		return fmt.Errorf("inspecting %s: %w", ref, err)
 	}
-	rc, err := cli.ImagePull(ctx, ref, image.PullOptions{RegistryAuth: registryAuthFor(ref)})
-	if err != nil {
+	if err := pullImage(ctx, cli, ref, registryAuthFor(ref)); err != nil {
 		return fmt.Errorf("pulling %s: %w", ref, err)
 	}
-	defer rc.Close()
-	_, err = io.Copy(io.Discard, rc)
-	return err
+	return nil
 }
 
 // forceRemove removes a container by name, doing nothing if it doesn't exist.
