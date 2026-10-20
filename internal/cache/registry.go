@@ -69,7 +69,7 @@ func EnsureProxies(ctx context.Context, cfg *config.MirrorsConfig, gckHome strin
 	}
 	defer cli.Close()
 
-	rc, err := cli.ImagePull(ctx, registryImage, image.PullOptions{})
+	rc, err := cli.ImagePull(ctx, registryImage, image.PullOptions{RegistryAuth: registryAuthFor(registryImage)})
 	if err != nil {
 		return fmt.Errorf("pulling %s: %w", registryImage, err)
 	}
@@ -203,7 +203,7 @@ func ensureImage(ctx context.Context, cli *client.Client, ref string) error {
 	} else if !client.IsErrNotFound(err) {
 		return fmt.Errorf("inspecting %s: %w", ref, err)
 	}
-	rc, err := cli.ImagePull(ctx, ref, image.PullOptions{})
+	rc, err := cli.ImagePull(ctx, ref, image.PullOptions{RegistryAuth: registryAuthFor(ref)})
 	if err != nil {
 		return fmt.Errorf("pulling %s: %w", ref, err)
 	}

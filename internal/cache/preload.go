@@ -66,7 +66,7 @@ func PullImages(ctx context.Context, images []string) error {
 			defer func() { <-sem }()
 
 			canonical := normalizeRef(ref)
-			rc, err := cli.ImagePull(ctx, canonical, image.PullOptions{})
+			rc, err := cli.ImagePull(ctx, canonical, image.PullOptions{RegistryAuth: registryAuthFor(canonical)})
 			if err != nil {
 				mu.Lock()
 				errs = append(errs, fmt.Errorf("pulling %s: %w", canonical, err))
@@ -114,7 +114,7 @@ func EnsurePreloadRegistry(ctx context.Context, gckHome string) error {
 		return fmt.Errorf("removing stale preload registry: %w", err)
 	}
 
-	rc, err := cli.ImagePull(ctx, registryImage, image.PullOptions{})
+	rc, err := cli.ImagePull(ctx, registryImage, image.PullOptions{RegistryAuth: registryAuthFor(registryImage)})
 	if err != nil {
 		return fmt.Errorf("pulling %s: %w", registryImage, err)
 	}
