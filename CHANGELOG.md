@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/gravitee-io-labs/gck/compare/v1.5.0...v1.5.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* look up pull credentials once per registry and retry refused ones anonymously ([eeb89a6](https://github.com/gravitee-io-labs/gck/commit/eeb89a6bdb45b63739c09023df8afe4ddbda5441))
+* send Docker CLI credentials with preload pulls ([f204341](https://github.com/gravitee-io-labs/gck/commit/f204341f2f5d86341587325a5d4b5ab73c2ff533))
+
 ## [1.5.0](https://github.com/gravitee-io-labs/gck/compare/v1.4.1...v1.5.0) (2026-10-07)
 
 
