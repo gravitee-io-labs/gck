@@ -86,6 +86,20 @@ images:
 
 Context authors can ship the image list directly in the context `gck.yaml`, so you don't have to maintain it yourself.
 
+### Private images
+
+Preload pulls send the credentials `docker login` stored for the image's registry, so log in before `gck create`:
+
+```bash
+docker login registry.mycompany.com
+# or, for Azure Container Registry, which calls docker login:
+az acr login --name mycompany
+```
+
+gck reads them from the Docker CLI configuration (`DOCKER_CONFIG`, `DOCKER_AUTH_CONFIG`, `credsStore` and `credHelpers`). A registry with no stored credential is pulled anonymously. When a registry refuses the stored credential, gck retries the pull once anonymously, so an expired login still pulls public images.
+
+Only preloaded images get these credentials. Kind nodes pull any other image themselves, without them, so list every image a component pulls from a private registry in `images.preload.refs`.
+
 ### How preload merges across layers
 
 When a context composes from parents via `from`, or when you override preload in your own config, the preload lists are **merged** by default -- your refs are unioned with the inherited ones. This is controlled by the `mode` field.
