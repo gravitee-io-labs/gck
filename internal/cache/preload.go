@@ -51,6 +51,12 @@ func PullImages(ctx context.Context, images []string) error {
 	}
 	defer cli.Close()
 
+	refs := make([]string, len(images))
+	for i, img := range images {
+		refs[i] = normalizeRef(img)
+	}
+	auths := registryAuths(refs)
+
 	var (
 		wg   sync.WaitGroup
 		mu   sync.Mutex
@@ -58,28 +64,19 @@ func PullImages(ctx context.Context, images []string) error {
 		sem  = make(chan struct{}, pullWorkers)
 	)
 
-	for _, img := range images {
+	for _, ref := range refs {
 		wg.Add(1)
-		go func(ref string) {
+		go func(canonical string) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			canonical := normalizeRef(ref)
-			rc, err := cli.ImagePull(ctx, canonical, image.PullOptions{RegistryAuth: registryAuthFor(canonical)})
-			if err != nil {
+			if err := pullImage(ctx, cli, canonical, auths[authHost(canonical)]); err != nil {
 				mu.Lock()
 				errs = append(errs, fmt.Errorf("pulling %s: %w", canonical, err))
 				mu.Unlock()
-				return
 			}
-			if err := drainPullStream(rc); err != nil {
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("pulling %s: %w", canonical, err))
-				mu.Unlock()
-				return
-			}
-		}(img)
+		}(ref)
 	}
 
 	wg.Wait()
@@ -114,12 +111,9 @@ func EnsurePreloadRegistry(ctx context.Context, gckHome string) error {
 		return fmt.Errorf("removing stale preload registry: %w", err)
 	}
 
-	rc, err := cli.ImagePull(ctx, registryImage, image.PullOptions{RegistryAuth: registryAuthFor(registryImage)})
-	if err != nil {
+	if err := pullImage(ctx, cli, registryImage, registryAuthFor(registryImage)); err != nil {
 		return fmt.Errorf("pulling %s: %w", registryImage, err)
 	}
-	_, _ = io.Copy(io.Discard, rc)
-	rc.Close()
 
 	dataDir := preloadDataDir(gckHome)
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
