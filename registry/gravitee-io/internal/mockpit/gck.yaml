@@ -26,6 +26,9 @@ vars:
   gatewayHostTemplate:
     default: "{environment}.{organization}.{account}.test"
     description: "GATEWAY host of each built-in environment for an installation whose HELLO carries no access point template (AM 4.12), which binds its domains to it; AM 4.13 and later send their own. Placeholders {organization}, {environment}, {account}"
+  defaultEnvironmentAccessPoints:
+    default: ""
+    description: "Comma-separated access point targets, e.g. PORTAL, that every APIM seed gives APIM's own DEFAULT environment from its access point template; multi-tenant APIM resolves an environment's portal URL from its PORTAL access point only. Leave GATEWAY out: it restricts DEFAULT's APIs without a virtual host to that gateway host. Empty leaves DEFAULT alone"
   amNodeUrl:
     default: ""
     description: "AM management node API, /_node included; when set, every AM seed ends by creating one data plane per built-in environment, as the cloud does for a managed AM (4.13 and later)"
@@ -69,6 +72,11 @@ components:
                     args:
                       - "--seed-delay={{ .seedDelay }}"
                       - "--gateway-host-template={{ .gatewayHostTemplate }}"
+                      # Passed only when set, so images without the flag still start. The
+                      # template actions sit in comments to keep the raw file valid YAML.
+                      # {{- if .defaultEnvironmentAccessPoints }}
+                      - "--default-environment-access-points={{ .defaultEnvironmentAccessPoints }}"
+                      # {{- end }}
                       # Empty by default, which leaves AM data planes off.
                       - "--am-node-url={{ .amNodeUrl }}"
                       - '--am-data-plane-configuration={{ .amDataPlaneConfiguration }}'
