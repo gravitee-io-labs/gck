@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/gravitee-io-labs/gck/compare/v1.5.1...v1.6.0) (2026-11-17)
+
+
+### Features
+
+* let mockpit give apim's default environment access points ([54bbde4](https://github.com/gravitee-io-labs/gck/commit/54bbde4b139d461257c29c3e3a6a2b13d1b80ec2))
+
 ## [1.5.1](https://github.com/gravitee-io-labs/gck/compare/v1.5.0...v1.5.1) (2026-10-20)
 
 
