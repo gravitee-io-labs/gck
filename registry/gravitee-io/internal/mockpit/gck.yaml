@@ -35,6 +35,12 @@ vars:
   amDataPlaneConfiguration:
     default: ""
     description: "Connection settings of those data planes, a JSON object, e.g. {\"mongodb\":{\"uri\":\"mongodb://mongodb:27017/am\"}}; required with amNodeUrl"
+  apolloLicenseFile:
+    default: ""
+    description: "Licence file of the apollo organization on APIM, in place of the platform licence; gck patch --set swaps it without restarting APIM"
+  artemisLicenseFile:
+    default: ""
+    description: "Licence file of the artemis organization on APIM, in place of the platform licence; gck patch --set swaps it without restarting APIM"
 images:
   preload:
     refs:
@@ -49,6 +55,21 @@ components:
       matchLabels:
         app: mockpit
     k8s:
+      # One Secret per organization: gck skips a whole Secret when one of
+      # its files is missing. Both are optional in the volume below, so an
+      # organization without a file keeps APIM's platform licence. The key
+      # is license.key whatever the file is called.
+      secrets:
+        - name: mockpit-license-apollo
+          onMissing: ignore
+          entries:
+            - key: license.key
+              fromFile: "{{ .apolloLicenseFile }}"
+        - name: mockpit-license-artemis
+          onMissing: ignore
+          entries:
+            - key: license.key
+              fromFile: "{{ .artemisLicenseFile }}"
       manifests:
         - apiVersion: apps/v1
           kind: Deployment
@@ -80,9 +101,19 @@ components:
                       # Empty by default, which leaves AM data planes off.
                       - "--am-node-url={{ .amNodeUrl }}"
                       - '--am-data-plane-configuration={{ .amDataPlaneConfiguration }}'
+                      # Passed only when a licence is set, as above.
+                      # {{- if or .apolloLicenseFile .artemisLicenseFile }}
+                      - "--license-dir=/etc/mockpit/licenses"
+                      # {{- end }}
                     ports:
                       - containerPort: 8085
                         name: http
+                    # No subPath: a Secret updated by gck patch reaches the
+                    # files, and mockpit sends the new licence on.
+                    volumeMounts:
+                      - name: licenses
+                        mountPath: /etc/mockpit/licenses
+                        readOnly: true
                     readinessProbe:
                       httpGet:
                         path: /healthz
@@ -94,6 +125,22 @@ components:
                       limits:
                         cpu: 200m
                         memory: 64Mi
+                volumes:
+                  - name: licenses
+                    projected:
+                      sources:
+                        - secret:
+                            name: mockpit-license-apollo
+                            optional: true
+                            items:
+                              - key: license.key
+                                path: apollo.key
+                        - secret:
+                            name: mockpit-license-artemis
+                            optional: true
+                            items:
+                              - key: license.key
+                                path: artemis.key
         - apiVersion: v1
           kind: Service
           metadata:
